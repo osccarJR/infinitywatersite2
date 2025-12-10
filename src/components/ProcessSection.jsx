@@ -1,41 +1,81 @@
 import { Phone, ClipboardCheck, Wrench, CheckCircle } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageProvider';
 
-const steps = [
-  {
-    icon: Phone,
-    number: '01',
-    title: 'Contacto Inicial',
-    description: 'Llame o escríbanos. Respondemos en minutos.'
+const copy = {
+  en: {
+    title: 'How It Works',
+    subtitle: 'Simple, transparent process from start to finish',
+    steps: [
+      {
+        icon: Phone,
+        number: '01',
+        title: 'Initial Contact',
+        description: 'Call or message us. We respond in minutes.'
+      },
+      {
+        icon: ClipboardCheck,
+        number: '02',
+        title: 'Free Diagnosis',
+        description: 'We evaluate your water and recommend the best solution.'
+      },
+      {
+        icon: Wrench,
+        number: '03',
+        title: 'Professional Installation',
+        description: 'Certified technicians install your system.'
+      },
+      {
+        icon: CheckCircle,
+        number: '04',
+        title: 'Clean Water',
+        description: 'Enjoy pure, healthy water immediately.'
+      }
+    ]
   },
-  {
-    icon: ClipboardCheck,
-    number: '02',
-    title: 'Diagnóstico Gratuito',
-    description: 'Evaluamos su agua y recomendamos la mejor solución.'
-  },
-  {
-    icon: Wrench,
-    number: '03',
-    title: 'Instalación Profesional',
-    description: 'Técnicos certificados instalan su sistema.'
-  },
-  {
-    icon: CheckCircle,
-    number: '04',
-    title: 'Agua Limpia',
-    description: 'Disfrute de agua pura y saludable de inmediato.'
+  es: {
+    title: 'Cómo Funciona',
+    subtitle: 'Proceso simple y transparente de principio a fin',
+    steps: [
+      {
+        icon: Phone,
+        number: '01',
+        title: 'Contacto Inicial',
+        description: 'Llame o escríbanos. Respondemos en minutos.'
+      },
+      {
+        icon: ClipboardCheck,
+        number: '02',
+        title: 'Diagnóstico Gratuito',
+        description: 'Evaluamos su agua y recomendamos la mejor solución.'
+      },
+      {
+        icon: Wrench,
+        number: '03',
+        title: 'Instalación Profesional',
+        description: 'Técnicos certificados instalan su sistema.'
+      },
+      {
+        icon: CheckCircle,
+        number: '04',
+        title: 'Agua Limpia',
+        description: 'Disfrute de agua pura y saludable de inmediato.'
+      }
+    ]
   }
-];
+};
 
 export default function ProcessSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
+
   return (
     <section id="proceso" className="section-padding bg-white">
       <div className="container mx-auto px-4">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl text-slate-900 mb-4">Cómo Funciona</h2>
+            <h2 className="text-3xl md:text-4xl text-slate-900 mb-4">{text.title}</h2>
             <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-              Proceso simple y transparente de principio a fin
+              {text.subtitle}
             </p>
           </div>
 
@@ -45,7 +85,7 @@ export default function ProcessSection() {
               style={{ top: '80px' }}
             ></div>
 
-            {steps.map((step, index) => {
+            {text.steps.map((step, index) => {
               const Icon = step.icon;
               return (
                 <div key={index} className="relative">

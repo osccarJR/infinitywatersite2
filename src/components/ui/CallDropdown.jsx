@@ -1,6 +1,20 @@
 import { useEffect, useRef, useState } from 'react';
 import { Phone, ChevronDown } from 'lucide-react';
 import { PHONE_NUMBERS, PRIMARY_PHONE } from '../../constants/contactInfo';
+import { useLanguage } from '../../i18n/LanguageProvider';
+
+const copy = {
+  en: {
+    helper: 'Choose a contact number',
+    primary: 'Primary number',
+    available: 'Available'
+  },
+  es: {
+    helper: 'Elige el número de contacto',
+    primary: 'Número principal',
+    available: 'Disponible'
+  }
+};
 
 export default function CallDropdown({
   label = 'Llamar',
@@ -10,6 +24,8 @@ export default function CallDropdown({
   showNumber = false,
   roundedClass = 'rounded-full'
 }) {
+  const { language } = useLanguage();
+  const text = copy[language];
   const [open, setOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -57,7 +73,7 @@ export default function CallDropdown({
           }`}
         >
           <div className="px-4 py-3 text-xs text-slate-500 border-b border-slate-100">
-            Elige el número de contacto
+            {text.helper}
           </div>
           <div className="py-1">
             {PHONE_NUMBERS.map((phone) => (
@@ -68,13 +84,13 @@ export default function CallDropdown({
               >
                 <div>
                   <div className="text-sm font-semibold text-slate-900">{phone.display}</div>
-                  <div className="text-[11px] text-slate-500">Disponible</div>
+                  <div className="text-[11px] text-slate-500">{text.available}</div>
                 </div>
                 <Phone className="w-4 h-4 text-blue-600" />
               </button>
             ))}
             <div className="px-4 py-2 text-[11px] text-slate-400 border-t border-slate-100">
-              Número principal: {PRIMARY_PHONE.display}
+              {text.primary}: {PRIMARY_PHONE.display}
             </div>
           </div>
         </div>

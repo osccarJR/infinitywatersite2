@@ -1,71 +1,159 @@
 import { Home, Droplets, Filter, Wrench, Sparkles } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
 import { PRIMARY_PHONE, getWhatsAppUrl } from '../constants/contactInfo';
+import { useLanguage } from '../i18n/LanguageProvider';
 
-const services = [
-  {
-    icon: Filter,
-    title: 'Sistemas de Filtración Completos',
-    description:
-      'Filtración de alta tecnología para toda la casa. Elimina contaminantes, cloro y sedimentos con certificación WQA.',
-    image: '/images/Sistemas de Filtración Completos.png',
-    features: [
-      'Elimina contaminantes 99%',
-      'Protege electrodomésticos',
-      'Instalación certificada',
-      'Garantía 5 años'
+const copy = {
+  en: {
+    badge: 'Cutting-edge Technology',
+    title: 'Our Professional Services',
+    subtitle:
+      'Comprehensive solutions without showing prices so we can focus on tailored advice and a free diagnosis.',
+    footer: 'All our systems include:',
+    footerDetail: 'Professional installation + Extended warranty + Lifetime tech support',
+    services: [
+      {
+        icon: Filter,
+        title: 'Whole-Home Filtration Systems',
+        description:
+          'High-tech filtration for the entire house. Removes contaminants, chlorine, and sediments with WQA certification.',
+        image: '/images/sistemas-filtracion-completos.png',
+        features: [
+          'Removes 99% of contaminants',
+          'Protects appliances',
+          'Certified installation',
+          '5-year warranty'
+        ],
+        gradient: 'from-blue-600 to-cyan-600',
+        popular: true
+      },
+      {
+        icon: Droplets,
+        title: 'Specialized Well Treatment',
+        description:
+          'Solutions for iron, sulfur, and extreme hardness. Professional analysis and fast start-up.',
+        image: '/images/tratamiento-especializado-pozo.png',
+        features: [
+          'Eliminates iron and sulfur',
+          'Reduces TDS and hardness',
+          'FREE water analysis',
+          'Maintenance included'
+        ],
+        gradient: 'from-purple-600 to-blue-600',
+        popular: false
+      },
+      {
+        icon: Home,
+        title: 'Premium Reverse Osmosis',
+        description:
+          '99.9% purification under counter or whole-home. Alkaline water pH 8-10 ready to drink.',
+        image: '/images/osmosis-premium.png',
+        features: [
+          '99.9% purity',
+          'Alkaline water included',
+          'Removes heavy metals',
+          '2 configurations available'
+        ],
+        gradient: 'from-cyan-600 to-teal-600',
+        popular: true
+      },
+      {
+        icon: Wrench,
+        title: 'Plumbing & Maintenance',
+        description:
+          'Installation, repair, and maintenance of water systems by licensed technicians.',
+        image: '/images/plomeria-mantenimiento.png',
+        features: [
+          'Licensed technicians',
+          'Same-day service',
+          'Guaranteed work',
+          'Transparent pricing'
+        ],
+        gradient: 'from-slate-600 to-gray-700',
+        popular: false
+      }
     ],
-    gradient: 'from-blue-600 to-cyan-600',
-    popular: true
+    ctaLabel: 'I want advice',
+    popularLabel: 'Most Popular'
   },
-  {
-    icon: Droplets,
-    title: 'Tratamiento Especializado de Pozo',
-    description:
-      'Soluciones para hierro, azufre y dureza extrema. Análisis profesional y puesta en marcha rápida.',
-    image: '/images/TratamientoEspecializadodePozo.png',
-    features: [
-      'Elimina hierro y azufre',
-      'Reduce TDS y dureza',
-      'Análisis de agua GRATIS',
-      'Mantenimiento incluido'
+  es: {
+    badge: 'Tecnología de Punta',
+    title: 'Nuestros Servicios Profesionales',
+    subtitle:
+      'Soluciones integrales sin mostrar precios, para enfocarnos en la asesoría personalizada y el diagnóstico gratuito.',
+    footer: 'Todos nuestros equipos incluyen:',
+    footerDetail: 'Instalación profesional + Garantía extendida + Soporte técnico de por vida',
+    services: [
+      {
+        icon: Filter,
+        title: 'Sistemas de Filtración Completos',
+        description:
+          'Filtración de alta tecnología para toda la casa. Elimina contaminantes, cloro y sedimentos con certificación WQA.',
+        image: '/images/sistemas-filtracion-completos.png',
+        features: [
+          'Elimina contaminantes 99%',
+          'Protege electrodomésticos',
+          'Instalación certificada',
+          'Garantía 5 años'
+        ],
+        gradient: 'from-blue-600 to-cyan-600',
+        popular: true
+      },
+      {
+        icon: Droplets,
+        title: 'Tratamiento Especializado de Pozo',
+        description:
+          'Soluciones para hierro, azufre y dureza extrema. Análisis profesional y puesta en marcha rápida.',
+        image: '/images/tratamiento-especializado-pozo.png',
+        features: [
+          'Elimina hierro y azufre',
+          'Reduce TDS y dureza',
+          'Análisis de agua GRATIS',
+          'Mantenimiento incluido'
+        ],
+        gradient: 'from-purple-600 to-blue-600',
+        popular: false
+      },
+      {
+        icon: Home,
+        title: 'Ósmosis Inversa Premium',
+        description:
+          'Purificación 99.9% bajo counter o para toda la casa. Agua alcalina pH 8-10 lista para beber.',
+        image: '/images/osmosis-premium.png',
+        features: [
+          'Pureza 99.9%',
+          'Agua alcalina incluida',
+          'Elimina metales pesados',
+          '2 modalidades disponibles'
+        ],
+        gradient: 'from-cyan-600 to-teal-600',
+        popular: true
+      },
+      {
+        icon: Wrench,
+        title: 'Plomería y Mantenimiento',
+        description:
+          'Instalación, reparación y mantenimiento de sistemas de agua por técnicos licenciados.',
+        image: '/images/plomeria-mantenimiento.png',
+        features: [
+          'Técnicos licenciados',
+          'Servicio mismo día',
+          'Trabajo garantizado',
+          'Precios transparentes'
+        ],
+        gradient: 'from-slate-600 to-gray-700',
+        popular: false
+      }
     ],
-    gradient: 'from-purple-600 to-blue-600',
-    popular: false
-  },
-  {
-    icon: Home,
-    title: 'Ósmosis Inversa Premium',
-    description:
-      'Purificación 99.9% bajo counter o para toda la casa. Agua alcalina pH 8-10 lista para beber.',
-    image: '/images/Osmosis premium.png',
-    features: [
-      'Pureza 99.9%',
-      'Agua alcalina incluida',
-      'Elimina metales pesados',
-      '2 modalidades disponibles'
-    ],
-    gradient: 'from-cyan-600 to-teal-600',
-    popular: true
-  },
-  {
-    icon: Wrench,
-    title: 'Plomería y Mantenimiento',
-    description:
-      'Instalación, reparación y mantenimiento de sistemas de agua por técnicos licenciados.',
-    image: '/images/Plomería y Mantenimiento.png',
-    features: [
-      'Técnicos licenciados',
-      'Servicio mismo día',
-      'Trabajo garantizado',
-      'Precios transparentes'
-    ],
-    gradient: 'from-slate-600 to-gray-700',
-    popular: false
+    ctaLabel: 'Quiero asesoría',
+    popularLabel: 'Más Popular'
   }
-];
+};
 
 export default function ServicesSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
+
   return (
     <section
       id="servicios"
@@ -81,20 +169,20 @@ export default function ServicesSection() {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-6 py-3 rounded-full mb-6 text-sm shadow-md border-2 border-blue-200">
               <Sparkles className="w-5 h-5" />
-              <span>Tecnología de Punta</span>
+              <span>{text.badge}</span>
             </div>
 
             <h2 className="text-4xl md:text-5xl text-slate-900 mb-6">
-              Nuestros Servicios Profesionales
+              {text.title}
             </h2>
 
             <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              Soluciones integrales sin mostrar precios, para enfocarnos en la asesoría personalizada y el diagnóstico gratuito.
+              {text.subtitle}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
-            {services.map((service, index) => {
+            {text.services.map((service, index) => {
               const Icon = service.icon;
 
               return (
@@ -102,7 +190,7 @@ export default function ServicesSection() {
                   {service.popular && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2 z-20">
                       <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white px-6 py-2 rounded-full text-sm shadow-lg border-2 border-white">
-                        ⭐ Más Popular
+                        {text.popularLabel}
                       </div>
                     </div>
                   )}
@@ -152,7 +240,7 @@ export default function ServicesSection() {
                         onClick={() =>
                           window.open(
                             getWhatsAppUrl(
-                              `Informacion sobre ${service.title}`,
+                              `${language === 'en' ? 'Information about' : 'Información sobre'} ${service.title}`,
                               PRIMARY_PHONE
                             ),
                             '_blank'
@@ -161,10 +249,8 @@ export default function ServicesSection() {
                         className={`w-full bg-gradient-to-r ${service.gradient} hover:opacity-90 text-white py-5 rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group text-lg`}
                       >
                         <WhatsAppIcon className="w-5 h-5 text-white shrink-0" />
-                        <span>Quiero asesoría</span>
-                        <span className="group-hover:translate-x-1 transition-transform">
-                          ↗
-                        </span>
+                        <span>{text.ctaLabel}</span>
+                        <span className="group-hover:translate-x-1 transition-transform">→</span>
                       </button>
                     </div>
                   </div>
@@ -175,10 +261,9 @@ export default function ServicesSection() {
 
           <div className="mt-16 text-center">
             <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-3xl p-8 text-white shadow-2xl inline-block">
-              <p className="text-2xl mb-2">🎯 Todos nuestros equipos incluyen:</p>
+              <p className="text-2xl mb-2">{text.footer}</p>
               <p className="text-blue-100">
-                Instalación profesional + Garantía extendida + Soporte técnico
-                de por vida
+                {text.footerDetail}
               </p>
             </div>
           </div>

@@ -2,8 +2,36 @@ import { useState } from 'react';
 import { Phone } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
 import { PRIMARY_PHONE, getWhatsAppUrl } from '../constants/contactInfo';
+import { useLanguage } from '../i18n/LanguageProvider';
+
+const copy = {
+  en: {
+    call: {
+      tooltip: 'Call Now',
+      sub: 'Direct line'
+    },
+    whatsapp: {
+      tooltip: 'WhatsApp',
+      sub: 'Direct message',
+      message: 'Hi, I need information about water treatment'
+    }
+  },
+  es: {
+    call: {
+      tooltip: 'Llamar Ahora',
+      sub: 'Línea directa'
+    },
+    whatsapp: {
+      tooltip: 'WhatsApp',
+      sub: 'Mensaje directo',
+      message: 'Hola, necesito información sobre tratamiento de agua'
+    }
+  }
+};
 
 export default function FloatingButtons() {
+  const { language } = useLanguage();
+  const text = copy[language];
   const [callHover, setCallHover] = useState(false);
   const [whatsappHover, setWhatsappHover] = useState(false);
 
@@ -13,7 +41,7 @@ export default function FloatingButtons() {
 
   const handleWhatsApp = () => {
     window.open(
-      getWhatsAppUrl('Hola, necesito informacion sobre tratamiento de agua'),
+      getWhatsAppUrl(text.whatsapp.message),
       '_blank'
     );
   };
@@ -38,7 +66,7 @@ export default function FloatingButtons() {
           {/* Tooltip (desktop only) */}
           {callHover && (
             <div className="hidden md:block absolute left-24 top-1/2 -translate-y-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl whitespace-nowrap">
-              <div className="text-lg">Llamar Ahora</div>
+              <div className="text-lg">{text.call.tooltip}</div>
               <div className="text-sm text-blue-300 leading-tight">{PRIMARY_PHONE.display}</div>
               <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-900 rotate-45" />
             </div>
@@ -64,8 +92,8 @@ export default function FloatingButtons() {
           {/* Tooltip (desktop only) */}
           {whatsappHover && (
             <div className="hidden md:block absolute right-24 top-1/2 -translate-y-1/2 bg-slate-900 text-white px-5 py-3 rounded-xl shadow-2xl whitespace-nowrap">
-              <div className="text-lg">WhatsApp</div>
-              <div className="text-sm text-green-300">Mensaje Directo</div>
+              <div className="text-lg">{text.whatsapp.tooltip}</div>
+              <div className="text-sm text-green-300">{text.whatsapp.sub}</div>
               <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-3 h-3 bg-slate-900 rotate-45" />
             </div>
           )}

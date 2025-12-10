@@ -1,59 +1,131 @@
 import { Shield, Award, Droplet, CheckCircle, Star, ThumbsUp } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
 import { getWhatsAppUrl } from '../constants/contactInfo';
+import { useLanguage } from '../i18n/LanguageProvider';
 
-const certifications = [
-  {
-    icon: Shield,
-    title: 'BBB Accredited Business',
-    subtitle: 'Better Business Bureau',
-    description:
-      'Negocio acreditado con calificación A+ por nuestro compromiso con la excelencia y la transparencia.',
-    color: 'from-blue-600 to-blue-700',
-    badge: 'A+ Rating',
-    image: '/images/BBB Accredited Business.png'
+const copy = {
+  en: {
+    badge: 'Certifications & Guarantees',
+    title: 'Backed by the Best Institutions',
+    subtitle: 'Official certifications that guarantee quality, professionalism, and trust.',
+    certifications: [
+      {
+        icon: Shield,
+        title: 'BBB Accredited Business',
+        subtitle: 'Better Business Bureau',
+        description:
+          'Accredited with an A+ rating for our commitment to excellence and transparency.',
+        color: 'from-blue-600 to-blue-700',
+        badge: 'A+ Rating',
+        image: '/images/BBB Accredited Business.png'
+      },
+      {
+        icon: Award,
+        title: 'Water Quality Association',
+        subtitle: 'Certified members',
+        description:
+          'Professional certification in water treatment and quality recognized internationally.',
+        color: 'from-cyan-600 to-teal-600',
+        badge: 'Certified',
+        image: '/images/water-quality-association.png'
+      },
+      {
+        icon: Droplet,
+        title: 'Make Alkaline Water',
+        subtitle: 'Balanced pH technology',
+        description:
+          'Systems that produce alkaline water to improve hydration and overall wellness.',
+        color: 'from-purple-600 to-blue-600',
+        badge: 'pH 8-10',
+        image: '/images/Make Alkaline Water.png'
+      }
+    ],
+    benefitsTitle: 'Why Trust Us?',
+    benefitsSubtitle: 'Over a decade of proven excellence',
+    benefits: [
+      {
+        icon: CheckCircle,
+        title: 'Satisfaction guarantee',
+        description: '100% guaranteed or your money back'
+      },
+      {
+        icon: Star,
+        title: '5-star rating',
+        description: '200+ positive Google reviews'
+      },
+      {
+        icon: ThumbsUp,
+        title: 'Certified installation',
+        description: 'Highly trained and licensed technicians'
+      }
+    ],
+    verify: 'Verify Certifications',
+    verifyMsg: 'I want information about certifications'
   },
-  {
-    icon: Award,
-    title: 'Water Quality Association',
-    subtitle: 'Miembros certificados',
-    description:
-      'Certificación profesional en tratamiento y calidad de agua reconocida internacionalmente.',
-    color: 'from-cyan-600 to-teal-600',
-    badge: 'Certified',
-    image: '/images/water-quality-association.png'
-  },
-  {
-    icon: Droplet,
-    title: 'Make Alkaline Water',
-    subtitle: 'Tecnología pH balanceado',
-    description:
-      'Sistemas que producen agua alcalina para mejorar hidratación y bienestar general.',
-    color: 'from-purple-600 to-blue-600',
-    badge: 'pH 8-10',
-    image: '/images/Make Alkaline Water.png'
+  es: {
+    badge: 'Certificaciones y Garantías',
+    title: 'Respaldados por las Mejores Instituciones',
+    subtitle: 'Certificaciones oficiales que garantizan calidad, profesionalismo y confianza.',
+    certifications: [
+      {
+        icon: Shield,
+        title: 'BBB Accredited Business',
+        subtitle: 'Better Business Bureau',
+        description:
+          'Negocio acreditado con calificación A+ por nuestro compromiso con la excelencia y la transparencia.',
+        color: 'from-blue-600 to-blue-700',
+        badge: 'A+ Rating',
+        image: '/images/BBB Accredited Business.png'
+      },
+      {
+        icon: Award,
+        title: 'Water Quality Association',
+        subtitle: 'Miembros certificados',
+        description:
+          'Certificación profesional en tratamiento y calidad de agua reconocida internacionalmente.',
+        color: 'from-cyan-600 to-teal-600',
+        badge: 'Certified',
+        image: '/images/water-quality-association.png'
+      },
+      {
+        icon: Droplet,
+        title: 'Make Alkaline Water',
+        subtitle: 'Tecnología pH balanceado',
+        description:
+          'Sistemas que producen agua alcalina para mejorar hidratación y bienestar general.',
+        color: 'from-purple-600 to-blue-600',
+        badge: 'pH 8-10',
+        image: '/images/Make Alkaline Water.png'
+      }
+    ],
+    benefitsTitle: '¿Por Qué Confiar en Nosotros?',
+    benefitsSubtitle: 'Más de una década de excelencia comprobada',
+    benefits: [
+      {
+        icon: CheckCircle,
+        title: 'Garantía de satisfacción',
+        description: '100% garantizado o devolvemos su dinero'
+      },
+      {
+        icon: Star,
+        title: 'Calificación 5 estrellas',
+        description: 'Más de 200 reseñas positivas en Google'
+      },
+      {
+        icon: ThumbsUp,
+        title: 'Instalación certificada',
+        description: 'Técnicos especializados y licenciados'
+      }
+    ],
+    verify: 'Verificar Certificaciones',
+    verifyMsg: 'Quiero información sobre certificaciones'
   }
-];
-
-const benefits = [
-  {
-    icon: CheckCircle,
-    title: 'Garantía de satisfacción',
-    description: '100% garantizado o devolvemos su dinero'
-  },
-  {
-    icon: Star,
-    title: 'Calificación 5 estrellas',
-    description: 'Más de 200 reseñas positivas en Google'
-  },
-  {
-    icon: ThumbsUp,
-    title: 'Instalación certificada',
-    description: 'Técnicos especializados y licenciados'
-  }
-];
+};
 
 export default function CertificationsSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
+
   return (
     <section className="section-padding bg-gradient-to-b from-slate-50 to-white relative overflow-hidden">
       <div className="absolute inset-0">
@@ -67,19 +139,19 @@ export default function CertificationsSection() {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-5 py-2.5 rounded-full mb-6 text-sm shadow-sm border border-blue-200">
               <Shield className="w-5 h-5" />
-              <span>Certificaciones y Garantías</span>
+              <span>{text.badge}</span>
             </div>
             <h2 className="text-4xl md:text-5xl text-slate-900 mb-6">
-              Respaldados por las Mejores Instituciones
+              {text.title}
             </h2>
             <p className="text-xl text-slate-600 max-w-3xl mx-auto leading-relaxed">
-              Certificaciones oficiales que garantizan calidad, profesionalismo y confianza
+              {text.subtitle}
             </p>
           </div>
 
           {/* Certifications Grid */}
           <div className="grid md:grid-cols-3 gap-8 mb-16">
-            {certifications.map((cert, index) => {
+            {text.certifications.map((cert, index) => {
               const Icon = cert.icon;
               return (
                 <div key={index} className="group relative">
@@ -128,12 +200,12 @@ export default function CertificationsSection() {
           {/* Additional Benefits */}
           <div className="bg-gradient-to-br from-blue-900 to-cyan-900 rounded-3xl p-12 text-white shadow-2xl">
             <div className="text-center mb-10">
-              <h3 className="text-3xl md:text-4xl mb-4">¿Por Qué Confiar en Nosotros?</h3>
-              <p className="text-blue-100 text-lg">Más de una década de excelencia comprobada</p>
+              <h3 className="text-3xl md:text-4xl mb-4">{text.benefitsTitle}</h3>
+              <p className="text-blue-100 text-lg">{text.benefitsSubtitle}</p>
             </div>
 
             <div className="grid md:grid-cols-3 gap-8">
-              {benefits.map((benefit, index) => {
+              {text.benefits.map((benefit, index) => {
                 const Icon = benefit.icon;
                 return (
                   <div key={index} className="text-center">
@@ -151,15 +223,15 @@ export default function CertificationsSection() {
               <button
                 onClick={() =>
                   window.open(
-                    getWhatsAppUrl('Quiero informacion sobre certificaciones'),
+                    getWhatsAppUrl(text.verifyMsg),
                     '_blank'
                   )
                 }
                 className="bg-white text-blue-900 px-10 py-4 rounded-xl hover:bg-blue-50 transition-all shadow-lg inline-flex items-center gap-2 text-lg"
               >
                 <WhatsAppIcon className="w-5 h-5 text-blue-900" />
-                <span>Verificar Certificaciones</span>
-                <span>➜</span>
+                <span>{text.verify}</span>
+                <span>→</span>
               </button>
             </div>
           </div>

@@ -1,17 +1,79 @@
 import { CheckCircle, Star, Award, Clock, Phone } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
 import { getWhatsAppUrl, PRIMARY_PHONE } from '../constants/contactInfo';
+import { useLanguage } from '../i18n/LanguageProvider';
+
+const copy = {
+  en: {
+    badges: ['4.9/5 on Google', 'BBB Accredited A+', 'WQA Certified'],
+    title: {
+      first: 'Pure Water',
+      second: 'Healthy',
+      tail: 'For Your Family',
+      connector: 'and'
+    },
+    subtitle:
+      'We remove bad odor, discoloration, and contaminants from your home water.',
+    offerTitle: 'Limited-Time Offer:',
+    bullets: [
+      { title: 'FREE Diagnosis', description: 'Complete water analysis' },
+      { title: '24h Installation', description: 'Fast, guaranteed service' },
+      { title: 'Alkaline Water pH 8-10', description: 'Better hydration' },
+      { title: '10+ Years Experience', description: '5,000+ happy customers' }
+    ],
+    callNow: 'Call now',
+    whatsapp: 'WhatsApp',
+    whatsappTag: 'Instant Response',
+    promoLead: 'Limited promotion!',
+    promoTail: 'Only available this week',
+    stats: {
+      homesLabel: 'Happy Homes',
+      yearsLabel: 'Years of Experience'
+    },
+    imageAlt: 'Family enjoying clean and healthy water',
+    whatsappMessage: 'Hi, I need information about water treatment'
+  },
+  es: {
+    badges: ['4.9/5 en Google', 'BBB Acreditado A+', 'Certificado WQA'],
+    title: {
+      first: 'Agua Pura',
+      second: 'Saludable',
+      tail: 'Para Tu Familia',
+      connector: 'y'
+    },
+    subtitle:
+      'Eliminamos mal olor, color extraño y contaminantes del agua de tu hogar.',
+    offerTitle: 'Oferta Especial:',
+    bullets: [
+      { title: 'Diagnóstico GRATIS', description: 'Análisis completo del agua' },
+      { title: 'Instalación en 24h', description: 'Servicio rápido garantizado' },
+      { title: 'Agua Alcalina pH 8-10', description: 'Mejor hidratación' },
+      { title: '10+ Años de Experiencia', description: '5000+ clientes felices' }
+    ],
+    callNow: 'Llamar ahora',
+    whatsapp: 'WhatsApp',
+    whatsappTag: 'Respuesta Inmediata',
+    promoLead: '¡Promoción limitada!',
+    promoTail: 'Solo disponible esta semana',
+    stats: {
+      homesLabel: 'Hogares Felices',
+      yearsLabel: 'Años de Experiencia'
+    },
+    imageAlt: 'Familia disfrutando de agua pura y saludable',
+    whatsappMessage: 'Hola, necesito información sobre tratamiento de agua'
+  }
+};
 
 export default function HeroSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
+
   const handleCall = () => {
     window.location.href = `tel:${PRIMARY_PHONE.tel}`;
   };
 
   const handleWhatsApp = () => {
-    window.open(
-      getWhatsAppUrl('Hola, necesito informacion sobre tratamiento de agua'),
-      '_blank'
-    );
+    window.open(getWhatsAppUrl(text.whatsappMessage), '_blank');
   };
 
   return (
@@ -29,67 +91,43 @@ export default function HeroSection() {
           <div className="hidden sm:flex flex-wrap items-center justify-center gap-3 sm:gap-4 md:gap-6 mb-3 sm:mb-5 md:mb-6">
             <div className="flex items-center gap-2 bg-white rounded-full px-5 py-2.5 shadow-md border border-blue-200">
               <Star className="w-5 h-5 text-yellow-500 fill-yellow-500" />
-              <span className="text-slate-700 text-sm">4.9/5 en Google</span>
+              <span className="text-slate-700 text-sm">{text.badges[0]}</span>
             </div>
             <div className="flex items-center gap-2 bg-white rounded-full px-5 py-2.5 shadow-md border border-green-200">
               <Award className="w-5 h-5 text-green-600" />
-              <span className="text-slate-700 text-sm">BBB Acreditado A+</span>
+              <span className="text-slate-700 text-sm">{text.badges[1]}</span>
             </div>
             <div className="flex items-center gap-2 bg-white rounded-full px-5 py-2.5 shadow-md border border-purple-200">
               <CheckCircle className="w-5 h-5 text-purple-600" />
-              <span className="text-slate-700 text-sm">Certificado WQA</span>
+              <span className="text-slate-700 text-sm">{text.badges[2]}</span>
             </div>
           </div>
 
           <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 items-start">
             <div>
               <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl text-slate-900 mb-5 leading-[1.08]">
-                <span className="text-blue-600">Agua Pura</span> y{' '}
-                <span className="text-cyan-600">Saludable</span>{' '}
-                Para Tu Familia
+                <span className="text-blue-600">{text.title.first}</span> {text.title.connector}{' '}
+                <span className="text-cyan-600">{text.title.second}</span>{' '}
+                {text.title.tail}
               </h1>
 
               <p className="text-base sm:text-lg md:text-xl text-slate-700 mb-5 sm:mb-7 leading-relaxed">
-                Eliminamos <strong className="text-blue-600">mal olor</strong>,{' '}
-                <strong className="text-cyan-600">color extraño</strong> y{' '}
-                <strong className="text-purple-600">contaminantes</strong> del agua de tu hogar
+                {text.subtitle}
               </p>
 
               <div className="bg-gradient-to-br from-blue-600 to-cyan-600 rounded-3xl p-6 sm:p-8 mb-6 sm:mb-8 text-white shadow-2xl">
-                <h3 className="text-2xl mb-6">🔥 Oferta Especial:</h3>
+                <h3 className="text-2xl mb-6">{text.offerTitle}</h3>
 
                 <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-6 h-6 text-cyan-200 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Diagnóstico GRATIS</p>
-                      <p className="text-blue-100 text-sm">Análisis completo del agua</p>
+                  {text.bullets.map((item) => (
+                    <div key={item.title} className="flex items-start gap-3">
+                      <CheckCircle className="w-6 h-6 text-cyan-200 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="font-semibold">{item.title}</p>
+                        <p className="text-blue-100 text-sm">{item.description}</p>
+                      </div>
                     </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-6 h-6 text-cyan-200 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Instalación en 24h</p>
-                      <p className="text-blue-100 text-sm">Servicio rápido garantizado</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-6 h-6 text-cyan-200 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">Agua Alcalina pH 8-10</p>
-                      <p className="text-blue-100 text-sm">Mejor hidratación</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-3">
-                    <CheckCircle className="w-6 h-6 text-cyan-200 flex-shrink-0 mt-0.5" />
-                    <div>
-                      <p className="font-semibold">10 Años Experiencia</p>
-                      <p className="text-blue-100 text-sm">+5000 clientes felices</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </div>
 
@@ -102,7 +140,7 @@ export default function HeroSection() {
 
                   <Phone className="w-6 h-6 relative z-10" />
                   <div className="text-left relative z-10">
-                    <div className="text-sm font-semibold text-white">Llamar ahora</div>
+                    <div className="text-sm font-semibold text-white">{text.callNow}</div>
                   </div>
                 </button>
 
@@ -114,8 +152,8 @@ export default function HeroSection() {
 
                   <WhatsAppIcon className="w-6 h-6 relative z-10 shrink-0" />
                   <div className="text-left relative z-10 leading-tight">
-                    <div className="text-xs text-green-200">Respuesta Inmediata</div>
-                    <div className="text-xl font-semibold">WhatsApp</div>
+                    <div className="text-xs text-green-200">{text.whatsappTag}</div>
+                    <div className="text-xl font-semibold">{text.whatsapp}</div>
                   </div>
                 </button>
               </div>
@@ -123,7 +161,7 @@ export default function HeroSection() {
               <div className="flex items-center gap-2 text-slate-600">
                 <Clock className="w-5 h-5 text-orange-500" />
                 <p className="text-sm">
-                  <strong className="text-orange-600">¡Promoción limitada!</strong> Solo disponible esta semana
+                  <strong className="text-orange-600">{text.promoLead}</strong> {text.promoTail}
                 </p>
               </div>
             </div>
@@ -132,7 +170,7 @@ export default function HeroSection() {
               <div className="relative rounded-3xl overflow-hidden shadow-2xl border-8 border-white">
                 <img
                   src="/images/imagenfamiliar.png"
-                  alt="Familia disfrutando de agua pura y saludable"
+                  alt={text.imageAlt}
                   className="w-full h-[380px] sm:h-[480px] lg:h-[550px] object-cover"
                 />
               </div>
@@ -140,18 +178,14 @@ export default function HeroSection() {
               <div className="hidden sm:block absolute -top-6 -right-6 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-2xl p-6 border-4 border-white">
                 <div className="text-center">
                   <p className="text-4xl text-white mb-1">5000+</p>
-                  <p className="text-green-100 text-sm">
-                    Hogares<br />Felices
-                  </p>
+                  <p className="text-green-100 text-sm">{text.stats.homesLabel}</p>
                 </div>
               </div>
 
               <div className="hidden sm:block absolute -bottom-6 -left-6 bg-gradient-to-br from-blue-500 to-cyan-600 rounded-2xl shadow-2xl p-6 border-4 border-white">
                 <div className="text-center">
                   <p className="text-4xl text-white mb-1">10+</p>
-                  <p className="text-blue-100 text-sm">
-                    Años de<br />Experiencia
-                  </p>
+                  <p className="text-blue-100 text-sm">{text.stats.yearsLabel}</p>
                 </div>
               </div>
             </div>

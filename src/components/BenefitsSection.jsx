@@ -1,30 +1,75 @@
 import { useEffect, useState } from 'react';
 import { Shield, Award, Clock, ThumbsUp } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageProvider';
 
-const benefits = [
-  {
-    icon: Award,
-    title: '10+ Años de Experiencia',
-    description: 'Más de una década sirviendo hogares en Florida'
+const copy = {
+  en: {
+    title: 'Why Choose Us',
+    subtitle: 'Trusted by more than 5,000 families in Florida',
+    benefits: [
+      {
+        icon: Award,
+        title: '10+ Years Experience',
+        description: 'Over a decade serving Florida homes'
+      },
+      {
+        icon: Shield,
+        title: 'Certified & Licensed',
+        description: 'Professional technicians certified by WQA'
+      },
+      {
+        icon: Clock,
+        title: 'Fast Service',
+        description: 'Same-day response for emergencies'
+      },
+      {
+        icon: ThumbsUp,
+        title: 'Total Guarantee',
+        description: '100% satisfaction guaranteed'
+      }
+    ],
+    stats: {
+      homes: 'Homes Served',
+      years: 'Years of Experience',
+      satisfaction: 'Satisfaction'
+    }
   },
-  {
-    icon: Shield,
-    title: 'Certificados y Licenciados',
-    description: 'Técnicos profesionales certificados por WQA'
-  },
-  {
-    icon: Clock,
-    title: 'Servicio Rápido',
-    description: 'Respuesta en el mismo día para urgencias'
-  },
-  {
-    icon: ThumbsUp,
-    title: 'Garantía Total',
-    description: '100% de satisfacción garantizada'
+  es: {
+    title: 'Por Qué Elegirnos',
+    subtitle: 'La confianza de más de 5000 familias en Florida',
+    benefits: [
+      {
+        icon: Award,
+        title: '10+ Años de Experiencia',
+        description: 'Más de una década sirviendo hogares en Florida'
+      },
+      {
+        icon: Shield,
+        title: 'Certificados y Licenciados',
+        description: 'Técnicos profesionales certificados por WQA'
+      },
+      {
+        icon: Clock,
+        title: 'Servicio Rápido',
+        description: 'Respuesta en el mismo día para urgencias'
+      },
+      {
+        icon: ThumbsUp,
+        title: 'Garantía Total',
+        description: '100% de satisfacción garantizada'
+      }
+    ],
+    stats: {
+      homes: 'Hogares Atendidos',
+      years: 'Años de Experiencia',
+      satisfaction: 'Satisfacción'
+    }
   }
-];
+};
 
 export default function BenefitsSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
   const [homesServed, setHomesServed] = useState(0);
 
   useEffect(() => {
@@ -64,14 +109,14 @@ export default function BenefitsSection() {
       <div className="container mx-auto px-4 relative z-10">
         <div className="max-w-7xl mx-auto">
           <div className="text-center mb-16">
-            <h2 className="text-4xl md:text-5xl text-white mb-4">Por Qué Elegirnos</h2>
+            <h2 className="text-4xl md:text-5xl text-white mb-4">{text.title}</h2>
             <p className="text-xl text-blue-100 max-w-2xl mx-auto">
-              La confianza de más de 5000 familias en Florida
+              {text.subtitle}
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {benefits.map((benefit, index) => {
+            {text.benefits.map((benefit, index) => {
               const Icon = benefit.icon;
               return (
                 <div key={index} className="text-center group">
@@ -90,15 +135,15 @@ export default function BenefitsSection() {
               <p className="text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-2">
                 {homesDisplay}+
               </p>
-              <p className="text-blue-200">Hogares Atendidos</p>
+              <p className="text-blue-200">{text.stats.homes}</p>
             </div>
             <div className="text-center">
               <p className="text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-2">10+</p>
-              <p className="text-blue-200">Años de Experiencia</p>
+              <p className="text-blue-200">{text.stats.years}</p>
             </div>
             <div className="text-center">
               <p className="text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-2">100%</p>
-              <p className="text-blue-200">Satisfacción</p>
+              <p className="text-blue-200">{text.stats.satisfaction}</p>
             </div>
           </div>
         </div>
@@ -106,4 +151,3 @@ export default function BenefitsSection() {
     </section>
   );
 }
-

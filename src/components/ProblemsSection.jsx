@@ -2,35 +2,97 @@ import { AlertTriangle, Phone, Droplets, Zap, Shield } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
 import { PRIMARY_PHONE, getWhatsAppUrl } from '../constants/contactInfo';
 import CallDropdown from './ui/CallDropdown';
+import { useLanguage } from '../i18n/LanguageProvider';
 
-const problems = [
-  {
-    icon: Droplets,
-    title: 'Agua con mal olor o sabor',
-    description: 'Olor a azufre, sabor metálico o cloro que incomoda al beber o cocinar.',
-    badge: 'Muestra gratis',
-    image: '/images/Agua%20con%20mal%20olor%20o%20sabor.png',
-    color: 'from-blue-500/15 to-cyan-200/30'
+const copy = {
+  en: {
+    badge: 'Common problems',
+    title: 'Do you relate to any of these water issues?',
+    subtitle:
+      'Free on-site diagnosis to define the ideal solution, with clear visuals of each case.',
+    problems: [
+      {
+        icon: Droplets,
+        title: 'Water with bad odor or taste',
+        description:
+          'Sulfur smell, metallic taste, or chlorine that bothers you when drinking or cooking.',
+        badge: 'Free sample',
+        image: '/images/Agua%20con%20mal%20olor%20o%20sabor.png',
+        color: 'from-blue-500/15 to-cyan-200/30'
+      },
+      {
+        icon: Zap,
+        title: 'Stains and scale at home',
+        description:
+          'Scale on faucets, stained clothes, and appliances damaged by hardness.',
+        badge: 'Fast installation',
+        image: '/images/Manchas%20y%20sarro%20en%20la%20casa.png',
+        color: 'from-orange-400/15 to-amber-200/30'
+      },
+      {
+        icon: Shield,
+        title: 'Invisible contaminants',
+        description:
+          'Heavy metals, bacteria, or sediments that harm health and pipes.',
+        badge: 'Certified equipment',
+        image: '/images/Contaminantes%20invisibles.png',
+        color: 'from-purple-500/15 to-indigo-200/30'
+      }
+    ],
+    cta: {
+      label: 'We help you solve it',
+      title: 'Schedule your FREE diagnosis',
+      whatsapp: 'Hi, I need a free diagnosis',
+      button: 'WhatsApp'
+    }
   },
-  {
-    icon: Zap,
-    title: 'Manchas y sarro en la casa',
-    description: 'Sarro en grifos, ropa manchada y electrodomésticos dañados por dureza.',
-    badge: 'Instalación rápida',
-    image: '/images/Manchas%20y%20sarro%20en%20la%20casa.png',
-    color: 'from-orange-400/15 to-amber-200/30'
-  },
-  {
-    icon: Shield,
-    title: 'Contaminantes invisibles',
-    description: 'Metales pesados, bacterias o sedimentos que dañan la salud y tuberías.',
-    badge: 'Equipo certificado',
-    image: '/images/Contaminantes%20invisibles.png',
-    color: 'from-purple-500/15 to-indigo-200/30'
+  es: {
+    badge: 'Problemas comunes',
+    title: '¿Te identificas con alguno de estos problemas de agua?',
+    subtitle:
+      'Diagnóstico gratuito en sitio para definir la solución ideal, con imágenes claras de cada caso.',
+    problems: [
+      {
+        icon: Droplets,
+        title: 'Agua con mal olor o sabor',
+        description:
+          'Olor a azufre, sabor metálico o cloro que incomoda al beber o cocinar.',
+        badge: 'Muestra gratis',
+        image: '/images/Agua%20con%20mal%20olor%20o%20sabor.png',
+        color: 'from-blue-500/15 to-cyan-200/30'
+      },
+      {
+        icon: Zap,
+        title: 'Manchas y sarro en la casa',
+        description:
+          'Sarro en grifos, ropa manchada y electrodomésticos dañados por dureza.',
+        badge: 'Instalación rápida',
+        image: '/images/Manchas%20y%20sarro%20en%20la%20casa.png',
+        color: 'from-orange-400/15 to-amber-200/30'
+      },
+      {
+        icon: Shield,
+        title: 'Contaminantes invisibles',
+        description:
+          'Metales pesados, bacterias o sedimentos que dañan la salud y tuberías.',
+        badge: 'Equipo certificado',
+        image: '/images/Contaminantes%20invisibles.png',
+        color: 'from-purple-500/15 to-indigo-200/30'
+      }
+    ],
+    cta: {
+      label: 'Te ayudamos a resolverlo',
+      title: 'Agenda tu diagnóstico GRATUITO',
+      whatsapp: 'Hola, necesito un diagnóstico gratuito',
+      button: 'WhatsApp'
+    }
   }
-];
+};
 
 export default function ProblemsSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
+
   return (
     <section className="section-padding bg-white">
       <div className="container mx-auto px-4">
@@ -38,18 +100,18 @@ export default function ProblemsSection() {
           <div className="text-center mb-6">
             <div className="inline-flex items-center gap-2 bg-orange-50 text-orange-700 px-4 py-1.5 rounded-full mb-2 text-xs md:text-sm">
               <AlertTriangle className="w-4 h-4" />
-              <span>Problemas comunes</span>
+              <span>{text.badge}</span>
             </div>
             <h2 className="text-2xl md:text-3xl text-slate-900 mb-2">
-              ¿Te identificas con alguno de estos problemas de agua?
+              {text.title}
             </h2>
             <p className="text-base md:text-lg text-slate-600 max-w-2xl mx-auto">
-              Diagnóstico gratuito en sitio para definir la solución ideal, con imágenes claras de cada caso.
+              {text.subtitle}
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-4 md:gap-5 mb-6">
-            {problems.map((problem) => {
+            {text.problems.map((problem) => {
               const Icon = problem.icon;
               return (
                 <article
@@ -89,13 +151,13 @@ export default function ProblemsSection() {
 
           <div className="bg-gradient-to-r from-blue-600 to-cyan-600 rounded-2xl p-4 md:p-5 text-white shadow-lg flex flex-col md:flex-row items-center justify-between gap-3">
             <div>
-              <p className="text-sm md:text-base text-blue-100">Te ayudamos a resolverlo</p>
-              <h3 className="text-xl md:text-2xl font-semibold">Agenda tu diagnóstico GRATUITO</h3>
+              <p className="text-sm md:text-base text-blue-100">{text.cta.label}</p>
+              <h3 className="text-xl md:text-2xl font-semibold">{text.cta.title}</h3>
             </div>
 
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <CallDropdown
-                label="Llamar"
+                label={language === 'en' ? 'Call' : 'Llamar'}
                 buttonClassName="flex-1 sm:flex-none text-blue-900 border-blue-200 hover:bg-blue-50 justify-center"
                 textClassName="text-blue-900"
                 align="left"
@@ -104,14 +166,14 @@ export default function ProblemsSection() {
               <button
                 onClick={() =>
                   window.open(
-                    getWhatsAppUrl('Hola, necesito un diagnostico gratuito', PRIMARY_PHONE),
+                    getWhatsAppUrl(text.cta.whatsapp, PRIMARY_PHONE),
                     '_blank'
                   )
                 }
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold"
               >
                 <WhatsAppIcon className="w-4 h-4" />
-                <span>WhatsApp</span>
+                <span>{text.cta.button}</span>
               </button>
             </div>
           </div>

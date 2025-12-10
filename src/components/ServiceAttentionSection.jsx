@@ -1,6 +1,89 @@
 import { Headphones, Clock, Shield, Award } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageProvider';
+
+const copy = {
+  en: {
+    badge: 'Premium Support',
+    title: 'Service & Care',
+    subtitle: "Total commitment to our customers' satisfaction",
+    subtitle2: 'Backed by 10+ years of excellence',
+    features: [
+      {
+        icon: Clock,
+        title: 'Immediate Response',
+        description: 'We answer your call in minutes',
+        stat: '< 5min'
+      },
+      {
+        icon: Shield,
+        title: 'Total Guarantee',
+        description: '100% satisfaction guaranteed',
+        stat: '100%'
+      },
+      {
+        icon: Award,
+        title: 'Certified Experts',
+        description: 'Highly qualified staff',
+        stat: 'WQA'
+      },
+      {
+        icon: Headphones,
+        title: '24/7 Support',
+        description: 'Always available for you',
+        stat: '24/7'
+      }
+    ],
+    stats: [
+      { value: '10+', label: 'Years of Experience' },
+      { value: '1000+', label: 'Satisfied Clients' },
+      { value: '100%', label: 'Guarantee' },
+      { value: 'A+', label: 'BBB Rating' }
+    ]
+  },
+  es: {
+    badge: 'Atención Premium',
+    title: 'Servicio y Atención',
+    subtitle: 'Compromiso total con la satisfacción de nuestros clientes',
+    subtitle2: 'Respaldado por más de 10 años de excelencia',
+    features: [
+      {
+        icon: Clock,
+        title: 'Respuesta Inmediata',
+        description: 'Atendemos su llamada en minutos',
+        stat: '< 5min'
+      },
+      {
+        icon: Shield,
+        title: 'Garantía Total',
+        description: '100% satisfacción garantizada',
+        stat: '100%'
+      },
+      {
+        icon: Award,
+        title: 'Expertos Certificados',
+        description: 'Personal altamente calificado',
+        stat: 'WQA'
+      },
+      {
+        icon: Headphones,
+        title: 'Soporte 24/7',
+        description: 'Siempre disponibles para usted',
+        stat: '24/7'
+      }
+    ],
+    stats: [
+      { value: '10+', label: 'Años de Experiencia' },
+      { value: '1000+', label: 'Clientes Satisfechos' },
+      { value: '100%', label: 'Garantía' },
+      { value: 'A+', label: 'Rating BBB' }
+    ]
+  }
+};
 
 export default function ServiceAttentionSection() {
+  const { language } = useLanguage();
+  const text = copy[language];
+
   return (
     <section className="py-24 bg-gradient-to-br from-green-600 via-emerald-600 to-green-700 relative overflow-hidden">
       <div className="absolute inset-0">
@@ -14,44 +97,19 @@ export default function ServiceAttentionSection() {
           <div className="text-center mb-16">
             <div className="inline-flex items-center gap-3 bg-white/20 backdrop-blur-sm text-white px-8 py-4 rounded-full mb-8 border-2 border-white/30 shadow-xl">
               <Headphones className="w-7 h-7" />
-              <span className="text-xl">Atención Premium</span>
+              <span className="text-xl">{text.badge}</span>
             </div>
 
-            <h2 className="text-6xl md:text-7xl text-white mb-8 drop-shadow-2xl">Servicio y Atención</h2>
+            <h2 className="text-6xl md:text-7xl text-white mb-8 drop-shadow-2xl">{text.title}</h2>
 
             <p className="text-3xl text-white/95 max-w-3xl mx-auto leading-relaxed mb-4">
-              Compromiso total con la satisfacción de nuestros clientes
+              {text.subtitle}
             </p>
-            <p className="text-xl text-green-100">Respaldado por más de 10 años de excelencia</p>
+            <p className="text-xl text-green-100">{text.subtitle2}</p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
-            {[
-              {
-                icon: Clock,
-                title: 'Respuesta Inmediata',
-                description: 'Atendemos su llamada en minutos',
-                stat: '< 5min'
-              },
-              {
-                icon: Shield,
-                title: 'Garantía Total',
-                description: '100% satisfacción garantizada',
-                stat: '100%'
-              },
-              {
-                icon: Award,
-                title: 'Expertos Certificados',
-                description: 'Personal altamente calificado',
-                stat: 'WQA'
-              },
-              {
-                icon: Headphones,
-                title: 'Soporte 24/7',
-                description: 'Siempre disponibles para usted',
-                stat: '24/7'
-              }
-            ].map((feature, i) => {
+            {text.features.map((feature, i) => {
               const Icon = feature.icon;
 
               return (
@@ -72,29 +130,15 @@ export default function ServiceAttentionSection() {
           </div>
 
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 bg-white/10 backdrop-blur-md rounded-3xl p-10 border-2 border-white/30 shadow-2xl">
-            <div className="text-center">
-              <p className="text-6xl text-white mb-3">10+</p>
-              <p className="text-white/90 text-lg">Años de Experiencia</p>
-            </div>
-
-            <div className="text-center">
-              <p className="text-6xl text-white mb-3">1000+</p>
-              <p className="text-white/90 text-lg">Clientes Satisfechos</p>
-            </div>
-
-            <div className="text-center">
-              <p className="text-6xl text-white mb-3">100%</p>
-              <p className="text-white/90 text-lg">Garantía</p>
-            </div>
-
-            <div className="text-center">
-              <p className="text-6xl text-white mb-3">A+</p>
-              <p className="text-white/90 text-lg">Rating BBB</p>
-            </div>
+            {text.stats.map((stat, idx) => (
+              <div className="text-center" key={idx}>
+                <p className="text-6xl text-white mb-3">{stat.value}</p>
+                <p className="text-white/90 text-lg">{stat.label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
     </section>
   );
 }
-

@@ -1,32 +1,81 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowLeft, ArrowRight, ExternalLink, Loader2, Quote, Star } from 'lucide-react';
+import { useLanguage } from '../i18n/LanguageProvider';
 
 const GOOGLE_PLACE_URL =
   'https://www.google.com/maps/place/Infinity+Water+Florida/@27.698638,-86.4413197,7z/data=!4m17!1m8!3m7!1s0x6247647057ae105:0xe780b2e2412c4fac!2sInfinity+Water+Florida!8m2!3d27.698638!4d-83.804601!10e4!16s%2Fg%2F11lp7zb5n1!3m7!1s0x6247647057ae105:0xe780b2e2412c4fac!8m2!3d27.698638!4d-83.804601!9m1!1b1!16s%2Fg%2F11lp7zb5n1';
 
-const FALLBACK_REVIEWS = [
-  {
-    name: 'María González',
-    location: 'Naples, FL',
-    rating: 5,
-    text: 'Excelente servicio. El agua ahora es cristalina y sin olores. Muy profesionales.',
-    time: 'Hace 2 semanas'
+const FALLBACK_REVIEWS = {
+  en: [
+    {
+      name: 'Maria Gonzalez',
+      location: 'Naples, FL',
+      rating: 5,
+      text: 'Excellent service. The water is now crystal clear and odor-free. Very professional.',
+      time: '2 weeks ago'
+    },
+    {
+      name: 'Carlos Martinez',
+      location: 'Fort Myers, FL',
+      rating: 5,
+      text: 'They solved my well water problem. The difference is incredible. Highly recommended.',
+      time: '1 month ago'
+    },
+    {
+      name: 'Ana Rodriguez',
+      location: 'Cape Coral, FL',
+      rating: 5,
+      text: 'Fast service and fair price. My family notices the difference in taste.',
+      time: '3 weeks ago'
+    }
+  ],
+  es: [
+    {
+      name: 'María González',
+      location: 'Naples, FL',
+      rating: 5,
+      text: 'Excelente servicio. El agua ahora es cristalina y sin olores. Muy profesionales.',
+      time: 'Hace 2 semanas'
+    },
+    {
+      name: 'Carlos Martínez',
+      location: 'Fort Myers, FL',
+      rating: 5,
+      text: 'Resolvieron mi problema de agua de pozo. La diferencia es increíble. Altamente recomendado.',
+      time: 'Hace 1 mes'
+    },
+    {
+      name: 'Ana Rodríguez',
+      location: 'Cape Coral, FL',
+      rating: 5,
+      text: 'Servicio rápido y precio justo. Mi familia nota la diferencia en el sabor del agua.',
+      time: 'Hace 3 semanas'
+    }
+  ]
+};
+
+const copy = {
+  en: {
+    title: 'What our clients say',
+    subtitle: 'Carousel updated with live Google Maps reviews',
+    errorSoft: 'Showing highlighted reviews while Google responds.',
+    errorHard: 'Showing verified reviews while connecting to Google Maps.',
+    seeOnGoogle: 'See on Google',
+    seeAll: 'See all on Google',
+    loading: 'Updating reviews...',
+    ratingSuffix: 'verified reviews'
   },
-  {
-    name: 'Carlos Martínez',
-    location: 'Fort Myers, FL',
-    rating: 5,
-    text: 'Resolvieron mi problema de agua de pozo. La diferencia es increíble. Altamente recomendado.',
-    time: 'Hace 1 mes'
-  },
-  {
-    name: 'Ana Rodríguez',
-    location: 'Cape Coral, FL',
-    rating: 5,
-    text: 'Servicio rápido y precio justo. Mi familia nota la diferencia en el sabor del agua.',
-    time: 'Hace 3 semanas'
+  es: {
+    title: 'Lo que dicen nuestros clientes',
+    subtitle: 'Carrusel actualizado con opiniones directas de Google Maps',
+    errorSoft: 'Mostramos reseñas destacadas mientras Google Maps responde.',
+    errorHard: 'Mostramos reseñas verificadas mientras se conecta con Google Maps.',
+    seeOnGoogle: 'Ver en Google',
+    seeAll: 'Ver todas en Google',
+    loading: 'Actualizando reseñas...',
+    ratingSuffix: 'reseñas verificadas'
   }
-];
+};
 
 const normalizeReviews = (rawReviews = []) =>
   rawReviews
@@ -57,14 +106,20 @@ const normalizeReviews = (rawReviews = []) =>
 export default function ReviewsSection() {
   const apiKey = import.meta.env.VITE_GOOGLE_PLACES_API_KEY;
   const placeId = import.meta.env.VITE_GOOGLE_PLACE_ID;
+  const { language } = useLanguage();
+  const text = copy[language];
 
-  const [reviews, setReviews] = useState(FALLBACK_REVIEWS);
+  const [reviews, setReviews] = useState(FALLBACK_REVIEWS[language]);
   const [isLoading, setIsLoading] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [placeRating, setPlaceRating] = useState({ rating: 4.9, total: 120 });
   const [errorMessage, setErrorMessage] = useState('');
 
   const carouselRef = useRef(null);
+
+  useEffect(() => {
+    setReviews(FALLBACK_REVIEWS[language]);
+  }, [language]);
 
   useEffect(() => {
     if (!apiKey || !placeId) return;
@@ -84,7 +139,7 @@ export default function ReviewsSection() {
         );
 
         if (!response.ok) {
-          throw new Error('No se pudo cargar Google Maps');
+          throw new Error('Could not load Google Maps');
         }
 
         const data = await response.json();
@@ -98,13 +153,13 @@ export default function ReviewsSection() {
           });
           setErrorMessage('');
         } else if (isMounted) {
-          setReviews(FALLBACK_REVIEWS);
-          setErrorMessage('Mostramos reseñas destacadas mientras Google Maps responde.');
+          setReviews(FALLBACK_REVIEWS[language]);
+          setErrorMessage(text.errorSoft);
         }
       } catch (error) {
         if (isMounted) {
-          setReviews(FALLBACK_REVIEWS);
-          setErrorMessage('Mostramos reseñas verificadas mientras se conecta con Google Maps.');
+          setReviews(FALLBACK_REVIEWS[language]);
+          setErrorMessage(text.errorHard);
         }
       } finally {
         if (isMounted) {
@@ -117,7 +172,7 @@ export default function ReviewsSection() {
     return () => {
       isMounted = false;
     };
-  }, [apiKey, placeId]);
+  }, [apiKey, placeId, language, text.errorHard, text.errorSoft]);
 
   useEffect(() => {
     if (!reviews.length) return;
@@ -167,15 +222,15 @@ export default function ReviewsSection() {
                 </span>
               </div>
               <span className="text-sm text-slate-600">
-                {placeRating.total}+ reseñas verificadas
+                {placeRating.total}+ {text.ratingSuffix}
               </span>
             </div>
 
             <h2 className="text-3xl md:text-4xl text-slate-900 mb-3">
-              Lo que dicen nuestros clientes
+              {text.title}
             </h2>
             <p className="text-lg md:text-xl text-slate-600">
-              Carrusel actualizado con opiniones directas de Google Maps
+              {text.subtitle}
             </p>
 
             {errorMessage && (
@@ -220,7 +275,7 @@ export default function ReviewsSection() {
                         </div>
 
                         <p className="text-slate-800 mb-6 leading-relaxed text-lg">
-                          “{review.text}”
+                          {review.text}
                         </p>
 
                         <div className="flex items-center justify-between pt-4 border-t border-slate-200 text-sm text-slate-600">
@@ -234,7 +289,7 @@ export default function ReviewsSection() {
                             rel="noopener noreferrer"
                             className="inline-flex items-center gap-1 text-blue-600 hover:text-blue-700 text-sm font-semibold"
                           >
-                            Ver en Google
+                            {text.seeOnGoogle}
                             <ExternalLink className="w-4 h-4" />
                           </a>
                         </div>
@@ -264,7 +319,7 @@ export default function ReviewsSection() {
                 {isLoading && (
                   <div className="flex items-center gap-2 text-sm text-slate-600">
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Actualizando reseñas...
+                    {text.loading}
                   </div>
                 )}
               </div>
@@ -275,7 +330,7 @@ export default function ReviewsSection() {
                 rel="noopener noreferrer"
                 className="inline-flex items-center gap-2 text-blue-700 font-semibold"
               >
-                Ver todas en Google
+                {text.seeAll}
                 <ExternalLink className="w-4 h-4" />
               </a>
             </div>
