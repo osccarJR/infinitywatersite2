@@ -1,6 +1,7 @@
 import { Shield, Award, Droplet, CheckCircle, Star, ThumbsUp } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
-import { getWhatsAppUrl } from '../constants/contactInfo';
+import { STATS } from '../constants/business';
+import { openWhatsApp } from '../lib/contactActions';
 import { useLanguage } from '../i18n/LanguageProvider';
 
 const copy = {
@@ -17,7 +18,7 @@ const copy = {
           'Accredited with an A+ rating for our commitment to excellence and transparency.',
         color: 'from-blue-600 to-blue-700',
         badge: 'A+ Rating',
-        image: '/images/BBB Accredited Business.png'
+        image: '/images/cert-bbb.webp'
       },
       {
         icon: Award,
@@ -27,7 +28,7 @@ const copy = {
           'Professional certification in water treatment and quality recognized internationally.',
         color: 'from-cyan-600 to-teal-600',
         badge: 'Certified',
-        image: '/images/water-quality-association.png'
+        image: '/images/cert-wqa.webp'
       },
       {
         icon: Droplet,
@@ -37,11 +38,11 @@ const copy = {
           'Systems that produce alkaline water to improve hydration and overall wellness.',
         color: 'from-purple-600 to-blue-600',
         badge: 'pH 8-10',
-        image: '/images/Make Alkaline Water.png'
+        image: '/images/cert-alkaline.webp'
       }
     ],
     benefitsTitle: 'Why Trust Us?',
-    benefitsSubtitle: 'Over a decade of proven excellence',
+    benefitsSubtitle: `Over ${STATS.yearsExperience} years of proven excellence`,
     benefits: [
       {
         icon: CheckCircle,
@@ -50,8 +51,8 @@ const copy = {
       },
       {
         icon: Star,
-        title: '5-star rating',
-        description: '200+ positive Google reviews'
+        title: 'Reviewed on Google',
+        description: 'Read our verified customer reviews'
       },
       {
         icon: ThumbsUp,
@@ -75,7 +76,7 @@ const copy = {
           'Negocio acreditado con calificación A+ por nuestro compromiso con la excelencia y la transparencia.',
         color: 'from-blue-600 to-blue-700',
         badge: 'A+ Rating',
-        image: '/images/BBB Accredited Business.png'
+        image: '/images/cert-bbb.webp'
       },
       {
         icon: Award,
@@ -85,7 +86,7 @@ const copy = {
           'Certificación profesional en tratamiento y calidad de agua reconocida internacionalmente.',
         color: 'from-cyan-600 to-teal-600',
         badge: 'Certified',
-        image: '/images/water-quality-association.png'
+        image: '/images/cert-wqa.webp'
       },
       {
         icon: Droplet,
@@ -95,11 +96,11 @@ const copy = {
           'Sistemas que producen agua alcalina para mejorar hidratación y bienestar general.',
         color: 'from-purple-600 to-blue-600',
         badge: 'pH 8-10',
-        image: '/images/Make Alkaline Water.png'
+        image: '/images/cert-alkaline.webp'
       }
     ],
     benefitsTitle: '¿Por Qué Confiar en Nosotros?',
-    benefitsSubtitle: 'Más de una década de excelencia comprobada',
+    benefitsSubtitle: `Mas de ${STATS.yearsExperience} anos de excelencia comprobada`,
     benefits: [
       {
         icon: CheckCircle,
@@ -108,8 +109,8 @@ const copy = {
       },
       {
         icon: Star,
-        title: 'Calificación 5 estrellas',
-        description: 'Más de 200 reseñas positivas en Google'
+        title: 'Valorados en Google',
+        description: 'Lee las resenas verificadas de nuestros clientes'
       },
       {
         icon: ThumbsUp,
@@ -163,13 +164,15 @@ export default function CertificationsSection() {
                         </div>
                       </div>
 
-                      <div className="w-20 h-20 p-2 rounded-3xl flex items-center justify-center mb-4 overflow-hidden bg-white/5 backdrop-blur-sm border border-white/15">
+                      <div className="w-20 h-20 p-2 rounded-2xl flex items-center justify-center mb-4 overflow-hidden bg-white border border-white/40 shadow-md">
                         <img
                           src={cert.image}
                           alt={cert.title}
+                          width="240"
+                          height="240"
                           className="w-full h-full object-contain"
                           loading="lazy"
-                          style={{ mixBlendMode: 'multiply' }}
+                          decoding="async"
                         />
                       </div>
 
@@ -221,12 +224,8 @@ export default function CertificationsSection() {
 
             <div className="text-center mt-10">
               <button
-                onClick={() =>
-                  window.open(
-                    getWhatsAppUrl(text.verifyMsg),
-                    '_blank'
-                  )
-                }
+                type="button"
+                onClick={() => openWhatsApp(text.verifyMsg, 'certificaciones')}
                 className="bg-white text-blue-900 px-10 py-4 rounded-xl hover:bg-blue-50 transition-all shadow-lg inline-flex items-center gap-2 text-lg"
               >
                 <WhatsAppIcon className="w-5 h-5 text-blue-900" />

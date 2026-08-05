@@ -1,0 +1,77 @@
+{
+  "hero-familia.webp": {
+    "width": 1400,
+    "height": 933,
+    "bytes": 57706
+  },
+  "servicio-filtracion.webp": {
+    "width": 900,
+    "height": 886,
+    "bytes": 32782
+  },
+  "servicio-pozo.webp": {
+    "width": 900,
+    "height": 900,
+    "bytes": 26692
+  },
+  "servicio-osmosis.webp": {
+    "width": 900,
+    "height": 886,
+    "bytes": 40660
+  },
+  "servicio-plomeria.webp": {
+    "width": 900,
+    "height": 900,
+    "bytes": 63634
+  },
+  "problema-olor-sabor.webp": {
+    "width": 700,
+    "height": 700,
+    "bytes": 14266
+  },
+  "problema-manchas-sarro.webp": {
+    "width": 700,
+    "height": 700,
+    "bytes": 36136
+  },
+  "problema-contaminantes.webp": {
+    "width": 700,
+    "height": 700,
+    "bytes": 24014
+  },
+  "cert-bbb.webp": {
+    "width": 240,
+    "height": 240,
+    "bytes": 12488
+  },
+  "cert-wqa.webp": {
+    "width": 240,
+    "height": 350,
+    "bytes": 14748
+  },
+  "cert-alkaline.webp": {
+    "width": 240,
+    "height": 240,
+    "bytes": 15188
+  },
+  "logo.webp": {
+    "width": 420,
+    "height": 74,
+    "bytes": 13476
+  },
+  "favicon.png": {
+    "width": 180,
+    "height": 180,
+    "bytes": 3806
+  },
+  "apple-touch-icon.png": {
+    "width": 180,
+    "height": 180,
+    "bytes": 3806
+  },
+  "og-image.jpg": {
+    "width": 1200,
+    "height": 630,
+    "bytes": 62050
+  }
+}

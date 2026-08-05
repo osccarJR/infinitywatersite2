@@ -1,5 +1,5 @@
 import WhatsAppIcon from './ui/WhatsAppIcon';
-import { getWhatsAppUrl } from '../constants/contactInfo';
+import { openWhatsApp } from '../lib/contactActions';
 import CallDropdown from './ui/CallDropdown';
 import { useLanguage } from '../i18n/LanguageProvider';
 
@@ -16,7 +16,7 @@ const copy = {
       label: 'WhatsApp',
       message: 'Hi, I need information'
     },
-    hours: 'Monday to Saturday: 8:00 AM - 6:00 PM',
+    hours: 'We answer 24 hours a day, 7 days a week',
     urgency: 'Only 15 spots left this week!'
   },
   es: {
@@ -31,7 +31,7 @@ const copy = {
       label: 'WhatsApp',
       message: 'Hola, necesito información'
     },
-    hours: 'Lunes a Sábado: 8:00 AM - 6:00 PM',
+    hours: 'Atendemos las 24 horas, los 7 dias de la semana',
     urgency: '¡Solo quedan 15 cupos esta semana!'
   }
 };
@@ -39,10 +39,6 @@ const copy = {
 export default function FinalCTA() {
   const { language } = useLanguage();
   const text = copy[language];
-
-  const handleWhatsApp = () => {
-    window.open(getWhatsAppUrl(text.whatsapp.message), '_blank');
-  };
 
   return (
     <section className="section-padding bg-gradient-to-br from-blue-600 via-cyan-500 to-blue-700 text-white relative overflow-hidden">
@@ -81,6 +77,7 @@ export default function FinalCTA() {
           <div className="flex flex-col sm:flex-row gap-6 justify-center mb-12">
             <CallDropdown
               label={text.callLabel}
+              location="cta-final"
               roundedClass="rounded-2xl"
               buttonClassName="w-full sm:w-[360px] justify-between text-slate-900 bg-white shadow-2xl hover:shadow-white/60 border-white/60 px-8 py-6 text-base gap-4 min-h-[90px] items-center"
               textClassName="text-slate-800"
@@ -88,7 +85,8 @@ export default function FinalCTA() {
             />
 
             <button
-              onClick={handleWhatsApp}
+              type="button"
+              onClick={() => openWhatsApp(text.whatsapp.message, 'cta-final')}
               className="group flex items-center justify-center gap-4 bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white px-12 py-7 rounded-2xl shadow-2xl hover:scale-105 transition-all duration-300 text-lg relative overflow-hidden"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />

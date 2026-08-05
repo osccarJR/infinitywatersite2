@@ -1,15 +1,16 @@
 import { useEffect, useState } from 'react';
 import { Shield, Award, Clock, ThumbsUp } from 'lucide-react';
+import { STATS } from '../constants/business';
 import { useLanguage } from '../i18n/LanguageProvider';
 
 const copy = {
   en: {
     title: 'Why Choose Us',
-    subtitle: 'Trusted by more than 5,000 families in Florida',
+    subtitle: `Trusted by more than ${STATS.homesServed.toLocaleString('en-US')} families in Florida`,
     benefits: [
       {
         icon: Award,
-        title: '10+ Years Experience',
+        title: `${STATS.yearsExperience}+ Years Experience`,
         description: 'Over a decade serving Florida homes'
       },
       {
@@ -36,11 +37,11 @@ const copy = {
   },
   es: {
     title: 'Por Qué Elegirnos',
-    subtitle: 'La confianza de más de 5000 familias en Florida',
+    subtitle: `La confianza de mas de ${STATS.homesServed.toLocaleString('en-US')} familias en Florida`,
     benefits: [
       {
         icon: Award,
-        title: '10+ Años de Experiencia',
+        title: `${STATS.yearsExperience}+ Anos de Experiencia`,
         description: 'Más de una década sirviendo hogares en Florida'
       },
       {
@@ -73,7 +74,7 @@ export default function BenefitsSection() {
   const [homesServed, setHomesServed] = useState(0);
 
   useEffect(() => {
-    const target = 5000;
+    const target = STATS.homesServed;
     const duration = 1400;
     let start;
     let frame;
@@ -138,7 +139,9 @@ export default function BenefitsSection() {
               <p className="text-blue-200">{text.stats.homes}</p>
             </div>
             <div className="text-center">
-              <p className="text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-2">10+</p>
+              <p className="text-5xl md:text-6xl text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-400 mb-2">
+                {STATS.yearsExperience}+
+              </p>
               <p className="text-blue-200">{text.stats.years}</p>
             </div>
             <div className="text-center">

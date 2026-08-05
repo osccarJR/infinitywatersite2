@@ -1,6 +1,6 @@
-import { createContext, useContext, useEffect, useMemo, useState } from 'react';
-
-const STORAGE_KEY = 'infinitywater-language';
+import { createContext, useCallback, useContext, useMemo } from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { getLanguageFromPath, swapLanguageInPath } from './routes';
 
 const LanguageContext = createContext({
   language: 'en',
@@ -8,25 +8,32 @@ const LanguageContext = createContext({
   setLanguage: () => {},
 });
 
+/**
+ * El idioma se deriva de la URL (ver routes.js), no de un estado interno.
+ * Asi la pagina en espanol es una direccion real que Google puede indexar
+ * y que el usuario puede compartir.
+ */
 export function LanguageProvider({ children }) {
-  const [language, setLanguage] = useState(() => {
-    if (typeof window === 'undefined') return 'en';
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    return stored === 'es' ? 'es' : 'en';
-  });
+  const location = useLocation();
+  const navigate = useNavigate();
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    window.localStorage.setItem(STORAGE_KEY, language);
-  }, [language]);
+  const language = getLanguageFromPath(location.pathname);
+
+  const setLanguage = useCallback(
+    (next) => {
+      if (next === language) return;
+      navigate(swapLanguageInPath(location.pathname, next) + location.hash);
+    },
+    [language, location.hash, location.pathname, navigate]
+  );
+
+  const toggleLanguage = useCallback(() => {
+    setLanguage(language === 'en' ? 'es' : 'en');
+  }, [language, setLanguage]);
 
   const value = useMemo(
-    () => ({
-      language,
-      toggleLanguage: () => setLanguage((prev) => (prev === 'en' ? 'es' : 'en')),
-      setLanguage,
-    }),
-    [language]
+    () => ({ language, toggleLanguage, setLanguage }),
+    [language, toggleLanguage, setLanguage]
   );
 
   return <LanguageContext.Provider value={value}>{children}</LanguageContext.Provider>;

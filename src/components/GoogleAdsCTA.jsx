@@ -1,6 +1,6 @@
 import { Gift, Clock, Check } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
-import { getWhatsAppUrl } from '../constants/contactInfo';
+import { openWhatsApp } from '../lib/contactActions';
 import CallDropdown from './ui/CallDropdown';
 import { useLanguage } from '../i18n/LanguageProvider';
 
@@ -86,15 +86,15 @@ export default function GoogleAdsCTA() {
               <div className="flex flex-col items-center gap-4">
                 <CallDropdown
                   label={text.callLabel}
+                  location="oferta"
                   buttonClassName="w-full md:w-[380px] justify-between text-slate-900 bg-white shadow-2xl hover:shadow-white/60 border-white/60 px-8 py-5 text-base gap-4 rounded-2xl"
                   textClassName="text-slate-800"
                   align="right"
                 />
 
                 <button
-                  onClick={() =>
-                    window.open(getWhatsAppUrl(text.whatsappMessage), '_blank')
-                  }
+                  type="button"
+                  onClick={() => openWhatsApp(text.whatsappMessage, 'oferta')}
                   className="w-full md:w-[380px] group relative bg-gradient-to-r from-green-600 to-emerald-700 hover:from-green-700 hover:to-emerald-800 text-white px-8 py-6 rounded-2xl shadow-2xl transition-all overflow-hidden flex items-center justify-center min-h-[90px]"
                 >
                   <div className="absolute inset-0 bg-gradient-to-r from-white/0 via-white/20 to-white/0 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000" />

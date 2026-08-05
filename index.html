@@ -4,98 +4,159 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-    <title>Infinity Water | Filtration Systems, Reverse Osmosis & Water Treatment in Florida</title>
-
+    <!--
+      Todo lo que hay entre seo:start y seo:end lo regenera el plugin de
+      vite.config.js una vez por ruta e idioma durante el build, para que
+      /es tenga sus propios metadatos en el HTML servido. Lo de aqui abajo
+      son los valores de la home en ingles, que es lo correcto en dev.
+      No mover ni renombrar los marcadores.
+    -->
+    <!--seo:start-->
+    <title>Infinity Water | Water Filtration, Reverse Osmosis &amp; Treatment in Florida</title>
     <meta
       name="description"
-      content="Infinity Water provides filtration systems, reverse osmosis, well-water treatment, and professional solutions for homes in Naples, Fort Myers, and Cape Coral. 24-hour installation."
+      content="Water filtration systems, reverse osmosis and well water treatment for homes in Naples, Fort Myers and Cape Coral. Free diagnosis, 24-hour installation, WQA certified."
     />
-
-    <meta
-      name="keywords"
-      content="water filtration, reverse osmosis, well treatment, water systems, alkaline water, filter installation, Florida, Naples, Cape Coral, Fort Myers"
-    />
-
-    <!-- Canonical -->
     <link rel="canonical" href="https://infinitywatersite.com/" />
-
-    <!-- Favicon -->
-    <link rel="icon" href="/images/favicon.png" type="image/png" />
-    <link rel="apple-touch-icon" href="/images/favicon.png" />
-    <meta name="theme-color" content="#0ea5e9" />
-
-    <!-- Open Graph -->
-    <meta property="og:site_name" content="Infinity Water" />
-    <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://infinitywatersite.com/" />
-    <meta property="og:title" content="Infinity Water | Professional Water Filtration & Treatment" />
+    <link rel="alternate" hreflang="en" href="https://infinitywatersite.com/" />
+    <link rel="alternate" hreflang="es" href="https://infinitywatersite.com/es" />
+    <link rel="alternate" hreflang="x-default" href="https://infinitywatersite.com/" />
+    <meta property="og:title" content="Infinity Water | Professional Water Filtration &amp; Treatment" />
     <meta
       property="og:description"
-      content="Professional solutions in water filtration, reverse osmosis, alkaline water, and well treatment. Certified service in Florida."
+      content="Free water diagnosis and 24-hour installation. Filtration, reverse osmosis, alkaline water and well treatment across Florida."
     />
-    <meta property="og:image" content="https://infinitywatersite.com/images/favicon.png" />
-    <meta property="og:image:width" content="512" />
-    <meta property="og:image:height" content="512" />
-    <meta property="og:image:alt" content="Infinity Water Logo" />
+    <meta property="og:url" content="https://infinitywatersite.com/" />
+    <meta property="og:image" content="https://infinitywatersite.com/images/og-image.jpg" />
     <meta property="og:locale" content="en_US" />
-
-    <!-- Twitter / WhatsApp / Discord preview -->
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="Infinity Water | Professional Water Filtration & Treatment" />
+    <meta name="twitter:title" content="Infinity Water | Professional Water Filtration &amp; Treatment" />
     <meta
       name="twitter:description"
-      content="Water filtration, reverse osmosis, alkaline water, and well treatment in Florida. 24h installation."
+      content="Free water diagnosis and 24-hour installation. Filtration, reverse osmosis, alkaline water and well treatment across Florida."
     />
-    <meta name="twitter:image" content="https://infinitywatersite.com/images/favicon.png" />
-    <meta name="twitter:image:alt" content="Infinity Water Logo" />
+    <meta name="twitter:image" content="https://infinitywatersite.com/images/og-image.jpg" />
+    <!--seo:end-->
 
-    <!-- JSON-LD Local Business -->
+    <meta name="keywords" content="water filtration, reverse osmosis, well water treatment, alkaline water, water softener, Naples FL, Fort Myers, Cape Coral, filtracion de agua, osmosis inversa" />
+
+    <link rel="icon" href="/images/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0ea5e9" />
+
+    <meta property="og:site_name" content="Infinity Water" />
+    <meta property="og:type" content="website" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Infinity Water - water filtration and treatment in Florida" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:image:alt" content="Infinity Water - water filtration and treatment in Florida" />
+
+    <!-- El navegador ya puede empezar a resolver Google Maps mientras parsea -->
+    <link rel="preconnect" href="https://www.google.com" />
+
+    <!-- Imagen del hero: es el Largest Contentful Paint de la pagina -->
+    <link rel="preload" as="image" href="/images/hero-familia.webp" fetchpriority="high" />
+
     <script type="application/ld+json">
     {
       "@context": "https://schema.org",
       "@type": "LocalBusiness",
+      "@id": "https://infinitywatersite.com/#business",
       "name": "Infinity Water",
-      "image": "https://infinitywatersite.com/images/favicon.png",
+      "image": "https://infinitywatersite.com/images/og-image.jpg",
+      "logo": "https://infinitywatersite.com/images/logo.webp",
       "url": "https://infinitywatersite.com/",
-      "telephone": "+1-239-223-5394",
+      "telephone": "+1-475-685-8464",
+      "email": "info@infinitywatersite.com",
+      "priceRange": "$$",
+      "currenciesAccepted": "USD",
       "address": {
         "@type": "PostalAddress",
-        "addressCountry": "US",
-        "addressRegion": "Florida",
-        "addressLocality": "Naples"
+        "streetAddress": "3940 Metro Pkwy",
+        "addressLocality": "Fort Myers",
+        "addressRegion": "FL",
+        "postalCode": "33916",
+        "addressCountry": "US"
       },
-      "description": "Installation of filtration systems, reverse osmosis, and well-water treatment. Professional service in Naples, Fort Myers, and Cape Coral.",
-      "areaServed": ["Naples", "Fort Myers", "Cape Coral", "Bonita Springs"],
-      "openingHours": "Mo-Sa 08:00-18:00"
-    }
-    </script>
-
-    <!-- JSON-LD Site -->
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      "url": "https://infinitywatersite.com/",
-      "name": "Infinity Water",
-      "potentialAction": {
-        "@type": "SearchAction",
-        "target": "https://infinitywatersite.com/search?q={search_term_string}",
-        "query-input": "required name=search_term_string"
+      "geo": {
+        "@type": "GeoCoordinates",
+        "latitude": 26.6020736,
+        "longitude": -81.8608
+      },
+      "description": "Installation of water filtration systems, reverse osmosis and well water treatment. Certified service across Florida and additional states.",
+      "areaServed": [
+        { "@type": "State", "name": "Florida" },
+        { "@type": "City", "name": "Naples" },
+        { "@type": "City", "name": "Fort Myers" },
+        { "@type": "City", "name": "Cape Coral" },
+        { "@type": "City", "name": "Bonita Springs" },
+        { "@type": "City", "name": "Miami" },
+        { "@type": "City", "name": "Orlando" },
+        { "@type": "City", "name": "Tampa" },
+        { "@type": "State", "name": "Connecticut" },
+        { "@type": "State", "name": "New York" },
+        { "@type": "State", "name": "New Jersey" },
+        { "@type": "State", "name": "Massachusetts" },
+        { "@type": "State", "name": "Pennsylvania" },
+        { "@type": "State", "name": "Virginia" },
+        { "@type": "State", "name": "Washington" },
+        { "@type": "State", "name": "Maryland" },
+        { "@type": "State", "name": "Arizona" },
+        { "@type": "State", "name": "North Carolina" },
+        { "@type": "State", "name": "Georgia" }
+      ],
+      "openingHoursSpecification": [
+        {
+          "@type": "OpeningHoursSpecification",
+          "dayOfWeek": [
+            "Monday", "Tuesday", "Wednesday", "Thursday",
+            "Friday", "Saturday", "Sunday"
+          ],
+          "opens": "00:00",
+          "closes": "23:59"
+        }
+      ],
+      "contactPoint": [
+        {
+          "@type": "ContactPoint",
+          "telephone": "+1-475-685-8464",
+          "contactType": "customer service",
+          "availableLanguage": ["en", "es"],
+          "areaServed": "US"
+        },
+        {
+          "@type": "ContactPoint",
+          "telephone": "+1-239-223-5394",
+          "contactType": "technical support",
+          "availableLanguage": ["en", "es"],
+          "areaServed": "US"
+        }
+      ],
+      "hasOfferCatalog": {
+        "@type": "OfferCatalog",
+        "name": "Water treatment services",
+        "itemListElement": [
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Whole-home water filtration systems" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Specialized well water treatment" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Premium reverse osmosis" } },
+          { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Plumbing and maintenance" } }
+        ]
       }
     }
     </script>
 
-    <!-- Preload logo -->
-    <link
-      rel="preload"
-      as="image"
-      href="/images/logo.png"
-      imagesrcset="/images/logo.png 800w, /images/logo.png 1400w"
-      imagesizes="100vw"
-      fetchpriority="high"
-    />
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "@id": "https://infinitywatersite.com/#website",
+      "url": "https://infinitywatersite.com/",
+      "name": "Infinity Water",
+      "inLanguage": ["en", "es"],
+      "publisher": { "@id": "https://infinitywatersite.com/#business" }
+    }
+    </script>
 
-    <!-- React/Vite -->
     <script type="module" src="/src/main.jsx"></script>
   </head>
 

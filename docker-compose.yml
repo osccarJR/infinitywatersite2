@@ -1,15 +1,35 @@
 services:
-  tschool-dev:
-    container_name: tschool_dev
-    build:
-      context: .
-      dockerfile: Dockerfile
+  # Desarrollo con recarga en caliente: docker compose up dev
+  dev:
+    container_name: infinitywater_dev
+    image: node:20-alpine
     working_dir: /app
+    command: sh -c "npm install && npm run dev -- --host"
     volumes:
       - .:/app:cached
       - /app/node_modules
     ports:
-      - "5173:5173"
+      - '5173:5173'
     environment:
       - NODE_ENV=development
-    command: ["npm", "run", "dev", "--", "--host"]
+
+  # Produccion: docker compose --profile prod up --build web
+  web:
+    container_name: infinitywater_web
+    profiles: ['prod']
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        VITE_GTM_ID: ${VITE_GTM_ID:-}
+        VITE_GA4_ID: ${VITE_GA4_ID:-}
+        VITE_GOOGLE_ADS_ID: ${VITE_GOOGLE_ADS_ID:-}
+        VITE_ADS_CONVERSION_LABEL_CALL: ${VITE_ADS_CONVERSION_LABEL_CALL:-}
+        VITE_ADS_CONVERSION_LABEL_WHATSAPP: ${VITE_ADS_CONVERSION_LABEL_WHATSAPP:-}
+        VITE_ADS_CONVERSION_LABEL_FORM: ${VITE_ADS_CONVERSION_LABEL_FORM:-}
+        VITE_REVIEWS_ENDPOINT: ${VITE_REVIEWS_ENDPOINT:-}
+        VITE_GOOGLE_PLACES_API_KEY: ${VITE_GOOGLE_PLACES_API_KEY:-}
+        VITE_GOOGLE_PLACE_ID: ${VITE_GOOGLE_PLACE_ID:-}
+    ports:
+      - '8080:80'
+    restart: unless-stopped

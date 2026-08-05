@@ -1,6 +1,6 @@
 import { Home, Droplets, Filter, Wrench, Sparkles } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
-import { PRIMARY_PHONE, getWhatsAppUrl } from '../constants/contactInfo';
+import { openWhatsApp } from '../lib/contactActions';
 import { useLanguage } from '../i18n/LanguageProvider';
 
 const copy = {
@@ -17,7 +17,7 @@ const copy = {
         title: 'Whole-Home Filtration Systems',
         description:
           'High-tech filtration for the entire house. Removes contaminants, chlorine, and sediments with WQA certification.',
-        image: '/images/sistemas-filtracion-completos.png',
+        image: '/images/servicio-filtracion.webp',
         features: [
           'Removes 99% of contaminants',
           'Protects appliances',
@@ -32,7 +32,7 @@ const copy = {
         title: 'Specialized Well Treatment',
         description:
           'Solutions for iron, sulfur, and extreme hardness. Professional analysis and fast start-up.',
-        image: '/images/tratamiento-especializado-pozo.png',
+        image: '/images/servicio-pozo.webp',
         features: [
           'Eliminates iron and sulfur',
           'Reduces TDS and hardness',
@@ -47,7 +47,7 @@ const copy = {
         title: 'Premium Reverse Osmosis',
         description:
           '99.9% purification under counter or whole-home. Alkaline water pH 8-10 ready to drink.',
-        image: '/images/osmosis-premium.png',
+        image: '/images/servicio-osmosis.webp',
         features: [
           '99.9% purity',
           'Alkaline water included',
@@ -62,7 +62,7 @@ const copy = {
         title: 'Plumbing & Maintenance',
         description:
           'Installation, repair, and maintenance of water systems by licensed technicians.',
-        image: '/images/plomeria-mantenimiento.png',
+        image: '/images/servicio-plomeria.webp',
         features: [
           'Licensed technicians',
           'Same-day service',
@@ -89,7 +89,7 @@ const copy = {
         title: 'Sistemas de Filtración Completos',
         description:
           'Filtración de alta tecnología para toda la casa. Elimina contaminantes, cloro y sedimentos con certificación WQA.',
-        image: '/images/sistemas-filtracion-completos.png',
+        image: '/images/servicio-filtracion.webp',
         features: [
           'Elimina contaminantes 99%',
           'Protege electrodomésticos',
@@ -104,7 +104,7 @@ const copy = {
         title: 'Tratamiento Especializado de Pozo',
         description:
           'Soluciones para hierro, azufre y dureza extrema. Análisis profesional y puesta en marcha rápida.',
-        image: '/images/tratamiento-especializado-pozo.png',
+        image: '/images/servicio-pozo.webp',
         features: [
           'Elimina hierro y azufre',
           'Reduce TDS y dureza',
@@ -119,7 +119,7 @@ const copy = {
         title: 'Ósmosis Inversa Premium',
         description:
           'Purificación 99.9% bajo counter o para toda la casa. Agua alcalina pH 8-10 lista para beber.',
-        image: '/images/osmosis-premium.png',
+        image: '/images/servicio-osmosis.webp',
         features: [
           'Pureza 99.9%',
           'Agua alcalina incluida',
@@ -134,7 +134,7 @@ const copy = {
         title: 'Plomería y Mantenimiento',
         description:
           'Instalación, reparación y mantenimiento de sistemas de agua por técnicos licenciados.',
-        image: '/images/plomeria-mantenimiento.png',
+        image: '/images/servicio-plomeria.webp',
         features: [
           'Técnicos licenciados',
           'Servicio mismo día',
@@ -200,7 +200,11 @@ export default function ServicesSection() {
                       <img
                         src={service.image}
                         alt={service.title}
+                        width="900"
+                        height="900"
                         className="w-full h-full object-contain p-8 group-hover:scale-105 transition-transform duration-500"
+                        loading="lazy"
+                        decoding="async"
                       />
 
                       <div
@@ -237,13 +241,11 @@ export default function ServicesSection() {
                       </div>
 
                       <button
+                        type="button"
                         onClick={() =>
-                          window.open(
-                            getWhatsAppUrl(
-                              `${language === 'en' ? 'Information about' : 'Información sobre'} ${service.title}`,
-                              PRIMARY_PHONE
-                            ),
-                            '_blank'
+                          openWhatsApp(
+                            `${language === 'en' ? 'Information about' : 'Informacion sobre'} ${service.title}`,
+                            'servicios'
                           )
                         }
                         className={`w-full bg-gradient-to-r ${service.gradient} hover:opacity-90 text-white py-5 rounded-xl shadow-lg transition-all duration-300 flex items-center justify-center gap-2 group text-lg`}

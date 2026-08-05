@@ -1,6 +1,6 @@
 import { AlertTriangle, Phone, Droplets, Zap, Shield } from 'lucide-react';
 import WhatsAppIcon from './ui/WhatsAppIcon';
-import { PRIMARY_PHONE, getWhatsAppUrl } from '../constants/contactInfo';
+import { openWhatsApp } from '../lib/contactActions';
 import CallDropdown from './ui/CallDropdown';
 import { useLanguage } from '../i18n/LanguageProvider';
 
@@ -17,7 +17,7 @@ const copy = {
         description:
           'Sulfur smell, metallic taste, or chlorine that bothers you when drinking or cooking.',
         badge: 'Free sample',
-        image: '/images/Agua%20con%20mal%20olor%20o%20sabor.png',
+        image: '/images/problema-olor-sabor.webp',
         color: 'from-blue-500/15 to-cyan-200/30'
       },
       {
@@ -26,7 +26,7 @@ const copy = {
         description:
           'Scale on faucets, stained clothes, and appliances damaged by hardness.',
         badge: 'Fast installation',
-        image: '/images/Manchas%20y%20sarro%20en%20la%20casa.png',
+        image: '/images/problema-manchas-sarro.webp',
         color: 'from-orange-400/15 to-amber-200/30'
       },
       {
@@ -35,7 +35,7 @@ const copy = {
         description:
           'Heavy metals, bacteria, or sediments that harm health and pipes.',
         badge: 'Certified equipment',
-        image: '/images/Contaminantes%20invisibles.png',
+        image: '/images/problema-contaminantes.webp',
         color: 'from-purple-500/15 to-indigo-200/30'
       }
     ],
@@ -58,7 +58,7 @@ const copy = {
         description:
           'Olor a azufre, sabor metálico o cloro que incomoda al beber o cocinar.',
         badge: 'Muestra gratis',
-        image: '/images/Agua%20con%20mal%20olor%20o%20sabor.png',
+        image: '/images/problema-olor-sabor.webp',
         color: 'from-blue-500/15 to-cyan-200/30'
       },
       {
@@ -67,7 +67,7 @@ const copy = {
         description:
           'Sarro en grifos, ropa manchada y electrodomésticos dañados por dureza.',
         badge: 'Instalación rápida',
-        image: '/images/Manchas%20y%20sarro%20en%20la%20casa.png',
+        image: '/images/problema-manchas-sarro.webp',
         color: 'from-orange-400/15 to-amber-200/30'
       },
       {
@@ -76,7 +76,7 @@ const copy = {
         description:
           'Metales pesados, bacterias o sedimentos que dañan la salud y tuberías.',
         badge: 'Equipo certificado',
-        image: '/images/Contaminantes%20invisibles.png',
+        image: '/images/problema-contaminantes.webp',
         color: 'from-purple-500/15 to-indigo-200/30'
       }
     ],
@@ -122,8 +122,11 @@ export default function ProblemsSection() {
                     <img
                       src={problem.image}
                       alt={problem.title}
+                      width="700"
+                      height="700"
                       className="w-full h-full object-cover"
                       loading="lazy"
+                      decoding="async"
                     />
                     <div className="absolute inset-0 bg-gradient-to-b from-black/15 via-black/5 to-transparent" />
                     <span className="absolute top-2 right-2 bg-orange-100 text-orange-700 text-[11px] px-3 py-1 rounded-full border border-orange-200 shadow-sm">
@@ -158,18 +161,15 @@ export default function ProblemsSection() {
             <div className="flex flex-col sm:flex-row gap-2 w-full md:w-auto">
               <CallDropdown
                 label={language === 'en' ? 'Call' : 'Llamar'}
+                location="problemas"
                 buttonClassName="flex-1 sm:flex-none text-blue-900 border-blue-200 hover:bg-blue-50 justify-center"
                 textClassName="text-blue-900"
                 align="left"
               />
 
               <button
-                onClick={() =>
-                  window.open(
-                    getWhatsAppUrl(text.cta.whatsapp, PRIMARY_PHONE),
-                    '_blank'
-                  )
-                }
+                type="button"
+                onClick={() => openWhatsApp(text.cta.whatsapp, 'problemas')}
                 className="flex-1 sm:flex-none inline-flex items-center justify-center gap-2 bg-emerald-500 text-white px-4 py-2.5 rounded-lg shadow-md hover:-translate-y-0.5 transition-all text-sm font-semibold"
               >
                 <WhatsAppIcon className="w-4 h-4" />

@@ -1,4 +1,5 @@
 import { Headphones, Clock, Shield, Award } from 'lucide-react';
+import { STATS } from '../constants/business';
 import { useLanguage } from '../i18n/LanguageProvider';
 
 const copy = {
@@ -6,7 +7,7 @@ const copy = {
     badge: 'Premium Support',
     title: 'Service & Care',
     subtitle: "Total commitment to our customers' satisfaction",
-    subtitle2: 'Backed by 10+ years of excellence',
+    subtitle2: `Backed by ${STATS.yearsExperience}+ years of excellence`,
     features: [
       {
         icon: Clock,
@@ -34,8 +35,8 @@ const copy = {
       }
     ],
     stats: [
-      { value: '10+', label: 'Years of Experience' },
-      { value: '1000+', label: 'Satisfied Clients' },
+      { value: `${STATS.yearsExperience}+`, label: 'Years of Experience' },
+      { value: `${STATS.homesServed.toLocaleString('en-US')}+`, label: 'Satisfied Clients' },
       { value: '100%', label: 'Guarantee' },
       { value: 'A+', label: 'BBB Rating' }
     ]
@@ -44,7 +45,7 @@ const copy = {
     badge: 'Atención Premium',
     title: 'Servicio y Atención',
     subtitle: 'Compromiso total con la satisfacción de nuestros clientes',
-    subtitle2: 'Respaldado por más de 10 años de excelencia',
+    subtitle2: `Respaldado por mas de ${STATS.yearsExperience} anos de excelencia`,
     features: [
       {
         icon: Clock,
@@ -72,9 +73,9 @@ const copy = {
       }
     ],
     stats: [
-      { value: '10+', label: 'Años de Experiencia' },
-      { value: '1000+', label: 'Clientes Satisfechos' },
-      { value: '100%', label: 'Garantía' },
+      { value: `${STATS.yearsExperience}+`, label: 'Anos de Experiencia' },
+      { value: `${STATS.homesServed.toLocaleString('en-US')}+`, label: 'Clientes Satisfechos' },
+      { value: '100%', label: 'Garantia' },
       { value: 'A+', label: 'Rating BBB' }
     ]
   }
