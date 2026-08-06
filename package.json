@@ -6,7 +6,7 @@
   "description": "Sitio web de Infinity Water - filtracion, osmosis inversa y tratamiento de agua en Florida",
   "scripts": {
     "dev": "vite --host",
-    "build": "vite build",
+    "build": "vite build && node scripts/prerender.mjs",
     "preview": "vite preview --host",
     "lint": "eslint .",
     "optimize:images": "node scripts/optimize-images.mjs",
