@@ -50,6 +50,51 @@ export const PAGE_META = {
         'Como Infinity Water recopila, usa y protege la informacion personal que compartes con nosotros a traves de este sitio, llamadas y WhatsApp.',
     },
   },
+  terms: {
+    path: { en: '/terms-and-conditions', es: '/es/terminos-y-condiciones' },
+    en: {
+      title: 'Terms & Conditions | Infinity Water',
+      description:
+        'Terms governing the use of infinitywatersite.com and the Infinity Water SMS program operated by Global Innovation LLC d/b/a Infinity Water.',
+    },
+    es: {
+      title: 'Terminos y Condiciones | Infinity Water',
+      description:
+        'Terminos que rigen el uso de infinitywatersite.com y el programa de SMS de Infinity Water, operado por Global Innovation LLC d/b/a Infinity Water.',
+    },
+  },
+  freeWaterTest: {
+    path: { en: '/free-water-test', es: '/es/analisis-de-agua-gratis' },
+    en: {
+      title: 'Free Water Test | Infinity Water',
+      description:
+        'Request your free home water analysis in Florida. Tell us whether your home uses well water or city water and we will coordinate the visit. No obligation to purchase.',
+      ogTitle: 'Request your free home water analysis',
+      ogDescription:
+        'Free water test for homes in Florida. Well water or city water, we will tell you exactly what is in it.',
+    },
+    es: {
+      title: 'Analisis de Agua Gratis | Infinity Water',
+      description:
+        'Solicita tu analisis de agua gratuito en casa en Florida. Dinos si tu hogar recibe agua de pozo o de ciudad y coordinamos la visita. Sin compromiso de compra.',
+      ogTitle: 'Solicita tu analisis de agua gratuito',
+      ogDescription:
+        'Analisis de agua gratis para hogares en Florida. Agua de pozo o de ciudad, te decimos exactamente que contiene.',
+    },
+  },
+  contact: {
+    path: { en: '/contact', es: '/es/contacto' },
+    en: {
+      title: 'Contact | Infinity Water',
+      description:
+        'Contact Infinity Water in Fort Myers, Florida. Phone, email and address for water filtration, reverse osmosis and well water treatment.',
+    },
+    es: {
+      title: 'Contacto | Infinity Water',
+      description:
+        'Contacta con Infinity Water en Fort Myers, Florida. Telefono, correo y direccion para filtracion de agua, osmosis inversa y tratamiento de pozo.',
+    },
+  },
   notFound: {
     // No entra en el sitemap ni en el build estatico: solo se resuelve en
     // el navegador cuando el router no reconoce la URL.

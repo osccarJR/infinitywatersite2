@@ -10,9 +10,18 @@
 export const LANGUAGES = ['en', 'es'];
 export const DEFAULT_LANGUAGE = 'en';
 
+/**
+ * Las rutas en ingles de privacy, terms, freeWaterTest y contact son las que
+ * se declaran en el registro A2P 10DLC y las que revisa Twilio o la
+ * operadora. No renombrarlas sin actualizar el registro: si una devuelve 404
+ * o redirige a la portada, la campana se rechaza.
+ */
 export const ROUTES = {
   home: { en: '/', es: '/es' },
   privacy: { en: '/privacy-policy', es: '/es/politica-de-privacidad' },
+  terms: { en: '/terms-and-conditions', es: '/es/terminos-y-condiciones' },
+  freeWaterTest: { en: '/free-water-test', es: '/es/analisis-de-agua-gratis' },
+  contact: { en: '/contact', es: '/es/contacto' },
 };
 
 const stripTrailingSlash = (pathname) =>

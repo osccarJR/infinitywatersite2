@@ -178,13 +178,93 @@ la versión en inglés (ver [`nginx.conf`](nginx.conf)).
 
 ---
 
+## Cumplimiento A2P 10DLC
+
+El sitio esta preparado para registrar una campana A2P 10DLC con Twilio o
+GoHighLevel, segun la especificacion del 5 de agosto de 2026.
+
+### Las cuatro URLs que revisa la operadora
+
+Deben devolver HTTP 200, contenido propio y distinto, y no redirigir:
+
+| URL | Contenido |
+|---|---|
+| `/privacy-policy` | Politica de privacidad con la clausula de opt-in SMS |
+| `/terms-and-conditions` | Terminos del programa de SMS |
+| `/free-water-test` | Formulario con los dos consentimientos |
+| `/contact` | Identidad, direccion y datos de contacto |
+
+Cada una tiene su equivalente en espanol bajo `/es/`. Las paginas legales en
+espanol incluyen ademas el texto completo en ingles, porque la revision se
+hace en Estados Unidos.
+
+### Identidad
+
+Se declara **Global Innovation LLC d/b/a Infinity Water** en el pie de todas
+las paginas, en las paginas legales y en el JSON-LD. La direccion publicada
+es exactamente `3940 Metro Pkwy., Fort Myers, FL 33916`. Todo esto vive en
+[`src/constants/business.js`](src/constants/business.js) y debe coincidir
+letra por letra con lo declarado en el registro A2P.
+
+### Consentimiento
+
+Los textos estan en [`src/constants/consent.js`](src/constants/consent.js),
+separados del componente a proposito: el texto exacto que ve el usuario se
+guarda como evidencia con cada envio, y tenerlo en un solo sitio impide que
+lo mostrado y lo guardado se separen.
+
+Reglas que [`LeadForm`](src/components/LeadForm.jsx) garantiza por
+construccion:
+
+- Dos casillas independientes, ambas opcionales y desmarcadas.
+- `validate()` no mira las casillas, asi que el formulario se envia sin ellas.
+- Los enlaces legales abren en pestana nueva para no perder lo escrito.
+- Si el envio falla no se muestra confirmacion: se ofrece telefono y correo.
+
+**Si se cambia una sola palabra de un consentimiento hay que subir
+`CONSENT_VERSION`** en `business.js`. Nunca sobrescribir la evidencia
+historica: es lo que demuestra que esa persona consintio a ese texto.
+
+### Evidencia
+
+[`src/lib/leadCapture.js`](src/lib/leadCapture.js) construye el registro que
+se envia a `VITE_LEAD_WEBHOOK_URL`: datos de contacto, telefono en E.164,
+estado independiente de cada casilla, texto y version del consentimiento,
+fecha/hora con zona horaria, URL de origen, UTMs, `fbclid`/`fbc`/`fbp`,
+`seller` e identificador unico de envio.
+
+La atribucion se captura al entrar al sitio y se guarda en `sessionStorage`,
+porque los parametros de campana se pierden en cuanto el usuario navega.
+
+**La IP la registra el receptor del webhook** a partir de la peticion, que es
+lo fiable. Si tu receptor no lo hace, define `VITE_IP_LOOKUP_URL`.
+
+### Punto unico de captura
+
+`/free-water-test` y el bloque de la portada montan el mismo componente. La
+especificacion prohibe un segundo formulario que recoja telefono sin las
+mismas casillas, por eso `/contact` no lleva formulario: enlaza al de
+siempre.
+
+### Lo que falta para poder presentar la campana
+
+1. **`VITE_LEAD_WEBHOOK_URL`**: sin esto no se guarda ninguna evidencia y el
+   formulario devuelve error a proposito.
+2. **`VITE_SMS_PHONE_NUMBER`**: mientras este vacio no se muestra en ningun
+   sitio. La campana no se presenta hasta que la web muestre el numero exacto
+   que originara los mensajes.
+
+---
+
 ## Pendiente / a revisar
 
-- **Política de privacidad**: [`src/pages/PrivacyPolicyPage.jsx`](src/pages/PrivacyPolicyPage.jsx)
-  es una base honesta sobre lo que el sitio realmente hace, pero conviene que la
-  revise un abogado en Florida antes de darla por definitiva.
-- **Correo de contacto**: se usa `info@infinitywatersite.com` (coincide con el
-  dominio). Si el buzón real es otro, cambiarlo en `src/constants/business.js`.
+- **Textos legales**: el inglés es el que fija la especificación A2P y no debe
+  reescribirse por estilo. Aun así conviene que un abogado en Florida los revise
+  antes de darlos por definitivos.
+- **Correo de contacto**: se publica `g.innovar@gmail.com`, tal y como fija la
+  especificación A2P. Debe estar operativo: los revisores escriben a esa
+  dirección. Un correo del propio dominio daría mejor impresión en la revisión,
+  pero eso es decisión del negocio.
 - **Reseñas**: hace falta el Place ID de Google para activar la sección.
 
 ---

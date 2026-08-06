@@ -7,10 +7,14 @@ import FloatingButtons from './components/FloatingButtons';
 import Seo from './components/Seo';
 import HomePage from './pages/HomePage';
 import PrivacyPolicyPage from './pages/PrivacyPolicyPage';
+import TermsPage from './pages/TermsPage';
+import FreeWaterTestPage from './pages/FreeWaterTestPage';
+import ContactPage from './pages/ContactPage';
 import NotFoundPage from './pages/NotFoundPage';
 import { ROUTES, getRouteKeyFromPath } from './i18n/routes';
 import { useLanguage } from './i18n/LanguageProvider';
 import { initAnalytics } from './lib/analytics';
+import { initAttribution } from './lib/leadCapture';
 
 /**
  * Restaura la posicion de scroll al cambiar de ruta, y respeta el ancla
@@ -46,6 +50,12 @@ export default function App() {
   const { language } = useLanguage();
   const { pathname } = useLocation();
   const routeKey = getRouteKeyFromPath(pathname) ?? 'notFound';
+
+  // La atribucion se captura de inmediato: los parametros de campana estan
+  // en la URL de entrada y se pierden en cuanto el usuario navega.
+  useEffect(() => {
+    initAttribution();
+  }, []);
 
   // Los scripts de terceros se cargan despues del primer render para no
   // competir con el contenido por el ancho de banda inicial.
@@ -85,6 +95,12 @@ export default function App() {
             <Route path={ROUTES.home.es} element={<HomePage />} />
             <Route path={ROUTES.privacy.en} element={<PrivacyPolicyPage />} />
             <Route path={ROUTES.privacy.es} element={<PrivacyPolicyPage />} />
+            <Route path={ROUTES.terms.en} element={<TermsPage />} />
+            <Route path={ROUTES.terms.es} element={<TermsPage />} />
+            <Route path={ROUTES.freeWaterTest.en} element={<FreeWaterTestPage />} />
+            <Route path={ROUTES.freeWaterTest.es} element={<FreeWaterTestPage />} />
+            <Route path={ROUTES.contact.en} element={<ContactPage />} />
+            <Route path={ROUTES.contact.es} element={<ContactPage />} />
             <Route path="*" element={<NotFoundPage />} />
           </Routes>
         </main>

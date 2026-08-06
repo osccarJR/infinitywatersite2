@@ -6,13 +6,26 @@ import {
   ADDRESS_LINE_2,
   EMAIL,
   GOOGLE_MAPS_EMBED,
+  IDENTITY_STATEMENT,
+  LEGAL_ENTITY_DBA,
   PHONE_NUMBERS,
+  SMS_PHONE_NUMBER,
   STATS,
+  SUPPORT_PHONE,
 } from '../constants/business';
 import { callNumber, openWhatsApp } from '../lib/contactActions';
 import { localizedPath } from '../i18n/routes';
 import { useLanguage } from '../i18n/LanguageProvider';
 
+/**
+ * Pie global.
+ *
+ * Un revisor de A2P 10DLC comprueba aqui, en cualquier pagina, que la
+ * entidad legal, la marca, la direccion y los enlaces legales existen y son
+ * coherentes con lo declarado en el registro de la campana. Por eso el pie
+ * lleva la entidad completa y los cuatro enlaces obligatorios, no solo el
+ * nombre comercial.
+ */
 const copy = {
   en: {
     description: `Water treatment specialists with over ${STATS.yearsExperience} years serving homes in Florida.`,
@@ -22,9 +35,16 @@ const copy = {
     writeWhatsApp: 'Message on WhatsApp',
     whatsappMessage: 'Hi, I need help with my water',
     mapTitle: 'Infinity Water location on Google Maps',
-    rights: `© ${new Date().getFullYear()} Infinity Water. All rights reserved.`,
+    supportLabel: 'Customer support',
+    smsLabel: 'Text/SMS',
+    rights: `© ${new Date().getFullYear()} Infinity Water.`,
     design: 'Designed by',
-    privacy: 'Privacy Policy',
+    links: {
+      privacy: 'Privacy Policy',
+      terms: 'Terms & Conditions',
+      contact: 'Contact',
+      freeWaterTest: 'Free Water Test',
+    },
   },
   es: {
     description: `Especialistas en tratamiento de agua con mas de ${STATS.yearsExperience} anos sirviendo hogares en Florida.`,
@@ -34,15 +54,29 @@ const copy = {
     writeWhatsApp: 'Escribir por WhatsApp',
     whatsappMessage: 'Hola, necesito ayuda con el agua de mi casa',
     mapTitle: 'Ubicacion de Infinity Water en Google Maps',
-    rights: `© ${new Date().getFullYear()} Infinity Water. Todos los derechos reservados.`,
+    supportLabel: 'Atencion al cliente',
+    smsLabel: 'Texto/SMS',
+    rights: `© ${new Date().getFullYear()} Infinity Water.`,
     design: 'Disenado por',
-    privacy: 'Politica de Privacidad',
+    links: {
+      privacy: 'Politica de Privacidad',
+      terms: 'Terminos y Condiciones',
+      contact: 'Contacto',
+      freeWaterTest: 'Analisis de Agua Gratis',
+    },
   },
 };
 
 export default function Footer() {
   const { language } = useLanguage();
   const text = copy[language];
+
+  const legalLinks = [
+    { key: 'privacy', route: 'privacy' },
+    { key: 'terms', route: 'terms' },
+    { key: 'contact', route: 'contact' },
+    { key: 'freeWaterTest', route: 'freeWaterTest' },
+  ];
 
   return (
     <footer className="bg-slate-950 text-white pt-16 pb-10">
@@ -82,7 +116,12 @@ export default function Footer() {
                       <span className="w-10 h-10 bg-blue-900/50 rounded-lg flex items-center justify-center group-hover:bg-cyan-500/20 transition-colors shrink-0">
                         <Phone className="w-5 h-5" aria-hidden="true" />
                       </span>
-                      {phone.display}
+                      <span>
+                        {phone.display}
+                        {phone.tel === SUPPORT_PHONE.tel && (
+                          <span className="block text-[11px] text-slate-500">{text.supportLabel}</span>
+                        )}
+                      </span>
                     </a>
                   </li>
                 ))}
@@ -138,16 +177,60 @@ export default function Footer() {
             </div>
           </div>
 
-          <div className="border-t border-slate-800 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
-            <div className="flex flex-col sm:flex-row items-center gap-x-4 gap-y-2 text-sm text-slate-500">
-              <p>{text.rights}</p>
-              <Link
-                to={localizedPath('privacy', language)}
-                className="text-slate-400 hover:text-cyan-300 underline underline-offset-4"
-              >
-                {text.privacy}
-              </Link>
+          {/* ------------------------------------------------------------
+              Bloque de identidad legal. Es lo que revisa la operadora:
+              entidad + marca + direccion + contacto + enlaces legales,
+              visible en todas las paginas y sin ocultarse tras un menu.
+              ------------------------------------------------------------ */}
+          <div className="border-t border-slate-800 pt-8 space-y-4">
+            <div className="text-slate-300 space-y-1">
+              <p className="font-semibold text-white">{LEGAL_ENTITY_DBA}</p>
+              <p className="text-sm text-slate-400">{IDENTITY_STATEMENT[language]}</p>
+              <p className="text-sm">
+                {ADDRESS_LINE_1}, {ADDRESS_LINE_2}
+              </p>
+              <p className="text-sm">
+                <a href={`mailto:${EMAIL}`} className="hover:text-cyan-300 break-all">
+                  {EMAIL}
+                </a>
+                {' · '}
+                <a href={`tel:${SUPPORT_PHONE.tel}`} className="hover:text-cyan-300">
+                  {text.supportLabel}: {SUPPORT_PHONE.display}
+                </a>
+                {SMS_PHONE_NUMBER && (
+                  <>
+                    {' · '}
+                    <span>
+                      {text.smsLabel}: {SMS_PHONE_NUMBER}
+                    </span>
+                  </>
+                )}
+              </p>
             </div>
+
+            <nav aria-label={text.links.privacy}>
+              <ul className="flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+                {legalLinks.map((link, index) => (
+                  <li key={link.key} className="flex items-center gap-3">
+                    <Link
+                      to={localizedPath(link.route, language)}
+                      className="text-slate-300 hover:text-cyan-300 underline underline-offset-4"
+                    >
+                      {text.links[link.key]}
+                    </Link>
+                    {index < legalLinks.length - 1 && (
+                      <span className="text-slate-600" aria-hidden="true">
+                        ·
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </nav>
+          </div>
+
+          <div className="border-t border-slate-800 mt-8 pt-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <p className="text-slate-500 text-sm">{text.rights}</p>
 
             <p className="flex items-center gap-3 text-sm text-slate-400">
               <Cloud className="w-5 h-5 text-cyan-300" aria-hidden="true" />
