@@ -11,7 +11,7 @@
  * cambiar ninguno de estos valores sin actualizar tambien el registro A2P.
  */
 
-export const SITE_URL = 'https://infinitywatersite.com';
+export const SITE_URL = 'https://www.infinitywatersite.com';
 
 /** Entidad legal registrada. Es la que responde ante las operadoras. */
 export const LEGAL_ENTITY = 'Global Innovation LLC';

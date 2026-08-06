@@ -12,13 +12,17 @@ Infinity Water"* del 5 de agosto de 2026.
 
 ## 1–5. URLs finales
 
-| # | Página | URL | Estado |
-|---|---|---|---|
-| 1 | Portada | https://www.infinitywatersite.com/ | Publicada |
-| 2 | Privacy Policy | https://www.infinitywatersite.com/privacy-policy | Publicada |
-| 3 | Terms & Conditions | https://www.infinitywatersite.com/terms-and-conditions | Publicada |
-| 4 | Free Water Test | https://www.infinitywatersite.com/free-water-test | Publicada |
-| 5 | Contact | https://www.infinitywatersite.com/contact | Publicada |
+El dominio canónico es **con www**. `infinitywatersite.com` responde 301 a
+`www.infinitywatersite.com`, y el canonical, el sitemap, los hreflang y el
+JSON-LD apuntan todos a la versión con www.
+
+| # | Página | URL |
+|---|---|---|
+| 1 | Portada | https://www.infinitywatersite.com/ |
+| 2 | Privacy Policy | https://www.infinitywatersite.com/privacy-policy |
+| 3 | Terms & Conditions | https://www.infinitywatersite.com/terms-and-conditions |
+| 4 | Free Water Test | https://www.infinitywatersite.com/free-water-test |
+| 5 | Contact | https://www.infinitywatersite.com/contact |
 
 Versiones en español (no sustituyen a las anteriores; las páginas legales en
 español incluyen además el texto completo en inglés):
@@ -28,6 +32,16 @@ español incluyen además el texto completo en inglés):
 - https://www.infinitywatersite.com/es/terminos-y-condiciones
 - https://www.infinitywatersite.com/es/analisis-de-agua-gratis
 - https://www.infinitywatersite.com/es/contacto
+
+### Estado del despliegue
+
+Las cinco páginas están **construidas, desplegadas y verificadas** en el
+servidor de producción (151.245.32.69), respondiendo 200 con contenido propio
+y sin redirecciones.
+
+Falta únicamente **repuntar el DNS** en Cloudflare hacia ese servidor y emitir
+el certificado. Hasta entonces el dominio sigue apuntando al hosting anterior,
+que actualmente devuelve **502 Bad Gateway**.
 
 ---
 

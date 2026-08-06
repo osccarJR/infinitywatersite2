@@ -13,7 +13,7 @@
  * Por eso aqui no puede haber imports de React ni nada de navegador.
  */
 
-export const SITE_URL = 'https://infinitywatersite.com';
+export const SITE_URL = 'https://www.infinitywatersite.com';
 export const OG_IMAGE = `${SITE_URL}/images/og-image.jpg`;
 
 export const PAGE_META = {

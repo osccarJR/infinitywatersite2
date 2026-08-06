@@ -6,7 +6,7 @@ filtración de agua, ósmosis inversa y tratamiento de pozo en Florida.
 Es una landing page bilingüe (inglés/español) enfocada en generar contactos por
 teléfono, WhatsApp y formulario. No tiene backend: todo se sirve como estáticos.
 
-**Producción:** https://infinitywatersite.com
+**Producción:** https://www.infinitywatersite.com
 
 ---
 
