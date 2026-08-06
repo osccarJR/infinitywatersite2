@@ -61,6 +61,19 @@ export default function LegalDocument({ doc, language, linkLanguage = language }
               </p>
             )}
 
+            {section.smsPolicyLink && (
+              <p className="text-slate-700 leading-relaxed">
+                {section.smsPolicyLink.before}
+                <Link
+                  to={localizedPath('smsPolicy', linkLanguage)}
+                  className="text-blue-600 hover:text-blue-700 underline underline-offset-2"
+                >
+                  {section.smsPolicyLink.label}
+                </Link>
+                {section.smsPolicyLink.after}
+              </p>
+            )}
+
             {section.privacyLink && (
               <p className="text-slate-700 leading-relaxed">
                 {section.privacyLink.before}

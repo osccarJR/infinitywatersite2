@@ -79,6 +79,14 @@ export const TERMS = {
         },
       },
       {
+        heading: 'SMS Policy',
+        smsPolicyLink: {
+          before: 'The full description of the text messaging program is available in our ',
+          label: 'SMS Policy',
+          after: '.',
+        },
+      },
+      {
         heading: 'Changes',
         paragraphs: [
           'Infinity Water may update these terms. The current version and effective date will be posted on this page. Material changes to an SMS program will be communicated when required.',
@@ -158,6 +166,14 @@ export const TERMS = {
           before: 'El uso de la informacion personal y movil se describe en la ',
           label: 'Politica de Privacidad de Infinity Water',
           after: '. La informacion de opt-in de SMS y el consentimiento no se venden ni se comparten con terceros para su marketing.',
+        },
+      },
+      {
+        heading: 'Politica de SMS',
+        smsPolicyLink: {
+          before: 'La descripcion completa del programa de mensajes de texto esta disponible en nuestra ',
+          label: 'Politica de SMS',
+          after: '.',
         },
       },
       {

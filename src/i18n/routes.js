@@ -20,6 +20,7 @@ export const ROUTES = {
   home: { en: '/', es: '/es' },
   privacy: { en: '/privacy-policy', es: '/es/politica-de-privacidad' },
   terms: { en: '/terms-and-conditions', es: '/es/terminos-y-condiciones' },
+  smsPolicy: { en: '/sms-policy', es: '/es/politica-de-sms' },
   freeWaterTest: { en: '/free-water-test', es: '/es/analisis-de-agua-gratis' },
   contact: { en: '/contact', es: '/es/contacto' },
 };

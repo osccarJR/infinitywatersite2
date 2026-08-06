@@ -42,6 +42,7 @@ const copy = {
     links: {
       privacy: 'Privacy Policy',
       terms: 'Terms & Conditions',
+      smsPolicy: 'SMS Policy',
       contact: 'Contact',
       freeWaterTest: 'Free Water Test',
     },
@@ -61,6 +62,7 @@ const copy = {
     links: {
       privacy: 'Politica de Privacidad',
       terms: 'Terminos y Condiciones',
+      smsPolicy: 'Politica de SMS',
       contact: 'Contacto',
       freeWaterTest: 'Analisis de Agua Gratis',
     },
@@ -74,6 +76,7 @@ export default function Footer() {
   const legalLinks = [
     { key: 'privacy', route: 'privacy' },
     { key: 'terms', route: 'terms' },
+    { key: 'smsPolicy', route: 'smsPolicy' },
     { key: 'contact', route: 'contact' },
     { key: 'freeWaterTest', route: 'freeWaterTest' },
   ];

@@ -24,7 +24,11 @@ export default [
     rules: {
       ...js.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
-      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]' }],
+      // Sin eslint-plugin-react, la regla base no sabe que un identificador
+      // usado dentro de JSX cuenta como uso. Los componentes empiezan por
+      // mayuscula, asi que se exceptuan tanto si son variables como si
+      // llegan destructurados por argumento.
+      'no-unused-vars': ['error', { varsIgnorePattern: '^[A-Z_]', argsIgnorePattern: '^[A-Z_]' }],
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },

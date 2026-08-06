@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { ArrowLeft, Clock, Droplets, FileText, Mail, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { ArrowLeft, Clock, Droplets, FileText, Mail, MapPin, MessageSquare, Phone, ShieldCheck } from 'lucide-react';
 import {
   ADDRESS_LINE_1,
   ADDRESS_LINE_2,
@@ -42,6 +42,7 @@ const copy = {
       freeWaterTest: 'Free Water Test',
       privacy: 'Privacy Policy',
       terms: 'Terms & Conditions',
+      smsPolicy: 'SMS Policy',
     },
     ctaTitle: 'Want a free water analysis?',
     ctaText: 'Fill in the request form and we will contact you to coordinate the visit.',
@@ -66,6 +67,7 @@ const copy = {
       freeWaterTest: 'Analisis de Agua Gratis',
       privacy: 'Politica de Privacidad',
       terms: 'Terminos y Condiciones',
+      smsPolicy: 'Politica de SMS',
     },
     ctaTitle: '¿Quieres un analisis de agua gratuito?',
     ctaText: 'Completa el formulario de solicitud y te contactamos para coordinar la visita.',
@@ -236,6 +238,15 @@ export default function ContactPage() {
                 >
                   <FileText className="w-4 h-4" aria-hidden="true" />
                   {text.links.terms}
+                </Link>
+              </li>
+              <li>
+                <Link
+                  to={localizedPath('smsPolicy', language)}
+                  className="inline-flex items-center gap-2 hover:text-blue-700 underline underline-offset-4"
+                >
+                  <MessageSquare className="w-4 h-4" aria-hidden="true" />
+                  {text.links.smsPolicy}
                 </Link>
               </li>
             </ul>

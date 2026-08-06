@@ -206,53 +206,49 @@ es exactamente `3940 Metro Pkwy., Fort Myers, FL 33916`. Todo esto vive en
 [`src/constants/business.js`](src/constants/business.js) y debe coincidir
 letra por letra con lo declarado en el registro A2P.
 
-### Consentimiento
+### El formulario y el consentimiento
 
-Los textos estan en [`src/constants/consent.js`](src/constants/consent.js),
-separados del componente a proposito: el texto exacto que ve el usuario se
-guarda como evidencia con cada envio, y tenerlo en un solo sitio impide que
-lo mostrado y lo guardado se separen.
+El formulario de captacion **no vive en este repositorio**. Lo construye y lo
+mantiene Deja Vu IA en GoHighLevel, y se incrusta como iframe desde
+`api.dejavuia.com`. Ahi es donde estan los campos, las dos casillas de
+consentimiento y el registro de la evidencia (casilla marcada, texto mostrado,
+fecha, IP y origen).
 
-Reglas que [`LeadForm`](src/components/LeadForm.jsx) garantiza por
-construccion:
+Todo eso vive en [`src/components/GhlForm.jsx`](src/components/GhlForm.jsx),
+que es un envoltorio de treinta lineas. **No dupliques aqui campos ni textos
+de consentimiento:** cualquier cambio se pide a Deja Vu IA y se hace en
+GoHighLevel. Un segundo formulario con su propia copia del consentimiento
+generaria dos registros distintos para la misma persona, que es exactamente lo
+que la especificacion A2P prohibe.
 
-- Dos casillas independientes, ambas opcionales y desmarcadas.
-- `validate()` no mira las casillas, asi que el formulario se envia sin ellas.
-- Los enlaces legales abren en pestana nueva para no perder lo escrito.
-- Si el envio falla no se muestra confirmacion: se ofrece telefono y correo.
+Por la misma razon el sitio tiene **un unico punto de captura**: la pagina
+`/free-water-test`. La portada y `/contact` enlazan ahi en vez de repetir el
+formulario, y `npm run test:smoke` falla si aparece cualquier `input` de
+telefono fuera de ese iframe.
 
-**Si se cambia una sola palabra de un consentimiento hay que subir
-`CONSENT_VERSION`** en `business.js`. Nunca sobrescribir la evidencia
-historica: es lo que demuestra que esa persona consintio a ese texto.
+### Atribucion
 
-### Evidencia
+[`src/lib/attribution.js`](src/lib/attribution.js) guarda los parametros de
+campana (`utm_*`, `fbclid`, `seller`) al entrar al sitio y los anexa a la URL
+del widget, para que GoHighLevel sepa que anuncio trajo cada lead. Se guardan
+en `sessionStorage` porque se pierden en cuanto el visitante navega, y gana el
+primer toque.
 
-[`src/lib/leadCapture.js`](src/lib/leadCapture.js) construye el registro que
-se envia a `VITE_LEAD_WEBHOOK_URL`: datos de contacto, telefono en E.164,
-estado independiente de cada casilla, texto y version del consentimiento,
-fecha/hora con zona horaria, URL de origen, UTMs, `fbclid`/`fbc`/`fbp`,
-`seller` e identificador unico de envio.
+### Paginas legales
 
-La atribucion se captura al entrar al sitio y se guarda en `sessionStorage`,
-porque los parametros de campana se pierden en cuanto el usuario navega.
+Tres documentos, cada uno con su ruta propia en ingles y en espanol:
+`/privacy-policy`, `/terms-and-conditions` y `/sms-policy`. Los textos estan en
+[`src/content/`](src/content/) y el ingles lo fija la especificacion A2P: no
+debe reescribirse por estilo, porque la operadora busca clausulas concretas.
 
-**La IP la registra el receptor del webhook** a partir de la peticion, que es
-lo fiable. Si tu receptor no lo hace, define `VITE_IP_LOOKUP_URL`.
-
-### Punto unico de captura
-
-`/free-water-test` y el bloque de la portada montan el mismo componente. La
-especificacion prohibe un segundo formulario que recoja telefono sin las
-mismas casillas, por eso `/contact` no lleva formulario: enlaza al de
-siempre.
+Los tres enlaces aparecen de forma visible sobre el formulario y en el pie de
+todas las paginas.
 
 ### Lo que falta para poder presentar la campana
 
-1. **`VITE_LEAD_WEBHOOK_URL`**: sin esto no se guarda ninguna evidencia y el
-   formulario devuelve error a proposito.
-2. **`VITE_SMS_PHONE_NUMBER`**: mientras este vacio no se muestra en ningun
-   sitio. La campana no se presenta hasta que la web muestre el numero exacto
-   que originara los mensajes.
+**`VITE_SMS_PHONE_NUMBER`**: mientras este vacio no se muestra en ningun
+sitio. La campana no se presenta hasta que la web muestre el numero exacto que
+originara los mensajes.
 
 ---
 

@@ -63,6 +63,19 @@ export const PAGE_META = {
         'Terminos que rigen el uso de infinitywatersite.com y el programa de SMS de Infinity Water, operado por Global Innovation LLC d/b/a Infinity Water.',
     },
   },
+  smsPolicy: {
+    path: { en: '/sms-policy', es: '/es/politica-de-sms' },
+    en: {
+      title: 'SMS Policy | Infinity Water',
+      description:
+        'How the Infinity Water text messaging program works: what we send, how often, how to reply STOP or HELP, and how your opt-in information is handled.',
+    },
+    es: {
+      title: 'Politica de SMS | Infinity Water',
+      description:
+        'Como funciona el programa de mensajes de texto de Infinity Water: que enviamos, con que frecuencia, como responder STOP o HELP y como se trata tu informacion de opt-in.',
+    },
+  },
   freeWaterTest: {
     path: { en: '/free-water-test', es: '/es/analisis-de-agua-gratis' },
     en: {
