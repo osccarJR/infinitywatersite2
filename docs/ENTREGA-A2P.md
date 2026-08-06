@@ -21,8 +21,9 @@ JSON-LD apuntan todos a la versión con www.
 | 1 | Portada | https://www.infinitywatersite.com/ |
 | 2 | Privacy Policy | https://www.infinitywatersite.com/privacy-policy |
 | 3 | Terms & Conditions | https://www.infinitywatersite.com/terms-and-conditions |
-| 4 | Free Water Test | https://www.infinitywatersite.com/free-water-test |
-| 5 | Contact | https://www.infinitywatersite.com/contact |
+| 4 | SMS Policy | https://www.infinitywatersite.com/sms-policy |
+| 5 | Free Water Test | https://www.infinitywatersite.com/free-water-test |
+| 6 | Contact | https://www.infinitywatersite.com/contact |
 
 Versiones en español (no sustituyen a las anteriores; las páginas legales en
 español incluyen además el texto completo en inglés):
@@ -30,18 +31,19 @@ español incluyen además el texto completo en inglés):
 - https://www.infinitywatersite.com/es
 - https://www.infinitywatersite.com/es/politica-de-privacidad
 - https://www.infinitywatersite.com/es/terminos-y-condiciones
+- https://www.infinitywatersite.com/es/politica-de-sms
 - https://www.infinitywatersite.com/es/analisis-de-agua-gratis
 - https://www.infinitywatersite.com/es/contacto
 
 ### Estado del despliegue
 
-Las cinco páginas están **construidas, desplegadas y verificadas** en el
-servidor de producción (151.245.32.69), respondiendo 200 con contenido propio
-y sin redirecciones.
+**Publicado y verificado en producción.** Las seis páginas responden 200 por
+HTTPS con contenido propio y sin redirecciones. Certificado emitido y con
+renovación automática.
 
-Falta únicamente **repuntar el DNS** en Cloudflare hacia ese servidor y emitir
-el certificado. Hasta entonces el dominio sigue apuntando al hosting anterior,
-que actualmente devuelve **502 Bad Gateway**.
+El contenido está prerenderizado: el HTML que devuelve el servidor ya incluye
+todo el texto, sin depender de JavaScript. Una comprobación automática que no
+ejecute scripts ve las páginas completas.
 
 ---
 
@@ -53,90 +55,74 @@ mostrando los campos, las dos casillas desmarcadas y los enlaces legales.
 
 ---
 
-## 8. Las dos casillas son separadas, opcionales y desmarcadas
+## 8–9. El formulario y sus consentimientos
 
-Confirmado.
+El formulario incrustado en `/free-water-test` es **el de GoHighLevel**
+facilitado por Déjà Vu IA:
 
-- Son dos `<input type="checkbox">` independientes, con nombres
-  `sms_consent_transactional` y `sms_consent_marketing`.
-- El estado inicial de ambas es `false` en el propio código
-  (`INITIAL_FORM` de `src/components/LeadForm.jsx`). Ninguna se marca sola ni
-  marca a la otra.
-- Ninguna es obligatoria: la función de validación del formulario no las
-  consulta en absoluto.
+```
+https://api.dejavuia.com/widget/form/LgLxNfMMaa7apAp6aDB4
+```
 
-Verificado automáticamente en cada build: la prueba `npm run test:smoke`
-falla si algún checkbox llega marcado en el HTML servido.
+Se integró como iframe embebido, con el script oficial de redimensionado, y
+funciona en computadora y en teléfono. **No se modificó ningún campo, texto de
+consentimiento ni casilla legal**, conforme al punto 3 de la solicitud.
 
----
+Las casillas, su estado inicial y el comportamiento de envío los controla
+GoHighLevel. Cualquier cambio se pide a Déjà Vu IA.
 
-## 9. El formulario se envía sin marcar SMS
+### Un único punto de captura
 
-Confirmado. Los campos obligatorios son únicamente nombre, apellido, teléfono
-móvil, ciudad, código postal y tipo de agua. El consentimiento SMS no entra en
-la validación, y el botón de enviar no equivale a consentimiento: el registro
-guarda `false` en ambas casillas si el usuario no marca ninguna.
+El sitio recoge números de teléfono **solo** en ese formulario. La portada y
+`/contact` enlazan a `/free-water-test` en lugar de repetirlo. Esto es
+deliberado: dos formularios con sus propias casillas generarían dos registros
+de consentimiento distintos para la misma persona.
 
----
-
-## 10. Dónde se almacena la evidencia y cómo se exporta
-
-El sitio es estático, así que el almacenamiento lo hace el receptor. Al enviar,
-el formulario hace `POST` de un JSON a la URL configurada en
-`VITE_LEAD_WEBHOOK_URL`, pensada para un **webhook entrante de GoHighLevel**
-(*Automatización → Webhook*), que crea el contacto y guarda cada campo.
-
-La exportación se hace desde GoHighLevel: *Contacts → Export*, incluyendo los
-campos personalizados listados abajo.
-
-> **Pendiente:** esta variable todavía no tiene valor. Mientras esté vacía el
-> formulario **no guarda nada**: muestra un error y ofrece teléfono y correo,
-> en lugar de fingir un envío correcto y perder el lead. Hace falta que Déjà Vu
-> IA facilite la URL del webhook de GHL.
-
-**Dirección IP:** la registra el receptor del webhook a partir de la petición,
-que es la forma fiable de obtenerla. El navegador no puede conocer su propia IP
-sin depender de un tercero. Si el receptor no la registra, se puede definir
-`VITE_IP_LOOKUP_URL` y se añade al payload.
+Verificado automáticamente en cada build: la prueba falla si aparece cualquier
+campo de teléfono fuera de ese iframe.
 
 ---
 
-## 11. Nombres exactos de los campos
+## 10. Dónde se almacena la evidencia
 
-Consentimiento y versión:
+**En GoHighLevel**, dentro del contacto que crea el propio formulario. El sitio
+web no almacena nada y no interviene en el registro del consentimiento.
 
-| Campo | Tipo | Contenido |
-|---|---|---|
-| `sms_consent_transactional` | booleano | Casilla A, mensajes no promocionales |
-| `sms_consent_marketing` | booleano | Casilla B, mensajes promocionales |
-| `sms_consent_transactional_text` | texto | Texto literal mostrado, solo si se marcó |
-| `sms_consent_marketing_text` | texto | Texto literal mostrado, solo si se marcó |
-| `consent_version` | texto | `IW-SMS-CONSENT-v1-2026-08-05` |
-| `consent_language` | texto | `en` o `es`, idioma en que se mostró |
+La exportación se hace desde GoHighLevel: *Contacts → Export*.
 
-Contexto de la captura:
+### Lo que sí aporta el sitio
 
-`consent_timestamp_iso`, `consent_timestamp_local`, `consent_timezone`,
-`consent_url`, `page_path`, `user_agent`, `ip_address`, `submission_id`.
-
-Datos de contacto:
-
-`first_name`, `last_name`, `full_name`, `phone` (E.164), `phone_raw`, `email`,
-`address`, `city`, `state`, `postal_code`, `water_source`, `best_contact_time`,
-`comments`.
-
-Atribución:
+Los parámetros de campaña se capturan al entrar y se pasan al formulario para
+que GoHighLevel pueda atribuir cada lead:
 
 `utm_source`, `utm_medium`, `utm_campaign`, `utm_content`, `utm_term`,
-`fbclid`, `fbc`, `fbp`, `landing_page`, `referrer`, `seller`.
+`fbclid` y `seller`.
 
-El campo `seller` acepta solo `Angie` o `Carlos`, y se toma del parámetro
-`?seller=` de la URL de entrada. La atribución se captura al entrar al sitio y
-se conserva durante la sesión, para que no se pierda al navegar entre páginas.
+Se guardan al llegar a cualquier página y se anexan a la URL del widget, porque
+de lo contrario se perderían en cuanto el visitante navegara. Gana el primer
+toque. El campo `seller` acepta solo `Angie` o `Carlos`, vía `?seller=` en la
+URL de entrada.
 
 ---
 
-## 12. Las cuatro rutas son páginas distintas
+## 11. Enlaces legales visibles
+
+Los tres enlaces aparecen **encima del formulario**, en texto visible y con
+iconos, no dentro de menús ni ventanas emergentes:
+
+- Privacy Policy → `/privacy-policy`
+- Terms & Conditions → `/terms-and-conditions`
+- SMS Policy → `/sms-policy`
+
+Van antes del formulario a propósito, para que se vean sin depender de que el
+iframe haya cargado. Sobre ellos se lee: *"Text message consent is optional and
+is not required to submit this form or to purchase any product or service."*
+
+Los cinco enlaces legales están además en el pie de todas las páginas.
+
+---
+
+## 12. Cada ruta es una página distinta
 
 Confirmado. Cada una se genera como un fichero HTML independiente durante el
 build, con su propio `<title>`, su descripción y su URL canónica. Ninguna
@@ -148,10 +134,11 @@ Comprobado sobre el sitio compilado:
 /                        200  Infinity Water | Water Filtration, Reverse Osmosis & Treatment in Florida
 /privacy-policy          200  Privacy Policy | Infinity Water
 /terms-and-conditions    200  Terms & Conditions | Infinity Water
+/sms-policy              200  SMS Policy | Infinity Water
 /free-water-test         200  Free Water Test | Infinity Water
 /contact                 200  Contact | Infinity Water
 
-redirecciones: 0 en las cuatro
+redirecciones: 0 en todas
 ```
 
 Son accesibles en modo incógnito, sin autenticación y sin CAPTCHA previo a la
@@ -169,7 +156,7 @@ Infinity Water is operated by Global Innovation LLC, doing business as Infinity 
 3940 Metro Pkwy., Fort Myers, FL 33916
 g.innovar@gmail.com · Customer support: (475) 685-8464
 
-Privacy Policy · Terms & Conditions · Contact · Free Water Test
+Privacy Policy · Terms & Conditions · SMS Policy · Contact · Free Water Test
 ```
 
 Los cuatro enlaces son texto visible, no van dentro de menús desplegables ni
@@ -202,20 +189,12 @@ Para volver atrás: `git revert 7b15818`.
 
 ## Lo que falta para poder presentar la campaña
 
-Dos cosas, ambas fuera del alcance de la web:
+**El número A2P aprobado.** En cuanto se compre, se define en la variable
+`VITE_SMS_PHONE_NUMBER` y aparece automáticamente en el formulario, en la
+página de contacto y en el pie. Mientras esté vacía no se muestra en ninguna
+parte: publicar un número equivocado es peor que no publicar ninguno.
 
-1. **URL del webhook de GoHighLevel** → `VITE_LEAD_WEBHOOK_URL`.
-   Sin ella no se almacena evidencia de consentimiento y el punto 10 de esta
-   entrega queda incompleto.
-
-2. **Número A2P aprobado** → `VITE_SMS_PHONE_NUMBER`.
-   Mientras esté vacío no se muestra en ninguna parte, lo cual es deliberado:
-   publicar un número equivocado es peor que no publicar ninguno. La campaña no
-   puede presentarse hasta que la web muestre el número exacto que originará los
-   mensajes.
-
-En cuanto lleguen esos dos valores se configuran, se despliega y la web queda
-lista para la revisión.
+Es cuestión de minutos en cuanto llegue el dato.
 
 ---
 
@@ -238,3 +217,8 @@ lista para la revisión.
 - **La sección de reseñas sigue oculta** porque todavía no hay reseñas reales
   conectadas. Es intencionado: mostrar testimonios inventados es motivo de
   rechazo tanto en Google Ads como en la revisión de la campaña.
+
+- **Se añadió una página propia de Política de SMS** (`/sms-policy`), como se
+  pidió. Repite deliberadamente cláusulas de los Términos: en textos legales
+  cada documento debe sostenerse por sí solo, porque el revisor puede llegar a
+  cualquiera de los dos.
