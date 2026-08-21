@@ -51,6 +51,30 @@ const RASTER_EXTRAS = [
   { source: 'imagenfamiliar.png', output: 'og-image.jpg', width: 1200, height: 630, fit: 'cover', format: 'jpeg', quality: 82 },
 ];
 
+/**
+ * Envuelve un PNG en un contenedor ICO.
+ *
+ * Los navegadores piden /favicon.ico a la raiz aunque el HTML declare otro
+ * icono, y en los logs de produccion eso eran 404 constantes. sharp no sabe
+ * escribir ICO, pero el formato admite incrustar un PNG tal cual desde
+ * Windows Vista: basta con anteponer la cabecera de 22 bytes.
+ */
+function pngToIco(png, size) {
+  const header = Buffer.alloc(22);
+  header.writeUInt16LE(0, 0); // reservado
+  header.writeUInt16LE(1, 2); // tipo: 1 = icono
+  header.writeUInt16LE(1, 4); // numero de imagenes
+  header.writeUInt8(size >= 256 ? 0 : size, 6); // ancho (0 significa 256)
+  header.writeUInt8(size >= 256 ? 0 : size, 7); // alto
+  header.writeUInt8(0, 8); // colores de la paleta
+  header.writeUInt8(0, 9); // reservado
+  header.writeUInt16LE(1, 10); // planos
+  header.writeUInt16LE(32, 12); // bits por pixel
+  header.writeUInt32LE(png.length, 14); // tamano de la imagen
+  header.writeUInt32LE(22, 18); // desplazamiento de los datos
+  return Buffer.concat([header, png]);
+}
+
 const kb = (bytes) => `${(bytes / 1024).toFixed(0)} KB`;
 
 async function sizeOf(file) {
@@ -113,6 +137,18 @@ async function main() {
 
     console.log(`  ${image.source.padEnd(38)} -> ${image.output.padEnd(30)} ${kb(originalSize).padStart(9)} -> ${kb(newSize).padStart(8)}`);
   }
+
+  // El favicon.ico va en la raiz del sitio, no en /images, porque es ahi
+  // donde lo piden los navegadores por convencion.
+  const icoSize = 32;
+  const icoPng = await sharp(path.join(SOURCE_DIR, 'logo.png'))
+    .resize({ width: icoSize, height: icoSize, fit: 'contain', background: { r: 255, g: 255, b: 255, alpha: 0 } })
+    .png({ compressionLevel: 9 })
+    .toBuffer();
+  const ico = pngToIco(icoPng, icoSize);
+  await writeFile(path.join(root, 'public', 'favicon.ico'), ico);
+  after += ico.length;
+  console.log(`  ${'logo.png'.padEnd(38)} -> ${'favicon.ico'.padEnd(30)} ${''.padStart(9)} -> ${kb(ico.length).padStart(8)}`);
 
   await writeFile(
     path.join(OUTPUT_DIR, 'manifest.json'),
