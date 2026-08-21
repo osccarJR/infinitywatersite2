@@ -200,11 +200,19 @@ hace en Estados Unidos.
 
 ### Identidad
 
-Se declara **Global Innovation LLC d/b/a Infinity Water** en el pie de todas
-las paginas, en las paginas legales y en el JSON-LD. La direccion publicada
-es exactamente `3940 Metro Pkwy., Fort Myers, FL 33916`. Todo esto vive en
-[`src/constants/business.js`](src/constants/business.js) y debe coincidir
-letra por letra con lo declarado en el registro A2P.
+Se declara **GLOBAL INNOVATION GROUP INFINITY LLC d/b/a Infinity Water** en el
+pie de todas las paginas, en las paginas legales y en el JSON-LD. La direccion
+publicada es exactamente `3940 Metro Pkwy., Fort Myers, FL 33916`.
+
+La razon social vive en
+[`src/constants/legalEntity.js`](src/constants/legalEntity.js), en su propio
+modulo porque tambien la necesita `src/i18n/seo.js`, al que carga
+`vite.config.js` en contexto Node. Cambiarla ahi la propaga a todo el sitio;
+el unico sitio adicional que tocar es el JSON-LD de `index.html`, que es
+estatico. Debe coincidir **letra por letra** con el registro A2P.
+
+El resto de datos del negocio (telefonos, correo, direccion, cifras) siguen en
+[`src/constants/business.js`](src/constants/business.js).
 
 ### El formulario y el consentimiento
 

@@ -13,6 +13,11 @@
  * Por eso aqui no puede haber imports de React ni nada de navegador.
  */
 
+// Extension explicita a proposito: scripts/prerender.mjs importa este
+// modulo con Node puro, que no resuelve rutas sin extension como si hace
+// Vite.
+import { LEGAL_ENTITY_DBA } from '../constants/legalEntity.js';
+
 export const SITE_URL = 'https://www.infinitywatersite.com';
 export const OG_IMAGE = `${SITE_URL}/images/og-image.jpg`;
 
@@ -55,12 +60,12 @@ export const PAGE_META = {
     en: {
       title: 'Terms & Conditions | Infinity Water',
       description:
-        'Terms governing the use of infinitywatersite.com and the Infinity Water SMS program operated by Global Innovation LLC d/b/a Infinity Water.',
+        `Terms governing the use of infinitywatersite.com and the Infinity Water SMS program operated by ${LEGAL_ENTITY_DBA}.`,
     },
     es: {
       title: 'Terminos y Condiciones | Infinity Water',
       description:
-        'Terminos que rigen el uso de infinitywatersite.com y el programa de SMS de Infinity Water, operado por Global Innovation LLC d/b/a Infinity Water.',
+        `Terminos que rigen el uso de infinitywatersite.com y el programa de SMS de Infinity Water, operado por ${LEGAL_ENTITY_DBA}.`,
     },
   },
   smsPolicy: {

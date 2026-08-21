@@ -4,7 +4,7 @@ Respuesta a la especificación *"Entrega única para el administrador web de
 Infinity Water"* del 5 de agosto de 2026.
 
 **Sitio:** https://www.infinitywatersite.com/
-**Entidad:** Global Innovation LLC d/b/a Infinity Water
+**Entidad:** GLOBAL INNOVATION GROUP INFINITY LLC d/b/a Infinity Water
 **Dirección publicada:** 3940 Metro Pkwy., Fort Myers, FL 33916
 **Versión de consentimiento:** `IW-SMS-CONSENT-v1-2026-08-05`
 
@@ -151,8 +151,8 @@ lectura. `robots.txt` permite el rastreo completo.
 Confirmado. Visible en todas las páginas, tanto en escritorio como en móvil:
 
 ```
-Global Innovation LLC d/b/a Infinity Water
-Infinity Water is operated by Global Innovation LLC, doing business as Infinity Water.
+GLOBAL INNOVATION GROUP INFINITY LLC d/b/a Infinity Water
+Infinity Water is operated by GLOBAL INNOVATION GROUP INFINITY LLC, doing business as Infinity Water.
 3940 Metro Pkwy., Fort Myers, FL 33916
 g.innovar@gmail.com · Customer support: (475) 685-8464
 
@@ -165,14 +165,18 @@ en los datos estructurados (`legalName`).
 
 ---
 
-## 14. No queda ninguna referencia al número de calle anterior
+## 14. Sin referencias a datos anteriores
 
-Confirmado. La dirección publicada es exactamente `3940 Metro Pkwy.` en el pie,
-en la página de contacto, en ambos documentos legales y en el JSON-LD. No
-aparece ningún número de suite.
+**Dirección.** La publicada es exactamente `3940 Metro Pkwy.` en el pie, en la
+página de contacto, en los tres documentos legales y en el JSON-LD. No aparece
+ningún número de suite.
 
-La prueba automática recorre las doce rutas del sitio y falla si detecta el
-número de calle antiguo en cualquiera de ellas.
+**Razón social.** Actualizada a `GLOBAL INNOVATION GROUP INFINITY LLC` en todo
+el sitio. No queda ninguna aparición del nombre anterior en ninguna de las doce
+rutas ni en los datos estructurados.
+
+La prueba automática recorre las doce rutas y falla si detecta el número de
+calle antiguo o la razón social anterior en cualquiera de ellas.
 
 ---
 

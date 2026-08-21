@@ -6,7 +6,8 @@
  * consentimiento opcional, frecuencia, STOP, HELP, aviso de operadoras) son
  * exactamente las que revisa la operadora antes de aprobar la campana.
  */
-import { ADDRESS_LINE_1, ADDRESS_LINE_2, EMAIL, LEGAL_ENTITY_DBA, SUPPORT_PHONE } from '../constants/business';
+import { ADDRESS_LINE_1, ADDRESS_LINE_2, EMAIL, SUPPORT_PHONE } from '../constants/business';
+import { BRAND, LEGAL_ENTITY, LEGAL_ENTITY_DBA } from '../constants/legalEntity';
 
 export const TERMS_EFFECTIVE_DATE = { en: 'August 5, 2026', es: '5 de agosto de 2026' };
 
@@ -16,7 +17,7 @@ export const TERMS = {
     effectiveLabel: 'Effective date',
     effectiveDate: TERMS_EFFECTIVE_DATE.en,
     intro:
-      'These Terms and Conditions govern use of infinitywatersite.com and the Infinity Water SMS program operated by Global Innovation LLC, doing business as Infinity Water.',
+      `These Terms and Conditions govern use of infinitywatersite.com and the ${BRAND} SMS program operated by ${LEGAL_ENTITY}, doing business as ${BRAND}.`,
     sections: [
       {
         heading: 'Website and services',
@@ -104,7 +105,7 @@ export const TERMS = {
     effectiveLabel: 'Fecha de entrada en vigor',
     effectiveDate: TERMS_EFFECTIVE_DATE.es,
     intro:
-      'Estos Terminos y Condiciones rigen el uso de infinitywatersite.com y el programa de SMS de Infinity Water, operado por Global Innovation LLC, que opera comercialmente como Infinity Water.',
+      `Estos Terminos y Condiciones rigen el uso de infinitywatersite.com y el programa de SMS de ${BRAND}, operado por ${LEGAL_ENTITY}, que opera comercialmente como ${BRAND}.`,
     sections: [
       {
         heading: 'Sitio web y servicios',

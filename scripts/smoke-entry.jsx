@@ -16,6 +16,7 @@ import { renderToString } from 'react-dom/server';
 import { StaticRouter } from 'react-router';
 import App from '../src/App.jsx';
 import { LanguageProvider } from '../src/i18n/LanguageProvider.jsx';
+import { LEGAL_ENTITY, LEGAL_ENTITY_DBA } from '../src/constants/legalEntity.js';
 
 const render = (path) =>
   renderToString(
@@ -27,8 +28,8 @@ const render = (path) =>
   );
 
 const routes = [
-  { path: '/', expect: ['Pure Water', 'Global Innovation LLC'] },
-  { path: '/es', expect: ['Agua Pura', 'Global Innovation LLC'] },
+  { path: '/', expect: ['Pure Water', LEGAL_ENTITY] },
+  { path: '/es', expect: ['Agua Pura', LEGAL_ENTITY] },
   { path: '/privacy-policy', expect: ['Privacy Policy', 'SMS and mobile information', 'g.innovar@gmail.com'] },
   { path: '/es/politica-de-privacidad', expect: ['Politica de Privacidad', 'SMS e informacion movil', 'SMS and mobile information'] },
   { path: '/terms-and-conditions', expect: ['Terms and Conditions', 'SMS program description', 'Reply STOP'] },
@@ -83,7 +84,8 @@ const checks = [
   ['compensacion del header fijo', home.includes('pt-20')],
 
   // --- Identidad A2P ---
-  ['entidad legal en el pie de todas las paginas', [home, form, privacy, terms, sms].every((page) => page.includes('Global Innovation LLC d/b/a Infinity Water'))],
+  ['entidad legal en el pie de todas las paginas', [home, form, privacy, terms, sms].every((page) => page.includes(LEGAL_ENTITY_DBA))],
+  ['sin rastro de la razon social anterior', !every.some((page) => /Global Innovation LLC/.test(page))],
   ['direccion exacta 3940 Metro Pkwy.', home.includes('3940 Metro Pkwy.')],
   ['ninguna referencia al numero de calle antiguo', !every.some((page) => page.includes('3949'))],
   ['correo comercial publicado', home.includes('g.innovar@gmail.com')],

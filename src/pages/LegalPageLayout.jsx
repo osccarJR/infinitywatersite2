@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ShieldCheck } from 'lucide-react';
 import LegalDocument from '../components/LegalDocument';
+import { LEGAL_ENTITY_DBA } from '../constants/legalEntity';
 import { localizedPath } from '../i18n/routes';
 import { useLanguage } from '../i18n/LanguageProvider';
 
@@ -50,7 +51,7 @@ export default function LegalPageLayout({ document: doc }) {
             <span className="w-12 h-12 rounded-2xl bg-blue-50 border border-blue-100 flex items-center justify-center shrink-0">
               <ShieldCheck className="w-6 h-6 text-blue-600" aria-hidden="true" />
             </span>
-            <p className="text-sm text-slate-500">Global Innovation LLC d/b/a Infinity Water</p>
+            <p className="text-sm text-slate-500">{LEGAL_ENTITY_DBA}</p>
           </div>
 
           <LegalDocument doc={current} language={language} />

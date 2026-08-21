@@ -10,7 +10,8 @@
  * legales eso no es duplicidad indeseada: cada documento debe sostenerse
  * por si solo, porque el revisor puede llegar a cualquiera de los dos.
  */
-import { ADDRESS_LINE_1, ADDRESS_LINE_2, EMAIL, LEGAL_ENTITY_DBA, SUPPORT_PHONE } from '../constants/business';
+import { ADDRESS_LINE_1, ADDRESS_LINE_2, EMAIL, SUPPORT_PHONE } from '../constants/business';
+import { LEGAL_ENTITY_DBA } from '../constants/legalEntity';
 
 export const SMS_POLICY = {
   en: {

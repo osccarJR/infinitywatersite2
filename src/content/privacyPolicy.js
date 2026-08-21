@@ -11,7 +11,8 @@
  * siempre, tambien en la ruta en espanol, porque la revision se hace en
  * Estados Unidos.
  */
-import { ADDRESS_LINE_1, ADDRESS_LINE_2, EMAIL, LEGAL_ENTITY_DBA, SUPPORT_PHONE } from '../constants/business';
+import { ADDRESS_LINE_1, ADDRESS_LINE_2, EMAIL, SUPPORT_PHONE } from '../constants/business';
+import { BRAND, LEGAL_ENTITY, LEGAL_ENTITY_DBA } from '../constants/legalEntity';
 
 export const PRIVACY_EFFECTIVE_DATE = { en: 'August 5, 2026', es: '5 de agosto de 2026' };
 
@@ -21,7 +22,7 @@ export const PRIVACY_POLICY = {
     effectiveLabel: 'Effective date',
     effectiveDate: PRIVACY_EFFECTIVE_DATE.en,
     intro:
-      'Global Innovation LLC, doing business as Infinity Water ("Infinity Water," "we," "us," or "our"), respects your privacy. This Privacy Policy explains how we collect, use, disclose, protect, and retain information when you visit infinitywatersite.com, request a water analysis, contact us, schedule an appointment, or consent to receive communications.',
+      `${LEGAL_ENTITY}, doing business as ${BRAND} ("Infinity Water," "we," "us," or "our"), respects your privacy. This Privacy Policy explains how we collect, use, disclose, protect, and retain information when you visit infinitywatersite.com, request a water analysis, contact us, schedule an appointment, or consent to receive communications.`,
     sections: [
       {
         heading: 'Information we collect',
@@ -106,7 +107,7 @@ export const PRIVACY_POLICY = {
     effectiveLabel: 'Fecha de entrada en vigor',
     effectiveDate: PRIVACY_EFFECTIVE_DATE.es,
     intro:
-      'Global Innovation LLC, que opera comercialmente como Infinity Water ("Infinity Water", "nosotros"), respeta tu privacidad. Esta Politica de Privacidad explica como recopilamos, usamos, divulgamos, protegemos y conservamos la informacion cuando visitas infinitywatersite.com, solicitas un analisis de agua, nos contactas, agendas una cita o consientes recibir comunicaciones.',
+      `${LEGAL_ENTITY}, que opera comercialmente como ${BRAND} ("Infinity Water", "nosotros"), respeta tu privacidad. Esta Politica de Privacidad explica como recopilamos, usamos, divulgamos, protegemos y conservamos la informacion cuando visitas infinitywatersite.com, solicitas un analisis de agua, nos contactas, agendas una cita o consientes recibir comunicaciones.`,
     sections: [
       {
         heading: 'Informacion que recopilamos',

@@ -13,19 +13,9 @@
 
 export const SITE_URL = 'https://www.infinitywatersite.com';
 
-/** Entidad legal registrada. Es la que responde ante las operadoras. */
-export const LEGAL_ENTITY = 'Global Innovation LLC';
-
-/** Marca comercial de cara al publico. */
-export const BRAND = 'Infinity Water';
-
-/** Relacion marca/entidad. Debe aparecer de forma consistente en el sitio. */
-export const LEGAL_ENTITY_DBA = `${LEGAL_ENTITY} d/b/a ${BRAND}`;
-
-export const IDENTITY_STATEMENT = {
-  en: `${BRAND} is operated by ${LEGAL_ENTITY}, doing business as ${BRAND}.`,
-  es: `${BRAND} es una marca operada por ${LEGAL_ENTITY}, que opera comercialmente como ${BRAND}.`,
-};
+// La identidad legal vive en legalEntity.js: la comparten este modulo y
+// src/i18n/seo.js, que se carga tambien desde vite.config.js en Node.
+export { LEGAL_ENTITY, BRAND, LEGAL_ENTITY_DBA, IDENTITY_STATEMENT } from './legalEntity';
 
 export const PHONE_NUMBERS = [
   {
