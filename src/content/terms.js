@@ -72,6 +72,14 @@ export const TERMS = {
         ],
       },
       {
+        // Requisito de la operadora para aprobar la campana A2P. El texto en
+        // ingles es literal: no reescribirlo por estilo.
+        heading: 'Eligibility and Age Requirement',
+        paragraphs: [
+          'The Infinity Water SMS program is available only to individuals who are 18 years of age or older. By opting in, the user confirms that they are at least 18 years old and are authorized to enroll the telephone number provided. Individuals under 18 years of age must not enroll in the SMS program.',
+        ],
+      },
+      {
         heading: 'Privacy',
         privacyLink: {
           before: 'Use of personal and mobile information is described in the ',
@@ -159,6 +167,12 @@ export const TERMS = {
         heading: 'Operadoras compatibles y cambio de numero',
         paragraphs: [
           'El servicio puede no estar disponible en todos los dispositivos u operadoras. Si un cliente cambia o cede su numero movil, debe actualizarlo con Infinity Water para que no se envien mensajes al nuevo titular de ese numero.',
+        ],
+      },
+      {
+        heading: 'Elegibilidad y requisito de edad',
+        paragraphs: [
+          'El programa de SMS de Infinity Water esta disponible unicamente para personas de 18 anos de edad o mas. Al suscribirse, el usuario confirma que tiene al menos 18 anos y que esta autorizado a inscribir el numero de telefono proporcionado. Las personas menores de 18 anos no deben inscribirse en el programa de SMS.',
         ],
       },
       {

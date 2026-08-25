@@ -107,6 +107,8 @@ const checks = [
   ['clausula de no venta de consentimiento', privacy.includes('We do not sell, rent, or transfer SMS consent to third parties')],
   ['STOP y HELP en los terminos', terms.includes('Reply STOP') && terms.includes('Reply HELP')],
   ['consentimiento no condiciona la compra', terms.includes('not a condition of purchasing any product or service')],
+  ['requisito de edad 18+ en los terminos', terms.includes('available only to individuals who are 18 years of age or older')],
+  ['requisito de edad tambien en la version en espanol', (html['/es/terminos-y-condiciones'] ?? '').includes('18 years of age or older')],
   ['la politica de SMS describe las dos casillas', sms.includes('non-marketing messages') && sms.includes('recurring marketing messages')],
   ['ingles disponible en la ruta legal en espanol', (html['/es/politica-de-privacidad'] ?? '').includes('SMS and mobile information')],
 
