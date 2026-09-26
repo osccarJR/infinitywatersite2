@@ -197,15 +197,37 @@ Ver [`docs/ENTREGA-A2P.md`](docs/ENTREGA-A2P.md). Lo esencial:
 
 ### VPS con nginx (producción actual)
 
-`npm run build` y copiar `dist/` a `/var/www/static/infinitywater/dist`. La
-configuración está en [`deploy/`](deploy/):
+```bash
+npm run deploy            # compila, prueba, publica y verifica
+npm run deploy -- --nginx # además sube deploy/infinitywater-common.conf
+```
+
+[`scripts/deploy.sh`](scripts/deploy.sh) hace lo siguiente:
+
+1. Compila desde cero y pasa la prueba de humo. Si falla, no publica nada.
+2. Sube `dist/` a `dist-new/` en el servidor, sin tocar producción.
+3. Hace el cambio atómico `dist → dist-prev` y `dist-new → dist`, y recarga
+   nginx solo si `nginx -t` pasa.
+4. Comprueba en producción las URL de A2P y la 404.
+
+Necesita el alias SSH `nivusoftware-vps-principal` en `~/.ssh/config`. El
+servidor es compartido con otros sitios, así que nunca hay que recargar nginx
+sin `nginx -t`.
+
+**Volver atrás:**
+`ssh nivusoftware-vps-principal 'cd /var/www/static/infinitywater && mv dist dist-bad && mv dist-prev dist'`
+
+En [`deploy/`](deploy/) está la configuración de nginx:
 
 - `try_files $uri $uri/index.html =404` sirve cada ruta sin redirecciones.
 - Las rutas que no existen responden con un **404 real** usando `404.html`.
-  Antes devolvían la portada con código 200.
+- El vhost del servidor tiene además los bloques TLS de Certbot, que no están
+  en el repo. **No sobrescribirlo:** solo se sube el snippet.
 
-Después de actualizar `deploy/infinitywater-common.conf` en el servidor:
-`sudo nginx -t && sudo systemctl reload nginx`.
+**Cloudflare** está delante del sitio y guarda en caché los estáticos (imágenes,
+favicon) hasta 30 días. El HTML no se cachea, y los archivos de `/_astro/`
+llevan hash en el nombre. Si cambias un archivo de `public/` que conserva el
+nombre, purga la caché en Cloudflare o súbele la versión (`?v=`) en el enlace.
 
 ### Docker
 

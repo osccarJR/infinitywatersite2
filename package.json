@@ -11,7 +11,8 @@
     "check": "astro check",
     "test:smoke": "node scripts/smoke.mjs",
     "optimize:images": "node scripts/optimize-images.mjs",
-    "start": "node index.js"
+    "start": "node index.js",
+    "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {
     "serve": "^14.2.4"

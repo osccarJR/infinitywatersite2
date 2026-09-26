@@ -121,9 +121,11 @@ const jsonLd = [business, ...schema];
     <meta name="twitter:description" content={description} />
     <meta name="twitter:image" content={image} />
 
-    <link rel="icon" href="/favicon.ico" sizes="any" />
-    <link rel="icon" href="/images/favicon.png" type="image/png" />
-    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <!-- ?v=2: Cloudflare guarda los estaticos hasta 30 dias; cambiar la
+         version al regenerar los iconos para que se vean al momento. -->
+    <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
+    <link rel="icon" href="/images/favicon.png?v=2" type="image/png" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=2" />
     <meta name="theme-color" content="#0a1a2f" />
     <slot name="head" />
 
