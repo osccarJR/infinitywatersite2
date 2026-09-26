@@ -1,0 +1,235 @@
+---
+import Icon from './Icon.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { pathFor, pagesOfKind, contentPath, otherLang } from '../i18n/routes';
+import { PRIMARY_PHONE } from '../config/business';
+import { labelOf } from '../data/labels';
+
+interface Props {
+  lang: Lang;
+  /** La misma pagina en el otro idioma. */
+  alternatePath: string;
+  /** En el formulario el boton de "Analisis gratis" sobra. */
+  hideCta?: boolean;
+}
+
+const { lang, alternatePath, hideCta = false } = Astro.props;
+const ui = t(lang);
+
+const services = pagesOfKind('service');
+const problems = pagesOfKind('problem');
+const cities = pagesOfKind('city');
+
+const link = (key: string) => pathFor(key, lang);
+---
+
+<header
+  id="site-header"
+  class="fixed inset-x-0 top-0 z-50 border-b border-white/10 bg-ink/92 text-white backdrop-blur-md supports-[backdrop-filter]:bg-ink/80"
+>
+  <div class="container-x flex h-[4.5rem] items-center gap-4">
+    <a href={link('home')} class="shrink-0" aria-label="Infinity Water — inicio">
+      <img src="/images/logo.webp" alt="Infinity Water" width="168" height="30" class="h-7 w-auto sm:h-[30px]" />
+    </a>
+
+    <nav class="ml-6 hidden items-center gap-1 lg:flex" aria-label={ui.menu}>
+      <a href={link('well-water')} class="nav-link">{ui.nav.wellWater}</a>
+      <a href={link('city-water')} class="nav-link">{ui.nav.cityWater}</a>
+
+      <details class="nav-dd group relative">
+        <summary class="nav-link cursor-pointer">
+          {ui.nav.services}
+          <Icon name="ChevronDown" class="h-4 w-4 transition group-open:rotate-180" />
+        </summary>
+        <div class="dd-panel w-[36rem]">
+          <div class="grid grid-cols-2 gap-6">
+            <div>
+              <p class="dd-title">{ui.menuGroups.services}</p>
+              <ul class="space-y-1">
+                {services.map((page) => (
+                  <li>
+                    <a href={contentPath(page, lang)} class="dd-link">
+                      <Icon name={page.icon} class="h-5 w-5 text-aqua-deep" />
+                      {labelOf(page, lang)}
+                    </a>
+                  </li>
+                ))}
+                <li><a href={link('services')} class="dd-more">{lang === 'es' ? 'Ver todos los servicios' : 'All services'} →</a></li>
+              </ul>
+            </div>
+            <div>
+              <p class="dd-title">{ui.menuGroups.problems}</p>
+              <ul class="space-y-1">
+                {problems.map((page) => (
+                  <li>
+                    <a href={contentPath(page, lang)} class="dd-link">
+                      <Icon name={page.icon} class="h-5 w-5 text-violet" />
+                      {labelOf(page, lang)}
+                    </a>
+                  </li>
+                ))}
+                <li><a href={link('hurricane-well-care')} class="dd-link"><Icon name="CloudLightning" class="h-5 w-5 text-violet" />{lang === 'es' ? 'Pozo después del huracán' : 'Well care after a hurricane'}</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </details>
+
+      <details class="nav-dd group relative">
+        <summary class="nav-link cursor-pointer">
+          {ui.nav.areas}
+          <Icon name="ChevronDown" class="h-4 w-4 transition group-open:rotate-180" />
+        </summary>
+        <div class="dd-panel w-72">
+          <ul class="space-y-1">
+            {cities.map((page) => (
+              <li>
+                <a href={contentPath(page, lang)} class="dd-link">
+                  <Icon name="MapPin" class="h-5 w-5 text-aqua-deep" />
+                  {labelOf(page, lang)}
+                </a>
+              </li>
+            ))}
+            <li><a href={link('areas')} class="dd-more">{lang === 'es' ? 'Todas las zonas' : 'All service areas'} →</a></li>
+          </ul>
+        </div>
+      </details>
+
+      <a href={link('about')} class="nav-link">{ui.nav.about}</a>
+    </nav>
+
+    <div class="ml-auto flex items-center gap-2 sm:gap-3">
+      <a
+        href={`tel:${PRIMARY_PHONE.tel}`}
+        data-track="call"
+        data-location="header"
+        class="hidden items-center gap-2 rounded-full px-3 py-2 text-sm font-bold text-white/90 transition hover:bg-white/10 hover:text-white xl:inline-flex"
+      >
+        <Icon name="Phone" class="h-4 w-4 text-aqua" />
+        {PRIMARY_PHONE.display}
+      </a>
+
+      <a
+        href={alternatePath}
+        hreflang={otherLang(lang)}
+        lang={otherLang(lang)}
+        class="inline-flex items-center gap-1.5 rounded-full border border-white/20 px-3 py-1.5 text-sm font-bold text-white/90 transition hover:border-white/60 hover:text-white"
+        aria-label={ui.langSwitchLabel}
+        data-lang-switch
+      >
+        <Icon name="Languages" class="h-4 w-4" />
+        <span>{lang === 'es' ? 'EN' : 'ES'}</span>
+      </a>
+
+      {!hideCta && (
+        <a href={link('freeWaterTest')} class="btn btn-brand hidden !min-h-10 !px-5 !py-2 text-sm sm:inline-flex" data-track="free_test_cta" data-location="header">
+          {ui.cta.freeTestShort}
+        </a>
+      )}
+
+      <button
+        type="button"
+        class="inline-flex h-11 w-11 items-center justify-center rounded-full text-white hover:bg-white/10 lg:hidden"
+        aria-expanded="false"
+        aria-controls="mobile-menu"
+        data-menu-toggle
+      >
+        <span class="sr-only" data-menu-label data-open={ui.menu} data-close={ui.close}>{ui.menu}</span>
+        <Icon name="Menu" class="h-6 w-6" />
+      </button>
+    </div>
+  </div>
+
+  <!-- Menu movil -->
+  <div id="mobile-menu" class="hidden max-h-[calc(100dvh-4.5rem)] overflow-y-auto border-t border-white/10 bg-ink lg:hidden">
+    <nav class="container-x space-y-7 py-6" aria-label={ui.menu}>
+      <div class="grid grid-cols-2 gap-3">
+        <a href={link('well-water')} class="m-tile"><Icon name="Waves" class="h-6 w-6 text-aqua" />{ui.nav.wellWater}</a>
+        <a href={link('city-water')} class="m-tile"><Icon name="Building2" class="h-6 w-6 text-aqua" />{ui.nav.cityWater}</a>
+      </div>
+      <div>
+        <p class="m-title">{ui.menuGroups.services}</p>
+        <ul class="grid gap-1">
+          {services.map((page) => <li><a href={contentPath(page, lang)} class="m-link">{labelOf(page, lang)}</a></li>)}
+        </ul>
+      </div>
+      <div>
+        <p class="m-title">{ui.menuGroups.problems}</p>
+        <ul class="grid grid-cols-2 gap-1">
+          {problems.map((page) => <li><a href={contentPath(page, lang)} class="m-link">{labelOf(page, lang)}</a></li>)}
+          <li><a href={link('hurricane-well-care')} class="m-link">{lang === 'es' ? 'Después del huracán' : 'After a hurricane'}</a></li>
+        </ul>
+      </div>
+      <div>
+        <p class="m-title">{ui.menuGroups.areas}</p>
+        <ul class="grid grid-cols-2 gap-1">
+          {cities.map((page) => <li><a href={contentPath(page, lang)} class="m-link">{labelOf(page, lang)}</a></li>)}
+        </ul>
+      </div>
+      <div>
+        <p class="m-title">{ui.menuGroups.company}</p>
+        <ul class="grid grid-cols-2 gap-1">
+          <li><a href={link('about')} class="m-link">{ui.nav.about}</a></li>
+          <li><a href={link('financing')} class="m-link">{ui.nav.financing}</a></li>
+          <li><a href={link('faq')} class="m-link">{ui.nav.faq}</a></li>
+          <li><a href={link('contact')} class="m-link">{ui.nav.contact}</a></li>
+        </ul>
+      </div>
+      <a href={link('freeWaterTest')} class="btn btn-brand w-full" data-track="free_test_cta" data-location="mobile-menu">{ui.cta.freeTest}</a>
+    </nav>
+  </div>
+</header>
+
+<style>
+  @reference '../styles/global.css';
+  .nav-link {
+    @apply inline-flex items-center gap-1 rounded-full px-3.5 py-2 text-[0.92rem] font-semibold text-white/85 transition hover:bg-white/10 hover:text-white;
+  }
+  .dd-panel {
+    @apply absolute left-0 top-[calc(100%+0.75rem)] rounded-3xl border border-ink/10 bg-white p-5 text-ink shadow-lift;
+  }
+  .dd-title { @apply mb-2 px-3 text-xs font-bold uppercase tracking-[0.14em] text-muted; }
+  .dd-link { @apply flex items-center gap-3 rounded-xl px-3 py-2.5 text-[0.92rem] font-semibold transition hover:bg-foam; }
+  .dd-more { @apply block px-3 pt-2 text-sm font-bold text-aqua-deep hover:underline; }
+  .m-title { @apply mb-2 text-xs font-bold uppercase tracking-[0.14em] text-white/50; }
+  .m-link { @apply block rounded-xl px-3 py-2.5 font-semibold text-white/90 hover:bg-white/10; }
+  .m-tile { @apply flex flex-col gap-2 rounded-2xl border border-white/10 bg-white/5 p-4 font-bold; }
+</style>
+
+<script>
+  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const menu = document.getElementById('mobile-menu');
+  const label = document.querySelector<HTMLElement>('[data-menu-label]');
+
+  toggle?.addEventListener('click', () => {
+    const open = toggle.getAttribute('aria-expanded') !== 'true';
+    toggle.setAttribute('aria-expanded', String(open));
+    menu?.classList.toggle('hidden', !open);
+    document.documentElement.classList.toggle('overflow-hidden', open);
+    if (label) label.textContent = (open ? label.dataset.close : label.dataset.open) ?? '';
+  });
+
+  // Los desplegables de escritorio: solo uno abierto y se cierran al hacer
+  // clic fuera o con Escape.
+  const dropdowns = [...document.querySelectorAll<HTMLDetailsElement>('.nav-dd')];
+  dropdowns.forEach((dd) =>
+    dd.addEventListener('toggle', () => {
+      if (dd.open) dropdowns.filter((other) => other !== dd).forEach((other) => (other.open = false));
+    })
+  );
+  document.addEventListener('click', (event) => {
+    dropdowns.forEach((dd) => {
+      if (dd.open && !dd.contains(event.target as Node)) dd.open = false;
+    });
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key !== 'Escape') return;
+    dropdowns.forEach((dd) => {
+      if (dd.open) {
+        dd.open = false;
+        dd.querySelector('summary')?.focus();
+      }
+    });
+  });
+</script>

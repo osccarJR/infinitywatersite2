@@ -1,0 +1,200 @@
+---
+/**
+ * /free-water-test — el UNICO punto de captura del sitio (requisito A2P).
+ *
+ * El formulario lo construye y mantiene Deja Vu IA en GoHighLevel: ahi
+ * viven los campos, las dos casillas de consentimiento y el registro de la
+ * evidencia. Aqui NO se duplican campos ni textos de consentimiento; esta
+ * pagina aporta contexto y los tres enlaces legales visibles antes del
+ * formulario.
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import type { Lang } from '../data/types';
+import { pathFor, STATIC_ROUTES } from '../i18n/routes';
+import {
+  FOUNDER_YEARS,
+  LEGAL_ENTITY_DBA,
+  SMS_PHONE_NUMBER,
+  SUPPORT_PHONE,
+  WHATSAPP_MESSAGE,
+  whatsappUrl,
+} from '../config/business';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const es = lang === 'es';
+
+const FORM_ID = 'LgLxNfMMaa7apAp6aDB4';
+const FORM_ORIGIN = 'https://api.dejavuia.com';
+const FORM_SRC = `${FORM_ORIGIN}/widget/form/${FORM_ID}`;
+/** Alto inicial; form_embed.js lo ajusta al formulario real al cargar. */
+const FALLBACK_HEIGHT = 820;
+
+const c = es
+  ? {
+      metaTitle: 'Análisis de Agua Gratis | Infinity Water',
+      metaDescription:
+        'Solicita tu análisis de agua gratuito en casa en Florida. Dinos si tu hogar recibe agua de pozo o de ciudad y coordinamos la visita. Sin compromiso de compra.',
+      eyebrow: 'Análisis de agua gratis',
+      title: 'Solicita tu análisis de agua gratuito en casa',
+      intro:
+        'Dinos si tu hogar recibe agua de pozo o agua de ciudad. Infinity Water se comunicará contigo para coordinar el análisis y explicarte las opciones disponibles. Enviar esta solicitud no te obliga a comprar.',
+      includesTitle: 'Qué incluye la visita',
+      includes: [
+        { icon: 'FlaskConical', title: 'Medición en tu casa', text: 'Del pozo o de la llave, según tu caso.' },
+        { icon: 'Search', title: 'Revisión de tu instalación', text: 'Tuberías, equipos actuales y punto de entrada.' },
+        { icon: 'FileText', title: 'Resultado explicado', text: 'En español y con palabras claras.' },
+        { icon: 'HeartHandshake', title: 'Cero presión', text: 'Si no necesitas nada, te lo decimos.' },
+      ],
+      promise: `Más de ${FOUNDER_YEARS} años de experiencia de nuestro fundador. Por ley de Florida, cualquier compra hecha en tu casa se puede cancelar hasta la medianoche del 3.er día hábil.`,
+      legalHeading: 'Antes de enviar el formulario',
+      legalIntro:
+        'El consentimiento de mensajes de texto es opcional y no es necesario para enviar este formulario ni para comprar ningún producto o servicio. Consulta:',
+      links: { privacy: 'Política de Privacidad', terms: 'Términos y Condiciones', smsPolicy: 'Política de SMS' },
+      formTitle: 'Formulario de solicitud de análisis de agua gratuito',
+      altTitle: '¿Prefieres hablar con alguien?',
+      whatsapp: 'Escríbenos por WhatsApp',
+      phoneLabel: 'Llámanos al',
+      smsLabel: 'Texto/SMS',
+      operatedBy: `Operado por ${LEGAL_ENTITY_DBA}.`,
+    }
+  : {
+      metaTitle: 'Free Water Test | Infinity Water',
+      metaDescription:
+        'Request your free home water analysis in Florida. Tell us whether your home uses well water or city water and we will coordinate the visit. No obligation to purchase.',
+      eyebrow: 'Free water test',
+      title: 'Request your free home water analysis',
+      intro:
+        'Tell us whether your home uses well water or city water. Infinity Water will contact you to coordinate the analysis and explain the available options. Submitting this request does not obligate you to purchase anything.',
+      includesTitle: 'What the visit includes',
+      includes: [
+        { icon: 'FlaskConical', title: 'On-site testing', text: 'At the well or the tap, depending on your home.' },
+        { icon: 'Search', title: 'Plumbing check', text: 'Pipes, existing equipment and point of entry.' },
+        { icon: 'FileText', title: 'Results explained', text: 'In plain English or Spanish.' },
+        { icon: 'HeartHandshake', title: 'Zero pressure', text: 'If you don’t need anything, we tell you.' },
+      ],
+      promise: `Backed by our founder’s ${FOUNDER_YEARS}+ years of experience. Under Florida law, any purchase made in your home can be canceled until midnight of the third business day.`,
+      legalHeading: 'Before you send the form',
+      legalIntro:
+        'Text message consent is optional and is not required to submit this form or to purchase any product or service. Please review:',
+      links: { privacy: 'Privacy Policy', terms: 'Terms & Conditions', smsPolicy: 'SMS Policy' },
+      formTitle: 'Free water analysis request form',
+      altTitle: 'Prefer to talk to someone?',
+      whatsapp: 'Message us on WhatsApp',
+      phoneLabel: 'Call us at',
+      smsLabel: 'Text/SMS',
+      operatedBy: `Operated by ${LEGAL_ENTITY_DBA}.`,
+    };
+
+const legalLinks = [
+  { key: 'privacy', icon: 'ShieldCheck' },
+  { key: 'terms', icon: 'FileText' },
+  { key: 'smsPolicy', icon: 'MessageCircle' },
+] as const;
+---
+
+<Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES.freeWaterTest} onFormPage>
+  <link slot="head" rel="preconnect" href={FORM_ORIGIN} />
+
+  <section class="relative overflow-hidden bg-foam">
+    <div aria-hidden="true" class="absolute -left-32 top-0 h-96 w-96 rounded-full bg-violet/10 blur-3xl"></div>
+    <div aria-hidden="true" class="absolute -right-32 top-40 h-96 w-96 rounded-full bg-aqua/15 blur-3xl"></div>
+
+    <div class="container-x relative grid gap-12 py-12 sm:py-16 lg:grid-cols-[1fr_1.15fr] lg:gap-16 lg:py-20">
+      <!-- Contexto -->
+      <div class="lg:sticky lg:top-28 lg:self-start">
+        <p class="eyebrow">{c.eyebrow}</p>
+        <h1 class="mt-4 text-4xl sm:text-5xl">{c.title}</h1>
+        <p class="mt-6 text-lg leading-relaxed text-ink/75">{c.intro}</p>
+
+        <h2 class="mt-10 font-sans text-sm font-bold uppercase tracking-[0.14em] text-muted">{c.includesTitle}</h2>
+        <ul class="mt-5 grid gap-3 sm:grid-cols-2">
+          {c.includes.map((item) => (
+            <li class="flex gap-3 rounded-2xl bg-white p-4 shadow-soft">
+              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-aqua-soft text-aqua-deep"><Icon name={item.icon} class="h-5 w-5" /></span>
+              <span><span class="block font-bold">{item.title}</span><span class="block text-sm text-muted">{item.text}</span></span>
+            </li>
+          ))}
+        </ul>
+
+        <p class="mt-6 flex gap-3 rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm leading-relaxed text-ink/75">
+          <Icon name="Scale" class="mt-0.5 h-5 w-5 shrink-0 text-violet" />{c.promise}
+        </p>
+
+        <div class="mt-8 hidden lg:block">
+          <p class="font-bold">{c.altTitle}</p>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-11 text-sm" data-track="whatsapp" data-location="form-page"><Icon name="MessageCircle" />{c.whatsapp}</a>
+            <a href={`tel:${SUPPORT_PHONE.tel}`} class="btn btn-ghost !min-h-11 text-sm" data-track="call" data-location="form-page"><Icon name="Phone" />{SUPPORT_PHONE.display}</a>
+          </div>
+        </div>
+      </div>
+
+      <!-- Formulario -->
+      <div>
+        <!-- Los enlaces legales van ANTES del formulario, visibles sin
+             depender de que el iframe haya cargado. -->
+        <div class="mb-5 rounded-3xl border border-ink/10 bg-white p-5 shadow-soft">
+          <h2 class="font-sans text-base font-bold tracking-normal">{c.legalHeading}</h2>
+          <p class="mt-1.5 text-sm leading-relaxed text-muted">{c.legalIntro}</p>
+          <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+            {legalLinks.map(({ key, icon }) => (
+              <li>
+                <a href={pathFor(key, lang)} target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm font-bold text-aqua-deep underline underline-offset-4">
+                  <Icon name={icon} class="h-4 w-4" />{c.links[key]}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <!-- form_embed.js oculta el iframe hasta que el formulario avisa de
+             que cargo; el marcador de detras reserva el espacio mientras. -->
+        <div class="relative min-h-[820px] overflow-hidden rounded-[2rem] border border-ink/10 bg-white shadow-lift">
+          <div class="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted" aria-hidden="true">
+            <span class="h-10 w-10 animate-spin rounded-full border-4 border-aqua/20 border-t-aqua"></span>
+            <span class="text-sm font-semibold">{es ? 'Cargando formulario…' : 'Loading form…'}</span>
+          </div>
+          <iframe
+            src={FORM_SRC}
+            data-src={FORM_SRC}
+            data-ghl-form
+            data-thanks={pathFor('thanks', lang)}
+            id={`inline-${FORM_ID}`}
+            title={c.formTitle}
+            style={`width:100%;height:${FALLBACK_HEIGHT}px;border:none;display:block;position:relative;background:#fff`}
+            data-layout='{"id":"INLINE"}'
+            data-trigger-type="alwaysShow"
+            data-trigger-value=""
+            data-activation-type="alwaysActivated"
+            data-activation-value=""
+            data-deactivation-type="neverDeactivate"
+            data-deactivation-value=""
+            data-form-name="Free water test"
+            data-height={FALLBACK_HEIGHT}
+            data-layout-iframe-id={`inline-${FORM_ID}`}
+            data-form-id={FORM_ID}></iframe>
+        </div>
+
+        <div class="mt-6 space-y-1 text-center text-sm text-muted">
+          {SMS_PHONE_NUMBER && <p>{c.smsLabel}: <strong class="text-ink">{SMS_PHONE_NUMBER}</strong></p>}
+          <p>
+            {c.phoneLabel}{' '}
+            <a href={`tel:${SUPPORT_PHONE.tel}`} class="font-bold text-aqua-deep" data-track="call" data-location="form-page">{SUPPORT_PHONE.display}</a>
+          </p>
+          <p>{c.operatedBy}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+    import { initGhlForm } from '../scripts/ghl';
+    initGhlForm();
+  </script>
+  <script is:inline src="https://api.dejavuia.com/js/form_embed.js" defer></script>
+</Base>

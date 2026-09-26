@@ -1,0 +1,109 @@
+---
+/** Indices de servicios (/services) y de zonas (/areas). */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import FinalCta from '../components/FinalCta.astro';
+import type { Lang } from '../data/types';
+import { contentPath, pagesOfKind, pathFor, STATIC_ROUTES } from '../i18n/routes';
+import { labelOf } from '../data/labels';
+import { OTHER_FLORIDA } from '../config/business';
+
+interface Props {
+  lang: Lang;
+  hub: 'services' | 'areas';
+}
+
+const { lang, hub } = Astro.props;
+const es = lang === 'es';
+const pages = pagesOfKind(hub === 'services' ? 'service' : 'city');
+const problems = pagesOfKind('problem');
+
+const c =
+  hub === 'services'
+    ? es
+      ? {
+          metaTitle: 'Servicios de tratamiento de agua | Infinity Water',
+          metaDescription: 'Filtración para toda la casa, sistemas para agua de pozo, ósmosis inversa y mantenimiento en Fort Myers, Cape Coral, Lehigh Acres y Naples. Equipos hechos en EE. UU.',
+          eyebrow: 'Servicios',
+          title: 'Soluciones para cada tipo de agua',
+          lead: 'Primero analizamos tu agua gratis. Después te recomendamos solo lo que tu casa necesita, con equipos fabricados en EE. UU. y soporte de por vida mientras tu sistema esté al día.',
+          more: 'Ver servicio',
+          problemsTitle: '¿Tienes un problema concreto?',
+        }
+      : {
+          metaTitle: 'Water Treatment Services | Infinity Water',
+          metaDescription: 'Whole-house filtration, well water systems, reverse osmosis and maintenance in Fort Myers, Cape Coral, Lehigh Acres and Naples. Made in USA equipment.',
+          eyebrow: 'Services',
+          title: 'Solutions for every kind of water',
+          lead: 'We test your water for free first. Then we recommend only what your home needs — Made in USA equipment with lifetime support while your system stays in good standing.',
+          more: 'See service',
+          problemsTitle: 'Dealing with a specific problem?',
+        }
+    : es
+      ? {
+          metaTitle: 'Zonas de servicio en el suroeste de Florida | Infinity Water',
+          metaDescription: 'Atendemos Fort Myers, Cape Coral, Lehigh Acres, Naples, Golden Gate Estates, Bonita Springs y Estero. Conoce el agua de tu zona con datos oficiales.',
+          eyebrow: 'Zonas',
+          title: 'Conocemos el agua de tu zona',
+          lead: 'Cada ciudad tiene su proveedor, su tratamiento y sus barrios con pozo. Elige la tuya y mira qué dicen los reportes oficiales.',
+          more: 'Ver mi zona',
+          problemsTitle: 'También atendemos',
+        }
+      : {
+          metaTitle: 'Service Areas in Southwest Florida | Infinity Water',
+          metaDescription: 'We serve Fort Myers, Cape Coral, Lehigh Acres, Naples, Golden Gate Estates, Bonita Springs and Estero. Learn about your area’s water with official data.',
+          eyebrow: 'Service areas',
+          title: 'We know the water where you live',
+          lead: 'Each city has its own utility, its own treatment and its own well neighborhoods. Pick yours and see what the official reports say.',
+          more: 'See my area',
+          problemsTitle: 'We also serve',
+        };
+---
+
+<Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES[hub]}>
+  <section class="relative overflow-hidden bg-foam">
+    <div aria-hidden="true" class="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-aqua/15 blur-3xl"></div>
+    <div class="container-x relative py-14 sm:py-20">
+      <p class="eyebrow">{c.eyebrow}</p>
+      <h1 class="mt-4 max-w-3xl text-4xl sm:text-6xl">{c.title}</h1>
+      <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75">{c.lead}</p>
+    </div>
+  </section>
+
+  <section class="container-x py-16">
+    <div class:list={['grid gap-5 sm:grid-cols-2', hub === 'areas' ? 'lg:grid-cols-3' : 'lg:grid-cols-2']}>
+      {pages.map((page) => (
+        <a href={contentPath(page, lang)} class="card group flex flex-col p-8 transition hover:-translate-y-1 hover:shadow-lift">
+          <span class="grid h-14 w-14 place-items-center rounded-2xl bg-aqua-soft text-aqua-deep"><Icon name={hub === 'areas' ? 'MapPin' : page.icon} class="h-7 w-7" /></span>
+          <p class="mt-6 text-xs font-bold uppercase tracking-[0.14em] text-muted">{page[lang].eyebrow}</p>
+          <h2 class="mt-2 text-2xl">{labelOf(page, lang)}</h2>
+          <p class="mt-3 flex-1 leading-relaxed text-muted">{page[lang].lead}</p>
+          <ul class="mt-5 space-y-1.5 text-sm">
+            {page[lang].highlights.slice(0, 3).map((h) => <li class="flex gap-2"><Icon name="CircleCheck" class="mt-0.5 h-4 w-4 shrink-0 text-aqua-deep" />{h}</li>)}
+          </ul>
+          <span class="mt-6 inline-flex items-center gap-1.5 font-bold text-aqua-deep">{c.more}<Icon name="ArrowRight" class="h-4 w-4 transition group-hover:translate-x-1" /></span>
+        </a>
+      ))}
+    </div>
+
+    <div class="mt-16 rounded-4xl bg-sand p-8 sm:p-10">
+      <h2 class="text-2xl">{c.problemsTitle}</h2>
+      {hub === 'services' ? (
+        <ul class="mt-6 flex flex-wrap gap-3">
+          {problems.map((page) => (
+            <li><a href={contentPath(page, lang)} class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 font-semibold shadow-soft hover:shadow-lift"><Icon name={page.icon} class="h-4 w-4 text-violet" />{labelOf(page, lang)}</a></li>
+          ))}
+          <li><a href={pathFor('hurricane-well-care', lang)} class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2.5 font-semibold shadow-soft hover:shadow-lift"><Icon name="CloudLightning" class="h-4 w-4 text-violet" />{es ? 'Pozo después del huracán' : 'Well care after a hurricane'}</a></li>
+        </ul>
+      ) : (
+        <p class="mt-4 leading-relaxed text-ink/75">
+          {OTHER_FLORIDA.join(' · ')}
+          <br />
+          <span class="text-muted">{es ? '¿Tu zona no aparece? Escríbenos y te decimos si llegamos.' : 'Don’t see your area? Message us and we’ll tell you if we can help.'}</span>
+        </p>
+      )}
+    </div>
+  </section>
+
+  <FinalCta lang={lang} location={`${hub}-hub`} />
+</Base>

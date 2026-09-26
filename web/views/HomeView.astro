@@ -1,0 +1,587 @@
+---
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import WaterCheck from '../components/WaterCheck.astro';
+import FinalCta from '../components/FinalCta.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { pathFor, pagesOfKind, contentPath, STATIC_ROUTES } from '../i18n/routes';
+import { labelOf } from '../data/labels';
+import { getReviews } from '../lib/reviews';
+import familyPhoto from '../assets/photos/family.png';
+import {
+  FOUNDER_YEARS,
+  GOOGLE_PROFILE_URL,
+  MADE_IN_USA,
+  PRIMARY_PHONE,
+  SEALS,
+  WARRANTY,
+  WHATSAPP_MESSAGE,
+  whatsappUrl,
+} from '../config/business';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const es = lang === 'es';
+const ui = t(lang);
+const link = (key: string) => pathFor(key, lang);
+const reviews = await getReviews(lang);
+
+const c = es
+  ? {
+      heroTag: 'Fort Myers · Cape Coral · Lehigh Acres · Naples',
+      heroTitleA: 'Descubre qué hay en el agua de tu casa.',
+      heroTitleB: 'Gratis.',
+      heroLead: `Especialistas en agua de pozo y de ciudad en el suroeste de Florida, con más de ${FOUNDER_YEARS} años de experiencia. Analizamos tu agua en tu casa, te explicamos el resultado en español y te decimos con honestidad si necesitas un sistema… o no.`,
+      reportTitle: 'Ejemplo de análisis de pozo',
+      reportRows: [
+        { label: 'Sulfuro (olor)', value: 'Detectado', level: 78, tone: 'warn' },
+        { label: 'Hierro', value: 'Alto', level: 64, tone: 'warn' },
+        { label: 'Dureza', value: 'Moderada', level: 46, tone: 'mid' },
+        { label: 'pH', value: 'Normal', level: 30, tone: 'ok' },
+      ],
+      reportFoot: 'Te lo explicamos punto por punto',
+      bubble: '¡Hola! ¿Qué día te viene bien la visita?',
+      twoTitle: 'Pozo o ciudad: dos aguas, dos problemas muy distintos',
+      twoLead:
+        'Lo primero que preguntamos es de dónde viene tu agua. Un pozo y el agua de la ciudad se tratan de forma completamente diferente, y quien te venda lo mismo para los dos no te está diciendo la verdad.',
+      well: {
+        tag: 'Nuestra especialidad',
+        title: 'Agua de pozo',
+        text: 'Nadie analiza tu pozo por ti. Aquí el agua subterránea suele traer azufre, hierro y dureza, y después de una tormenta puede traer bacterias.',
+        items: ['Olor a huevo podrido', 'Manchas naranjas', 'Sarro y dureza', 'Bacterias tras inundaciones'],
+        cta: 'Todo sobre agua de pozo',
+      },
+      city: {
+        tag: 'Te decimos la verdad',
+        title: 'Agua de ciudad',
+        text: 'Es segura y en esta zona suele ser blanda. Lo que sí se nota es el cloro o las cloraminas, el sabor y, en algunas ciudades, el sodio.',
+        items: ['Sabor y olor a cloro', 'Cloraminas', 'Subproductos (TTHM)', 'Sodio en el agua'],
+        cta: 'Todo sobre agua de ciudad',
+      },
+      servicesEyebrow: 'Soluciones',
+      servicesTitle: 'Sistemas a la medida de tu agua, no de un catálogo',
+      servicesLead: 'Primero medimos. Después te recomendamos el sistema exacto que tu casa necesita, con equipos fabricados en EE. UU. e instalados por nuestro equipo.',
+      servicesMore: 'Ver servicio',
+      processEyebrow: 'El análisis gratis',
+      processTitle: 'Así es la visita. Sin sorpresas.',
+      steps: [
+        { title: 'Nos escribes o llamas', text: 'Por WhatsApp, teléfono o el formulario. Te atendemos en español y agendamos cuando te convenga.' },
+        { title: 'Vamos a tu casa', text: 'Medimos tu agua en el punto correcto (del pozo o de la llave) y revisamos tu instalación y tus equipos actuales.' },
+        { title: 'Te explicamos el resultado', text: 'En tu idioma y con palabras claras: qué encontramos, qué significa y si de verdad hace falta hacer algo.' },
+        { title: 'Tú decides con calma', text: 'Si hay un problema, te damos una propuesta por escrito. Si no lo hay, te lo decimos. Sin presión.' },
+      ],
+      neverTitle: 'Lo que nunca vas a vivir con nosotros',
+      never: [
+        'Pruebas “de colores” que salen mal con cualquier agua',
+        'Presión para firmar el mismo día',
+        '“Descuentos solo por hoy” para apurarte',
+        'Un contrato en inglés si la venta fue en español',
+      ],
+      lawNote: 'Y por ley de Florida, si compras en tu casa, tienes hasta la medianoche del 3.er día hábil para cancelar.',
+      whyEyebrow: 'Por qué Infinity Water',
+      whyTitle: 'Una empresa familiar que conoce el agua de Florida',
+      yearsLabel: 'años de experiencia de nuestro fundador tratando agua',
+      reasons: [
+        { icon: 'Waves', title: 'Expertos en pozos', text: 'Azufre, hierro, dureza, taninos, sal. Cada pozo es distinto y lo tratamos a la medida.' },
+        { icon: 'Flag', title: 'Hecho en EE. UU.', text: 'Trabajamos con equipos fabricados en Estados Unidos y materiales de primera calidad.' },
+        { icon: 'Languages', title: 'En tu idioma', text: 'Te atendemos en español de principio a fin: la visita, la explicación y los papeles.' },
+        { icon: 'ShieldCheck', title: WARRANTY.es.short, text: 'Cada pieza con su garantía de fábrica, gestionada por nosotros, y soporte mientras tu sistema esté al día.' },
+        { icon: 'CreditCard', title: 'Financiamiento', text: 'Trabajamos con varias financieras de mejoras del hogar. Revisas cada condición antes de firmar.' },
+        { icon: 'Wrench', title: 'Mantenimiento programado', text: 'Te recordamos cambios de filtros y visitas para que el sistema rinda siempre como el primer día.' },
+      ],
+      reviewsTitle: 'Lo que dicen nuestros clientes',
+      reviewsLead: 'Reseñas reales de nuestro perfil de Google.',
+      reviewsCta: 'Ver todas las reseñas en Google',
+      reviewsEmptyTitle: '¿Quieres saber cómo trabajamos?',
+      reviewsEmptyText: 'Lee lo que dicen nuestros clientes en Google, o pregúntanos lo que quieras por WhatsApp.',
+      areasEyebrow: 'Dónde trabajamos',
+      areasTitle: 'Conocemos el agua de cada zona',
+      areasLead: 'Cada ciudad tiene su propio proveedor, su tratamiento y sus zonas con pozo. Mira qué dice el reporte oficial de la tuya.',
+      areasMore: 'Todas las zonas',
+      finTitle: 'Un sistema de calidad no tiene que esperar',
+      finText: 'Trabajamos con varias financieras especializadas en mejoras del hogar. Te explicamos cada opción con claridad y revisas todas las condiciones antes de firmar.',
+      finCta: 'Cómo funciona el financiamiento',
+      faqTitle: 'Preguntas que nos hacen siempre',
+      faqMore: 'Ver todas las preguntas',
+      faqs: [
+        { q: '¿El análisis de verdad es gratis? ¿Tengo que comprar algo?', a: 'Es gratis y sin compromiso. Vamos a tu casa, medimos y te explicamos el resultado. Si tu agua está bien, te lo decimos y ahí termina la visita.' },
+        { q: 'Tengo agua de la ciudad, ¿necesito un suavizador?', a: 'Normalmente no. El agua municipal de esta zona suele ser blanda o moderada; la propia ciudad de Cape Coral lo dice. Con agua de ciudad lo que más se nota es el cloro o las cloraminas, y eso se resuelve con carbón catalítico.' },
+        { q: '¿Por qué el agua de mi pozo huele a huevo podrido?', a: 'Casi siempre es sulfuro de hidrógeno, muy común en los pozos de la zona. Se trata con inyección de aire u oxidación, pero antes hay que medirlo para dimensionar bien el sistema.' },
+        { q: '¿Me atienden en español?', a: 'Sí, de principio a fin: por WhatsApp, por teléfono, en la visita y en toda la documentación.' },
+        { q: '¿Qué garantía tienen los equipos?', a: WARRANTY.es.long },
+        { q: '¿Y si me arrepiento después de comprar?', a: 'Por ley de Florida, en una venta hecha en tu casa tienes hasta la medianoche del 3.er día hábil para cancelar. Te lo explicamos antes de firmar, no después.' },
+      ],
+    }
+  : {
+      heroTag: 'Fort Myers · Cape Coral · Lehigh Acres · Naples',
+      heroTitleA: 'Find out what’s really in your home’s water.',
+      heroTitleB: 'Free.',
+      heroLead: `Well and city water specialists in Southwest Florida, backed by ${FOUNDER_YEARS}+ years of hands-on experience. We test your water at home, explain the results in plain language and tell you honestly whether you need a system — or not.`,
+      reportTitle: 'Sample well water test',
+      reportRows: [
+        { label: 'Sulfur (odor)', value: 'Detected', level: 78, tone: 'warn' },
+        { label: 'Iron', value: 'High', level: 64, tone: 'warn' },
+        { label: 'Hardness', value: 'Moderate', level: 46, tone: 'mid' },
+        { label: 'pH', value: 'Normal', level: 30, tone: 'ok' },
+      ],
+      reportFoot: 'We walk you through every line',
+      bubble: 'Hi! What day works best for your visit?',
+      twoTitle: 'Well or city: two waters, two very different problems',
+      twoLead:
+        'The first thing we ask is where your water comes from. A private well and city water are treated completely differently — anyone selling the same box for both isn’t telling you the whole story.',
+      well: {
+        tag: 'Our specialty',
+        title: 'Well water',
+        text: 'Nobody tests your well for you. Groundwater here often carries sulfur, iron and hardness — and after a storm it can carry bacteria.',
+        items: ['Rotten-egg smell', 'Orange stains', 'Scale & hardness', 'Bacteria after flooding'],
+        cta: 'Everything about well water',
+      },
+      city: {
+        tag: 'The honest truth',
+        title: 'City water',
+        text: 'It’s safe, and around here it’s usually soft. What you do notice is chlorine or chloramines, the taste and, in some cities, sodium.',
+        items: ['Chlorine taste & smell', 'Chloramines', 'Byproducts (TTHM)', 'Sodium'],
+        cta: 'Everything about city water',
+      },
+      servicesEyebrow: 'Solutions',
+      servicesTitle: 'Systems built for your water, not pulled from a catalog',
+      servicesLead: 'We measure first. Then we recommend the exact system your home needs — Made in USA equipment, installed by our own team.',
+      servicesMore: 'See service',
+      processEyebrow: 'The free water test',
+      processTitle: 'Here’s how the visit works. No surprises.',
+      steps: [
+        { title: 'Message or call us', text: 'WhatsApp, phone or the form. In English or Spanish — we schedule when it suits you.' },
+        { title: 'We come to your home', text: 'We test at the right point (well or tap) and check your plumbing and any equipment you already have.' },
+        { title: 'We explain the results', text: 'In plain language: what we found, what it means and whether anything actually needs to be done.' },
+        { title: 'You decide, calmly', text: 'If there’s a problem, you get a written proposal. If there isn’t, we tell you. No pressure.' },
+      ],
+      neverTitle: 'What you’ll never get from us',
+      never: [
+        '“Color-change” tests that fail any water',
+        'Pressure to sign the same day',
+        '“Today-only discounts” to rush you',
+        'A contract in English after a sale made in Spanish',
+      ],
+      lawNote: 'And under Florida law, if you buy at home you can cancel until midnight of the third business day.',
+      whyEyebrow: 'Why Infinity Water',
+      whyTitle: 'A family business that knows Florida water',
+      yearsLabel: 'years of our founder’s hands-on water treatment experience',
+      reasons: [
+        { icon: 'Waves', title: 'Well water experts', text: 'Sulfur, iron, hardness, tannins, salt. Every well is different and we treat it that way.' },
+        { icon: 'Flag', title: 'Made in USA', text: 'We install equipment made in the United States with top-quality materials.' },
+        { icon: 'Languages', title: 'Fully bilingual', text: 'English or Spanish from start to finish: the visit, the explanation and the paperwork.' },
+        { icon: 'ShieldCheck', title: WARRANTY.en.short, text: 'Every part keeps its factory warranty, handled by us, plus support while your system stays in good standing.' },
+        { icon: 'CreditCard', title: 'Financing', text: 'We work with several home-improvement lenders. You review every term before signing.' },
+        { icon: 'Wrench', title: 'Scheduled maintenance', text: 'We remind you about filter changes and service visits so your system performs like day one.' },
+      ],
+      reviewsTitle: 'What our customers say',
+      reviewsLead: 'Real reviews from our Google profile.',
+      reviewsCta: 'Read all reviews on Google',
+      reviewsEmptyTitle: 'Want to know how we work?',
+      reviewsEmptyText: 'Read what our customers say on Google — or ask us on WhatsApp.',
+      areasEyebrow: 'Where we work',
+      areasTitle: 'We know the water in every area',
+      areasLead: 'Each city has its own utility, its own treatment and its own well neighborhoods. See what your official report says.',
+      areasMore: 'All service areas',
+      finTitle: 'A quality system doesn’t have to wait',
+      finText: 'We work with several home-improvement lenders. We explain every option clearly and you review all the terms before you sign.',
+      finCta: 'How financing works',
+      faqTitle: 'Questions we hear every day',
+      faqMore: 'See all questions',
+      faqs: [
+        { q: 'Is the water test really free? Do I have to buy anything?', a: 'It’s free with no obligation. We come to your home, test and explain the results. If your water is fine, we tell you — and that’s the end of the visit.' },
+        { q: 'I’m on city water. Do I need a softener?', a: 'Usually not. City water here is soft to moderately hard — the City of Cape Coral says so itself. What people notice on city water is chlorine or chloramines, and catalytic carbon handles that.' },
+        { q: 'Why does my well water smell like rotten eggs?', a: 'It’s almost always hydrogen sulfide, very common in local wells. It’s treated with air injection or oxidation — but we measure it first so the system is sized right.' },
+        { q: 'Do you speak Spanish?', a: 'Yes — sí. From start to finish, by WhatsApp, phone, at the visit and in all paperwork.' },
+        { q: 'What warranty do the systems have?', a: WARRANTY.en.long },
+        { q: 'What if I change my mind after buying?', a: 'Under Florida law, for a sale made in your home you can cancel until midnight of the third business day. We explain it before you sign, not after.' },
+      ],
+    };
+
+const services = pagesOfKind('service');
+const cities = pagesOfKind('city');
+const seals = SEALS.filter((seal) => seal.enabled);
+
+const faqSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'FAQPage',
+  mainEntity: c.faqs.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+};
+const meta = es
+  ? {
+      title: 'Infinity Water | Análisis de agua gratis en Fort Myers y SW Florida',
+      description: `Especialistas en agua de pozo y de ciudad en Fort Myers, Cape Coral, Lehigh Acres y Naples. Análisis gratis en tu casa, en español y sin presión. ${FOUNDER_YEARS}+ años de experiencia.`,
+    }
+  : {
+      title: 'Infinity Water | Free Water Test in Fort Myers & SW Florida',
+      description: `Well and city water specialists in Fort Myers, Cape Coral, Lehigh Acres and Naples. Free in-home water test, no pressure, English or Spanish. ${FOUNDER_YEARS}+ years of experience.`,
+    };
+---
+
+<Base lang={lang} title={meta.title} description={meta.description} paths={STATIC_ROUTES.home} schema={[faqSchema]}>
+
+<!-- ============================ HERO ============================ -->
+<section class="relative isolate overflow-hidden bg-ink text-white">
+  <div aria-hidden="true" class="absolute inset-0 -z-10">
+    <div class="absolute -left-40 top-10 h-[34rem] w-[34rem] rounded-full bg-violet/30 blur-[120px]"></div>
+    <div class="absolute -right-20 -top-20 h-[30rem] w-[30rem] rounded-full bg-aqua/25 blur-[120px]"></div>
+    <svg class="absolute inset-0 h-full w-full opacity-[0.07]" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <pattern id="dots" width="28" height="28" patternUnits="userSpaceOnUse"><circle cx="2" cy="2" r="1.2" fill="white" /></pattern>
+      </defs>
+      <rect width="100%" height="100%" fill="url(#dots)" />
+    </svg>
+  </div>
+
+  <div class="container-x grid items-center gap-14 pb-24 pt-12 sm:pt-16 lg:grid-cols-[1.08fr_1fr] lg:gap-10 lg:pb-32 lg:pt-20">
+    <div class="reveal">
+      <p class="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/5 px-4 py-1.5 text-xs font-bold tracking-wide text-white/80">
+        <Icon name="MapPin" class="h-3.5 w-3.5 text-aqua" />{c.heroTag}
+      </p>
+      <h1 class="mt-6 text-[2.6rem] leading-[1.04] text-white sm:text-6xl xl:text-[4.4rem]">
+        {c.heroTitleA} <span class="text-gradient-light italic">{c.heroTitleB}</span>
+      </h1>
+      <p class="mt-6 max-w-xl text-lg leading-relaxed text-white/75 sm:text-xl">{c.heroLead}</p>
+
+      <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+        <a href={link('freeWaterTest')} class="btn btn-light !min-h-14 !px-7 text-base" data-track="free_test_cta" data-location="hero">
+          <Icon name="TestTube" class="text-violet" />{ui.cta.freeTest}
+        </a>
+        <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-14 !px-7 text-base" data-track="whatsapp" data-location="hero">
+          <Icon name="MessageCircle" />{ui.cta.whatsapp}
+        </a>
+      </div>
+      <p class="mt-4 text-sm text-white/60">
+        {es ? 'o llámanos al' : 'or call'}
+        <a href={`tel:${PRIMARY_PHONE.tel}`} class="font-bold text-white underline decoration-white/30 underline-offset-4 hover:decoration-white" data-track="call" data-location="hero">{PRIMARY_PHONE.display}</a>
+      </p>
+
+      <ul class="mt-10 grid max-w-xl grid-cols-2 gap-x-6 gap-y-3 text-sm text-white/80">
+        {[
+          { icon: 'BadgeCheck', text: ui.trust.years },
+          { icon: 'Waves', text: ui.trust.wells },
+          ...(MADE_IN_USA ? [{ icon: 'Flag', text: ui.trust.usa }] : []),
+          { icon: 'HeartHandshake', text: ui.trust.noPressure },
+        ].map((item) => (
+          <li class="flex items-center gap-2.5"><Icon name={item.icon} class="h-5 w-5 shrink-0 text-aqua" />{item.text}</li>
+        ))}
+      </ul>
+    </div>
+
+    <!-- Visual: foto + tarjeta de analisis + burbuja de WhatsApp -->
+    <div class="relative mx-auto w-full max-w-lg lg:max-w-none">
+      <div class="relative overflow-hidden rounded-[2.5rem] shadow-2xl ring-1 ring-white/10">
+        <Image
+          src={familyPhoto}
+          alt={es ? 'Familia disfrutando un vaso de agua limpia en casa' : 'Family enjoying a glass of clean water at home'}
+          widths={[480, 720, 960, 1200]}
+          sizes="(min-width: 1024px) 560px, 92vw"
+          class="aspect-[4/5] w-full object-cover object-[62%_center] sm:aspect-[5/5]"
+          loading="eager"
+          fetchpriority="high"
+        />
+        <div class="absolute inset-0 bg-gradient-to-t from-ink/50 via-transparent to-transparent"></div>
+      </div>
+
+      <div class="absolute -bottom-10 -left-2 w-[78%] max-w-[19rem] rounded-3xl bg-white p-5 text-ink shadow-lift motion-safe:animate-float sm:-left-10">
+        <div class="flex items-center justify-between">
+          <p class="text-xs font-bold uppercase tracking-wider text-muted">{c.reportTitle}</p>
+          <Icon name="FlaskConical" class="h-5 w-5 text-violet" />
+        </div>
+        <ul class="mt-4 space-y-3">
+          {c.reportRows.map((row) => (
+            <li>
+              <div class="flex justify-between text-sm"><span class="font-semibold">{row.label}</span><span class:list={['font-bold', row.tone === 'warn' ? 'text-coral' : row.tone === 'mid' ? 'text-tide' : 'text-aqua-deep']}>{row.value}</span></div>
+              <div class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-ink/8">
+                <div class:list={['h-full rounded-full', row.tone === 'warn' ? 'bg-coral' : row.tone === 'mid' ? 'bg-tide' : 'bg-aqua']} style={`width:${row.level}%`}></div>
+              </div>
+            </li>
+          ))}
+        </ul>
+        <p class="mt-4 flex items-center gap-1.5 text-xs font-semibold text-muted"><Icon name="CircleCheck" class="h-4 w-4 text-aqua-deep" />{c.reportFoot}</p>
+      </div>
+
+      <div class="absolute -right-2 top-8 hidden max-w-[15rem] rounded-2xl rounded-tr-sm bg-white px-4 py-3 text-sm font-semibold text-ink shadow-lift sm:block lg:-right-6">
+        <span class="mb-1 flex items-center gap-1.5 text-xs font-bold text-wa"><Icon name="MessageCircle" class="h-3.5 w-3.5" />WhatsApp</span>
+        {c.bubble}
+      </div>
+    </div>
+  </div>
+
+  <svg aria-hidden="true" class="absolute inset-x-0 -bottom-px w-full text-white" viewBox="0 0 1440 80" preserveAspectRatio="none">
+    <path fill="currentColor" d="M0 48c180-32 360-40 540-24s360 48 540 40 270-40 360-48v64H0z" />
+  </svg>
+</section>
+
+<!-- ======================= POZO vs CIUDAD ======================= -->
+<section class="py-20 sm:py-28">
+  <div class="container-x">
+    <div class="max-w-3xl">
+      <h2 class="text-4xl sm:text-5xl">{c.twoTitle}</h2>
+      <p class="mt-5 text-lg leading-relaxed text-muted">{c.twoLead}</p>
+    </div>
+
+    <div class="mt-12 grid gap-6 lg:grid-cols-2">
+      <a href={link('well-water')} class="group relative overflow-hidden rounded-4xl bg-gradient-to-br from-deep to-tide p-8 text-white transition hover:-translate-y-1 hover:shadow-lift sm:p-10">
+        <div aria-hidden="true" class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-aqua/25 blur-3xl"></div>
+        <span class="relative inline-flex items-center gap-2 rounded-full bg-white/10 px-3 py-1 text-xs font-bold uppercase tracking-wider text-aqua-soft">{c.well.tag}</span>
+        <div class="relative mt-6 flex items-center gap-4">
+          <span class="grid h-14 w-14 place-items-center rounded-2xl bg-white/10"><Icon name="Waves" class="h-7 w-7 text-aqua" /></span>
+          <h3 class="text-3xl text-white">{c.well.title}</h3>
+        </div>
+        <p class="relative mt-5 max-w-md leading-relaxed text-white/80">{c.well.text}</p>
+        <ul class="relative mt-6 grid grid-cols-2 gap-2.5 text-sm">
+          {c.well.items.map((item) => <li class="flex items-center gap-2"><Icon name="CircleCheck" class="h-4 w-4 text-aqua" />{item}</li>)}
+        </ul>
+        <span class="relative mt-8 inline-flex items-center gap-2 font-bold">{c.well.cta}<Icon name="ArrowRight" class="h-5 w-5 transition group-hover:translate-x-1" /></span>
+      </a>
+
+      <a href={link('city-water')} class="group relative overflow-hidden rounded-4xl bg-sand p-8 transition hover:-translate-y-1 hover:shadow-lift sm:p-10">
+        <div aria-hidden="true" class="absolute -right-16 -top-16 h-64 w-64 rounded-full bg-violet/10 blur-3xl"></div>
+        <span class="relative inline-flex items-center gap-2 rounded-full bg-white px-3 py-1 text-xs font-bold uppercase tracking-wider text-violet">{c.city.tag}</span>
+        <div class="relative mt-6 flex items-center gap-4">
+          <span class="grid h-14 w-14 place-items-center rounded-2xl bg-white"><Icon name="Building2" class="h-7 w-7 text-violet" /></span>
+          <h3 class="text-3xl">{c.city.title}</h3>
+        </div>
+        <p class="relative mt-5 max-w-md leading-relaxed text-ink/75">{c.city.text}</p>
+        <ul class="relative mt-6 grid grid-cols-2 gap-2.5 text-sm">
+          {c.city.items.map((item) => <li class="flex items-center gap-2"><Icon name="CircleCheck" class="h-4 w-4 text-violet" />{item}</li>)}
+        </ul>
+        <span class="relative mt-8 inline-flex items-center gap-2 font-bold">{c.city.cta}<Icon name="ArrowRight" class="h-5 w-5 transition group-hover:translate-x-1" /></span>
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= CHEQUEO DE AGUA ====================== -->
+<WaterCheck lang={lang} />
+
+<!-- ========================= SERVICIOS ========================== -->
+<section class="py-20 sm:py-28">
+  <div class="container-x">
+    <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+      <div class="max-w-2xl">
+        <p class="eyebrow">{c.servicesEyebrow}</p>
+        <h2 class="mt-4 text-4xl sm:text-5xl">{c.servicesTitle}</h2>
+        <p class="mt-5 text-lg leading-relaxed text-muted">{c.servicesLead}</p>
+      </div>
+      <a href={link('services')} class="btn btn-ghost self-start lg:self-auto">{es ? 'Todos los servicios' : 'All services'}<Icon name="ArrowRight" /></a>
+    </div>
+
+    <div class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      {services.map((page, index) => (
+        <a href={contentPath(page, lang)} class="card group flex flex-col p-7 transition hover:-translate-y-1 hover:shadow-lift">
+          <span class:list={['grid h-14 w-14 place-items-center rounded-2xl', index % 2 ? 'bg-violet-soft text-violet' : 'bg-aqua-soft text-aqua-deep']}>
+            <Icon name={page.icon} class="h-7 w-7" />
+          </span>
+          <h3 class="mt-6 text-xl">{labelOf(page, lang)}</h3>
+          <p class="mt-3 line-clamp-5 flex-1 text-[0.95rem] leading-relaxed text-muted">{page[lang].lead}</p>
+          <span class="mt-6 inline-flex items-center gap-1.5 text-sm font-bold text-aqua-deep">{c.servicesMore}<Icon name="ArrowRight" class="h-4 w-4 transition group-hover:translate-x-1" /></span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ===================== COMO ES EL ANALISIS ===================== -->
+<section class="bg-sand py-20 sm:py-28">
+  <div class="container-x grid gap-14 lg:grid-cols-[1.4fr_1fr]">
+    <div>
+      <p class="eyebrow">{c.processEyebrow}</p>
+      <h2 class="mt-4 text-4xl sm:text-5xl">{c.processTitle}</h2>
+      <ol class="mt-12 grid gap-5 sm:grid-cols-2">
+        {c.steps.map((step, i) => (
+          <li class="relative rounded-3xl bg-white p-7 shadow-soft">
+            <span class="font-display text-5xl font-semibold text-gradient">{String(i + 1).padStart(2, '0')}</span>
+            <h3 class="mt-3 text-xl">{step.title}</h3>
+            <p class="mt-2 leading-relaxed text-muted">{step.text}</p>
+          </li>
+        ))}
+      </ol>
+    </div>
+
+    <aside class="self-end rounded-4xl bg-ink p-8 text-white sm:p-10">
+      <h3 class="text-2xl text-white">{c.neverTitle}</h3>
+      <ul class="mt-6 space-y-4">
+        {c.never.map((item) => (
+          <li class="flex gap-3"><Icon name="CircleX" class="mt-0.5 h-5 w-5 shrink-0 text-coral" /><span class="text-white/85">{item}</span></li>
+        ))}
+      </ul>
+      <p class="mt-8 flex gap-3 rounded-2xl bg-white/5 p-4 text-sm leading-relaxed text-white/80">
+        <Icon name="Scale" class="mt-0.5 h-5 w-5 shrink-0 text-aqua" />{c.lawNote}
+      </p>
+      <a href={link('freeWaterTest')} class="btn btn-light mt-8 w-full" data-track="free_test_cta" data-location="process">{ui.cta.freeTest}</a>
+    </aside>
+  </div>
+</section>
+
+<!-- ======================== POR QUE NOSOTROS ===================== -->
+<section class="py-20 sm:py-28">
+  <div class="container-x">
+    <div class="grid items-end gap-10 lg:grid-cols-[1fr_auto]">
+      <div class="max-w-2xl">
+        <p class="eyebrow">{c.whyEyebrow}</p>
+        <h2 class="mt-4 text-4xl sm:text-5xl">{c.whyTitle}</h2>
+      </div>
+      <div class="flex items-center gap-5">
+        <span class="font-display text-8xl font-semibold leading-none text-gradient sm:text-9xl">{FOUNDER_YEARS}+</span>
+        <span class="max-w-[11rem] text-sm font-semibold leading-snug text-muted">{c.yearsLabel}</span>
+      </div>
+    </div>
+
+    <div class="mt-14 grid gap-x-10 gap-y-10 sm:grid-cols-2 lg:grid-cols-3">
+      {c.reasons.map((reason) => (
+        <div class="flex gap-5">
+          <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-foam text-aqua-deep ring-1 ring-aqua/15"><Icon name={reason.icon} class="h-6 w-6" /></span>
+          <div>
+            <h3 class="text-xl">{reason.title}</h3>
+            <p class="mt-2 leading-relaxed text-muted">{reason.text}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    {(seals.length > 0 || MADE_IN_USA) && (
+      <div class="mt-16 flex flex-wrap items-center justify-center gap-x-12 gap-y-6 rounded-4xl border border-ink/8 px-6 py-8">
+        {seals.map((seal) => (
+          <figure class="flex items-center gap-3">
+            <img src={seal.image} alt="" width="72" height="72" class="h-16 w-auto" loading="lazy" />
+            <figcaption class="max-w-[11rem] text-sm font-semibold text-ink/80">{seal.label[lang]}</figcaption>
+          </figure>
+        ))}
+        {MADE_IN_USA && (
+          <figure class="flex items-center gap-3">
+            <span class="grid h-16 w-16 place-items-center rounded-full bg-ink text-white"><Icon name="Flag" class="h-7 w-7" /></span>
+            <figcaption class="max-w-[11rem] text-sm font-semibold text-ink/80">{ui.trust.usa}</figcaption>
+          </figure>
+        )}
+        <figure class="flex items-center gap-3">
+          <img src="/images/cert-alkaline.webp" alt="" width="72" height="72" class="h-16 w-auto" loading="lazy" />
+          <figcaption class="max-w-[11rem] text-sm font-semibold text-ink/80">{es ? 'Opción de agua alcalina en ósmosis' : 'Alkaline option for reverse osmosis'}</figcaption>
+        </figure>
+      </div>
+    )}
+  </div>
+</section>
+
+<!-- =========================== RESENAS =========================== -->
+{reviews && reviews.reviews.length > 0 ? (
+  <section class="bg-foam py-20 sm:py-28">
+    <div class="container-x">
+      <div class="flex flex-col justify-between gap-6 sm:flex-row sm:items-end">
+        <div>
+          <h2 class="text-4xl sm:text-5xl">{c.reviewsTitle}</h2>
+          <p class="mt-4 text-lg text-muted">{c.reviewsLead}</p>
+        </div>
+        {reviews.rating && (
+          <p class="flex items-center gap-2 font-display text-4xl font-semibold">
+            {reviews.rating.toFixed(1)}<Icon name="Star" class="h-7 w-7 fill-amber-400 text-amber-400" />
+            {reviews.total && <span class="font-sans text-base font-semibold text-muted">({reviews.total})</span>}
+          </p>
+        )}
+      </div>
+      <div class="mt-10 flex snap-x gap-5 overflow-x-auto pb-4">
+        {reviews.reviews.map((review) => (
+          <figure class="card flex w-[85%] shrink-0 snap-start flex-col p-7 sm:w-[26rem]">
+            <p class="flex gap-0.5" aria-label={`${review.rating}/5`}>
+              {Array.from({ length: Math.round(review.rating) }).map(() => <Icon name="Star" class="h-4 w-4 fill-amber-400 text-amber-400" />)}
+            </p>
+            <blockquote class="mt-4 flex-1 leading-relaxed">{review.text}</blockquote>
+            <figcaption class="mt-5 text-sm"><span class="font-bold">{review.author}</span> · <span class="text-muted">{review.time}</span></figcaption>
+          </figure>
+        ))}
+      </div>
+      <a href={GOOGLE_PROFILE_URL} target="_blank" rel="noopener" class="link mt-6 inline-block">{c.reviewsCta} ↗</a>
+    </div>
+  </section>
+) : (
+  <section class="pb-4">
+    <div class="container-x">
+      <div class="flex flex-col items-start gap-5 rounded-4xl bg-foam p-8 sm:flex-row sm:items-center sm:justify-between sm:p-10">
+        <div class="flex items-center gap-4">
+          <span class="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-white text-amber-500 shadow-soft"><Icon name="Star" class="h-6 w-6 fill-amber-400" /></span>
+          <div>
+            <h2 class="font-sans text-xl font-bold tracking-normal">{c.reviewsEmptyTitle}</h2>
+            <p class="mt-1 text-muted">{c.reviewsEmptyText}</p>
+          </div>
+        </div>
+        <a href={GOOGLE_PROFILE_URL} target="_blank" rel="noopener" class="btn btn-ghost shrink-0">{c.reviewsCta} ↗</a>
+      </div>
+    </div>
+  </section>
+)}
+
+<!-- ============================ ZONAS ============================ -->
+<section class="py-20 sm:py-28">
+  <div class="container-x">
+    <div class="flex flex-col justify-between gap-6 lg:flex-row lg:items-end">
+      <div class="max-w-2xl">
+        <p class="eyebrow">{c.areasEyebrow}</p>
+        <h2 class="mt-4 text-4xl sm:text-5xl">{c.areasTitle}</h2>
+        <p class="mt-5 text-lg leading-relaxed text-muted">{c.areasLead}</p>
+      </div>
+      <a href={link('areas')} class="btn btn-ghost self-start lg:self-auto">{c.areasMore}<Icon name="ArrowRight" /></a>
+    </div>
+    <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      {cities.map((page) => (
+        <a href={contentPath(page, lang)} class="group relative overflow-hidden rounded-3xl border border-ink/8 bg-white p-6 transition hover:-translate-y-1 hover:border-aqua/40 hover:shadow-lift">
+          <Icon name="MapPin" class="h-6 w-6 text-violet" />
+          <h3 class="mt-8 text-2xl">{labelOf(page, lang)}</h3>
+          <p class="mt-2 line-clamp-3 text-sm leading-relaxed text-muted">{page[lang].highlights[0]}</p>
+          <span class="mt-5 inline-flex items-center gap-1.5 text-sm font-bold text-aqua-deep">{es ? 'Ver mi zona' : 'See my area'}<Icon name="ArrowRight" class="h-4 w-4 transition group-hover:translate-x-1" /></span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ======================== FINANCIAMIENTO ======================= -->
+<section class="px-4 sm:px-6">
+  <div class="mx-auto grid max-w-7xl items-center gap-8 overflow-hidden rounded-5xl bg-gradient-to-br from-violet-soft via-white to-aqua-soft p-8 sm:p-14 lg:grid-cols-[auto_1fr_auto]">
+    <span class="grid h-20 w-20 place-items-center rounded-3xl bg-white shadow-soft"><Icon name="CreditCard" class="h-10 w-10 text-violet" /></span>
+    <div>
+      <h2 class="text-3xl sm:text-4xl">{c.finTitle}</h2>
+      <p class="mt-3 max-w-2xl leading-relaxed text-ink/75">{c.finText}</p>
+    </div>
+    <a href={link('financing')} class="btn btn-primary">{c.finCta}<Icon name="ArrowRight" /></a>
+  </div>
+</section>
+
+<!-- ============================= FAQ ============================= -->
+<section class="py-20 sm:py-28">
+  <div class="container-x grid gap-12 lg:grid-cols-[1fr_1.6fr]">
+    <div>
+      <h2 class="text-4xl sm:text-5xl">{c.faqTitle}</h2>
+      <a href={link('faq')} class="btn btn-ghost mt-8">{c.faqMore}<Icon name="ArrowRight" /></a>
+    </div>
+    <div class="divide-y divide-ink/10 border-y border-ink/10">
+      {c.faqs.map((faq) => (
+        <details class="group py-2">
+          <summary class="flex cursor-pointer items-center justify-between gap-6 py-4 text-lg font-bold">
+            {faq.q}
+            <span class="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-foam transition group-open:rotate-45"><Icon name="Plus" class="h-5 w-5 text-aqua-deep" /></span>
+          </summary>
+          <p class="pb-5 pr-12 leading-relaxed text-muted">{faq.a}</p>
+        </details>
+      ))}
+    </div>
+  </div>
+</section>
+
+<FinalCta lang={lang} location="home-final" />
+</Base>
+
+<style>
+  .text-gradient-light {
+    background: linear-gradient(100deg, #b69cff 0%, #5fe0f5 80%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    padding-right: 0.08em;
+  }
+</style>

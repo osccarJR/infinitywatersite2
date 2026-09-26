@@ -1,10 +1,13 @@
 # Infinity Water
 
-Sitio web de **Infinity Water**: venta, instalación y mantenimiento de sistemas de
-filtración de agua, ósmosis inversa y tratamiento de pozo en Florida.
+Sitio web de **Infinity Water** (GLOBAL INNOVATION GROUP INFINITY LLC d/b/a
+Infinity Water): tratamiento de agua de pozo y de ciudad en el suroeste de
+Florida. Empresa familiar hispana; el público principal son familias
+hispanas de Fort Myers, Cape Coral, Lehigh Acres y Naples.
 
-Es una landing page bilingüe (inglés/español) enfocada en generar contactos por
-teléfono, WhatsApp y formulario. No tiene backend: todo se sirve como estáticos.
+Sitio estático bilingüe (inglés en `/`, español en `/es`), sin backend. El
+objetivo es un solo: que la gente pida el **análisis de agua gratis**, por el
+formulario, por WhatsApp o por teléfono.
 
 **Producción:** https://www.infinitywatersite.com
 
@@ -14,262 +17,221 @@ teléfono, WhatsApp y formulario. No tiene backend: todo se sirve como estático
 
 | Pieza | Qué hace |
 |---|---|
-| React 19 + Vite 6 | Interfaz y empaquetado |
-| React Router 7 | Rutas e idioma por URL (`/` en inglés, `/es` en español) |
-| Tailwind CSS 3 | Estilos |
-| sharp | Optimización de imágenes (script de un solo uso) |
-| nginx (Docker) | Servidor de producción |
+| Astro 7 | Genera cada página como HTML estático. Solo lleva JavaScript lo interactivo (menú, chequeo de agua, formulario) |
+| Tailwind CSS 4 | Estilos. Paleta y tipografía en `web/styles/global.css` |
+| Fraunces + Manrope | Tipografías autoalojadas (`@fontsource`) |
+| lucide-static | Iconos SVG en línea, sin JS |
+| nginx | Servidor de producción (VPS o Docker) |
 
----
-
-## Puesta en marcha
-
-Requisitos: **Node.js 20 o superior**.
+Requisitos: **Node.js 22.12 o superior**.
 
 ```bash
 npm install
-cp .env.example .env    # opcional: analítica y reseñas
-npm run dev             # http://localhost:5173
+cp .env.example .env    # opcional: analítica, reseñas, número de SMS
+npm run dev             # http://localhost:4321
 ```
-
-### Comandos
 
 | Comando | Para qué |
 |---|---|
-| `npm run dev` | Servidor de desarrollo con recarga en caliente |
-| `npm run build` | Compila a `dist/` y genera el HTML por ruta y el sitemap |
-| `npm run preview` | Sirve `dist/` en local para revisar el build |
-| `npm run lint` | ESLint |
-| `npm run test:smoke` | Renderiza todas las rutas en Node y valida el contenido |
-| `npm run optimize:images` | Regenera las imágenes de `public/images/` |
+| `npm run dev` | Desarrollo con recarga en caliente |
+| `npm run build` | Compila a `dist/` (páginas, sitemap, robots, imágenes optimizadas) |
+| `npm run preview` | Sirve `dist/` en local |
+| `npm run check` | Comprobación de tipos de Astro/TypeScript |
+| `npm run test:smoke` | Revisa el HTML compilado: A2P, SEO, enlaces rotos, afirmaciones prohibidas, tildes |
+| `npm run optimize:images` | Regenera logo, sellos, imagen OG y favicons desde `assets/source/` |
 
----
-
-## Variables de entorno
-
-Todas son **opcionales**. Sin ellas el sitio funciona igual: no se carga ningún
-script de terceros y la sección de reseñas no aparece.
-
-Ver [`.env.example`](.env.example) para la lista completa y comentada.
-
-> **Ojo:** todo lo que empieza por `VITE_` acaba dentro del JavaScript público.
-> Nunca poner ahí un secreto que no pueda ver cualquiera.
-
-### Medición de conversiones
-
-`VITE_GTM_ID`, `VITE_GA4_ID`, `VITE_GOOGLE_ADS_ID` y las tres etiquetas
-`VITE_ADS_CONVERSION_LABEL_*`.
-
-Cada clic en *Llamar*, en *WhatsApp* y cada envío del formulario dispara un
-evento `generate_lead` y, si hay etiqueta configurada, una conversión de Google
-Ads. Toda la lógica vive en [`src/lib/analytics.js`](src/lib/analytics.js) y las
-acciones de contacto en [`src/lib/contactActions.js`](src/lib/contactActions.js):
-ningún componente llama a `gtag` por su cuenta.
-
-### Reseñas de Google
-
-Dos opciones, excluyentes:
-
-- **`VITE_REVIEWS_ENDPOINT`** (recomendada): un endpoint propio que consulta la
-  API de Google, cachea y devuelve el mismo JSON. La clave se queda en el servidor.
-- **`VITE_GOOGLE_PLACES_API_KEY` + `VITE_GOOGLE_PLACE_ID`**: llamada directa
-  desde el navegador. Más rápido de montar, pero la clave queda visible en el
-  bundle; hay que restringirla por referrer HTTP y solo a la Places API.
-
-Si no se configura ninguna, `ReviewsSection` no se renderiza. **El sitio nunca
-muestra testimonios inventados.**
+**Antes de publicar:** `npm run build && npm run test:smoke`.
 
 ---
 
 ## Estructura
 
 ```
-assets/source/          PNG originales en alta (NO se publican)
-public/images/          WebP optimizados que sí se sirven
-scripts/
-  optimize-images.mjs   assets/source -> public/images
-  smoke-entry.jsx       prueba de humo de todas las rutas
-src/
-  constants/business.js Datos del negocio: teléfonos, horario, cifras, cobertura
-  i18n/
-    routes.js           Mapa de rutas por idioma
-    seo.js              Títulos y descripciones por página e idioma
-    LanguageProvider    Idioma derivado de la URL
-  lib/
-    analytics.js        GTM / GA4 / conversiones de Google Ads
-    contactActions.js   Llamar y abrir WhatsApp, siempre con seguimiento
-  components/           Secciones de la página
-  pages/                Home, política de privacidad, 404
-index.html              Plantilla con los marcadores <!--seo:start/end-->
-vite.config.js          Build + plugin que genera un HTML por ruta y el sitemap
+web/                          Código del sitio (srcDir de Astro)
+  config/business.ts          ÚNICA fuente de datos del negocio (ver abajo)
+  data/
+    types.ts                  Esquema de las páginas de contenido
+    pages/*.ts                Textos de servicios, problemas, ciudades, guías y empresa (EN + ES)
+    labels.ts                 Nombres cortos de cada página (menús, tarjetas)
+    waterCheck.ts             Datos del "Chequeo de agua" (síntomas y datos oficiales por ciudad)
+    legal/*.ts                Textos legales (el inglés lo fija A2P: NO reescribir)
+  i18n/routes.ts              Rutas por idioma
+  i18n/ui.ts                  Textos compartidos (menú, botones, pie)
+  layouts/Base.astro          <head> con SEO, JSON-LD, cabecera, pie, barra móvil
+  views/                      Plantilla de cada tipo de página
+  components/                 Cabecera, pie, chequeo de agua, cierre, iconos
+  scripts/                    JS de cliente: analítica, atribución, formulario GHL
+  lib/reviews.ts              Reseñas de Google obtenidas en el build
+  pages/[...slug].astro       Enrutador: genera todas las páginas en ambos idiomas
+scripts/                      smoke.mjs, optimize-images.mjs
+deploy/                       Configuración nginx del VPS
+assets/source/                Originales en alta (no se publican)
 ```
 
-### Dos reglas que conviene respetar
+### Reglas
 
-1. **Los datos del negocio van en `src/constants/business.js`.** Teléfonos,
-   correo, dirección, horario, número de clientes y cobertura. Antes estaban
-   repetidos por los componentes y se contradecían entre secciones.
-
-2. **Los textos van en el objeto `copy` de cada componente**, con una clave `en`
-   y una `es`. Al añadir texto hay que traducirlo en el mismo sitio.
+1. **Los datos del negocio van en `web/config/business.ts`**: teléfonos,
+   dirección, años de experiencia, garantía, sellos, cobertura, horario.
+   Ningún componente escribe un dato a mano.
+2. **Todo texto va en inglés y en español en el mismo sitio.** El español
+   usa tuteo y tildes; la prueba de humo avisa de palabras frecuentes sin tilde.
+3. **Añadir una página de contenido** = añadir un objeto a `web/data/pages/*.ts`
+   siguiendo `web/data/types.ts`. La ruta, el menú, el sitemap, el hreflang y
+   el JSON-LD salen solos. Si es un servicio, problema o ciudad aparece
+   también en menús y pie.
+4. **Nada que no se pueda demostrar.** Ver "Afirmaciones" más abajo.
 
 ---
 
-## Imágenes
+## Páginas
 
-Los originales viven en `assets/source/` y **no se publican**. `public/images/`
-solo contiene los WebP optimizados que sirve el navegador.
+| Tipo | Inglés | Español |
+|---|---|---|
+| Portada | `/` | `/es` |
+| Análisis gratis (formulario) | `/free-water-test` | `/es/analisis-de-agua-gratis` |
+| Gracias (noindex) | `/thank-you` | `/es/gracias` |
+| Contacto | `/contact` | `/es/contacto` |
+| Guías | `/well-water`, `/city-water`, `/hurricane-well-care` | `/es/agua-de-pozo`, `/es/agua-de-ciudad`, `/es/pozo-despues-del-huracan` |
+| Servicios | `/services`, `/services/*` | `/es/servicios`, `/es/servicios/*` |
+| Problemas | `/problems/*` | `/es/problemas/*` |
+| Zonas | `/areas`, `/areas/*` | `/es/zonas`, `/es/zonas/*` |
+| Empresa | `/about`, `/financing`, `/faq` | `/es/nosotros`, `/es/financiamiento`, `/es/preguntas-frecuentes` |
+| Legales | `/privacy-policy`, `/terms-and-conditions`, `/sms-policy` | `/es/politica-de-privacidad`, `/es/terminos-y-condiciones`, `/es/politica-de-sms` |
 
-```bash
-npm run optimize:images
-```
+57 páginas en total, más `sitemap.xml`, `robots.txt` y `404.html`.
 
-Los anchos de salida están en la tabla `IMAGES` de
-[`scripts/optimize-images.mjs`](scripts/optimize-images.mjs) y corresponden al
-tamaño real de presentación por dos (para pantallas retina). Pasarse de ahí solo
-suma bytes que nadie ve: las imágenes pasaron de 32 MB a 412 KB (−98,8 %) sin
-pérdida visible.
+### El Chequeo de agua
 
-Al añadir una imagen: dejar el original en `assets/source/`, añadir su fila a
-`IMAGES` y ejecutar el script.
+Herramienta de la portada (`web/components/WaterCheck.astro`). El usuario elige
+pozo o ciudad, lo que nota y su zona, y ve:
 
----
+- la causa probable,
+- qué haríamos,
+- los datos del reporte oficial de su ciudad, con enlace a la fuente.
 
-## SEO
-
-- **Un HTML estático por ruta e idioma.** Durante el build, el plugin de
-  `vite.config.js` genera `dist/index.html`, `dist/es/index.html`, etc., cada uno
-  con su `<title>`, descripción, canonical, `hreflang` y Open Graph. Hace falta
-  porque WhatsApp, Facebook y buena parte de los rastreadores no ejecutan
-  JavaScript.
-- **El sitemap y el robots.txt se generan solos** a partir de `src/i18n/seo.js`,
-  así que no pueden quedarse desfasados.
-- **Datos estructurados** `LocalBusiness` en `index.html`, con dirección,
-  coordenadas, horario, ambos teléfonos y la cobertura completa.
-
-Al añadir una página: darla de alta en `ROUTES` (`src/i18n/routes.js`) y en
-`PAGE_META` (`src/i18n/seo.js`), y añadir su `<Route>` en `src/App.jsx`. El HTML
-estático y el sitemap salen solos.
+**No pide datos personales.** Lleva al formulario con el contexto en la URL
+(`water_source`, `concerns`, `city`), que se pasa al iframe de GoHighLevel.
+Las cifras de cada ciudad vienen de los reportes oficiales (CCR) y están en
+`web/data/waterCheck.ts`. Hay que revisarlas cada año cuando salga el reporte
+nuevo.
 
 ---
 
-## Despliegue
+## Variables de entorno
 
-### Docker + nginx (recomendado)
+Todas son opcionales y se leen **al compilar**. Ver
+[`.env.example`](.env.example).
 
-```bash
-docker compose --profile prod up --build web    # http://localhost:8080
-```
+- **Analítica:** `VITE_GTM_ID`, `VITE_GA4_ID`, `VITE_GOOGLE_ADS_ID` y
+  `VITE_ADS_CONVERSION_LABEL_*`. Sin ellas no se carga ningún script de
+  terceros.
+- **Reseñas:** `VITE_GOOGLE_PLACES_API_KEY` y `VITE_GOOGLE_PLACE_ID`. Se
+  consultan en el build, así que la clave no llega al navegador. Sin ellas,
+  la portada enlaza al perfil de Google.
+- **SMS:** `VITE_SMS_PHONE_NUMBER` es el número aprobado de la campaña A2P.
+  Mientras esté vacío no se muestra en ninguna parte.
 
-Build multietapa: compila con Node y sirve con nginx (gzip, cabeceras de caché y
-de seguridad). Las variables `VITE_*` se hornean en tiempo de build, así que hay
-que pasarlas como `--build-arg` o tenerlas en el `.env` que lee compose.
+### Medición de conversiones
 
-### Panel tipo Pterodactyl
+Los enlaces llevan `data-track="call" | "whatsapp" | "free_test_cta"` y
+`data-location="hero" | "footer"...`. Un único listener en
+`web/scripts/analytics.ts` los registra. Los enlaces `tel:` y de WhatsApp
+funcionan aunque falle el JavaScript.
 
-`npm start` ejecuta [`index.js`](index.js): compila y sirve `dist/` en el puerto
-de `PORT`. Con `SKIP_BUILD=1` se salta la compilación si `dist/` ya existe.
+**Envío del formulario:** `web/scripts/ghl.ts` escucha el mensaje real que
+manda el formulario de GoHighLevel al enviarse:
+`["set-sticky-contacts", "_ud", "<json>"]`. Con él registra `generate_lead`
+más la conversión de Google Ads, y después lleva al usuario a la página de
+gracias. La versión anterior buscaba las palabras "submit" y "success", que
+ese mensaje no contiene, así que el envío del formulario nunca se contaba.
+**No se envían datos personales a Analytics.**
 
-### Estático puro
+---
 
-`npm run build` y subir `dist/`. El servidor debe reintentar
-`$uri/index.html` antes del fallback a `/index.html`, o `/es` acabará devolviendo
-la versión en inglés (ver [`nginx.conf`](nginx.conf)).
+## Afirmaciones: qué se publica y qué no
+
+El sitio anterior publicaba afirmaciones que los registros públicos
+contradecían. La regla ahora es publicar solo lo que se puede demostrar.
+`npm run test:smoke` falla si vuelve a aparecer cualquiera de estas:
+
+- **Sello BBB:** está en `SEALS` con `enabled: false`. El perfil de BBB,
+  consultado el 26-sep-2026, dice *Not BBB Accredited* y calificación F. Se
+  activa con `enabled: true` cuando el perfil diga *Accredited*.
+- **WQA:** el logo es de miembro, así que se publica "Miembro de la WQA" y
+  nunca "WQA Certified".
+- **Experiencia:** "más de 25 años" se atribuye siempre **al fundador**,
+  porque la LLC es de 2022.
+- **Otras afirmaciones que no se publican:**
+  - cifras de clientes,
+  - urgencia falsa ("solo quedan 15 cupos"),
+  - "elimina el 99 %",
+  - beneficios de salud del agua alcalina,
+  - años de garantía (la garantía es la del fabricante, más soporte de por
+    vida con condiciones),
+  - cuotas o tasas de financiamiento, porque obligan a publicar APR y
+    condiciones (TILA).
+- **Made in USA** (`MADE_IN_USA`): lo afirma el negocio. La regla de la FTC
+  exige que "todo o prácticamente todo" el producto sea de EE. UU.; si no, hay
+  que poner `false`.
 
 ---
 
 ## Cumplimiento A2P 10DLC
 
-El sitio esta preparado para registrar una campana A2P 10DLC con Twilio o
-GoHighLevel, segun la especificacion del 5 de agosto de 2026.
+Ver [`docs/ENTREGA-A2P.md`](docs/ENTREGA-A2P.md). Lo esencial:
 
-### Las cuatro URLs que revisa la operadora
-
-Deben devolver HTTP 200, contenido propio y distinto, y no redirigir:
-
-| URL | Contenido |
-|---|---|
-| `/privacy-policy` | Politica de privacidad con la clausula de opt-in SMS |
-| `/terms-and-conditions` | Terminos del programa de SMS |
-| `/free-water-test` | Formulario con los dos consentimientos |
-| `/contact` | Identidad, direccion y datos de contacto |
-
-Cada una tiene su equivalente en espanol bajo `/es/`. Las paginas legales en
-espanol incluyen ademas el texto completo en ingles, porque la revision se
-hace en Estados Unidos.
-
-### Identidad
-
-Se declara **GLOBAL INNOVATION GROUP INFINITY LLC d/b/a Infinity Water** en el
-pie de todas las paginas, en las paginas legales y en el JSON-LD. La direccion
-publicada es exactamente `3940 Metro Pkwy., Fort Myers, FL 33916`.
-
-La razon social vive en
-[`src/constants/legalEntity.js`](src/constants/legalEntity.js), en su propio
-modulo porque tambien la necesita `src/i18n/seo.js`, al que carga
-`vite.config.js` en contexto Node. Cambiarla ahi la propaga a todo el sitio;
-el unico sitio adicional que tocar es el JSON-LD de `index.html`, que es
-estatico. Debe coincidir **letra por letra** con el registro A2P.
-
-El resto de datos del negocio (telefonos, correo, direccion, cifras) siguen en
-[`src/constants/business.js`](src/constants/business.js).
-
-### El formulario y el consentimiento
-
-El formulario de captacion **no vive en este repositorio**. Lo construye y lo
-mantiene Deja Vu IA en GoHighLevel, y se incrusta como iframe desde
-`api.dejavuia.com`. Ahi es donde estan los campos, las dos casillas de
-consentimiento y el registro de la evidencia (casilla marcada, texto mostrado,
-fecha, IP y origen).
-
-Todo eso vive en [`src/components/GhlForm.jsx`](src/components/GhlForm.jsx),
-que es un envoltorio de treinta lineas. **No dupliques aqui campos ni textos
-de consentimiento:** cualquier cambio se pide a Deja Vu IA y se hace en
-GoHighLevel. Un segundo formulario con su propia copia del consentimiento
-generaria dos registros distintos para la misma persona, que es exactamente lo
-que la especificacion A2P prohibe.
-
-Por la misma razon el sitio tiene **un unico punto de captura**: la pagina
-`/free-water-test`. La portada y `/contact` enlazan ahi en vez de repetir el
-formulario, y `npm run test:smoke` falla si aparece cualquier `input` de
-telefono fuera de ese iframe.
-
-### Atribucion
-
-[`src/lib/attribution.js`](src/lib/attribution.js) guarda los parametros de
-campana (`utm_*`, `fbclid`, `seller`) al entrar al sitio y los anexa a la URL
-del widget, para que GoHighLevel sepa que anuncio trajo cada lead. Se guardan
-en `sessionStorage` porque se pierden en cuanto el visitante navega, y gana el
-primer toque.
-
-### Paginas legales
-
-Tres documentos, cada uno con su ruta propia en ingles y en espanol:
-`/privacy-policy`, `/terms-and-conditions` y `/sms-policy`. Los textos estan en
-[`src/content/`](src/content/) y el ingles lo fija la especificacion A2P: no
-debe reescribirse por estilo, porque la operadora busca clausulas concretas.
-
-Los tres enlaces aparecen de forma visible sobre el formulario y en el pie de
-todas las paginas.
-
-### Lo que falta para poder presentar la campana
-
-**`VITE_SMS_PHONE_NUMBER`**: mientras este vacio no se muestra en ningun
-sitio. La campana no se presenta hasta que la web muestre el numero exacto que
-originara los mensajes.
+- **Rutas en inglés:** las de legales, `/free-water-test` y `/contact` están
+  registradas y **no se renombran**.
+- **Identidad:** la razón social y la dirección (`3940 Metro Pkwy.`) deben
+  coincidir letra por letra con el registro. Viven en `web/config/business.ts`.
+- **Punto único de captura:** el formulario de GoHighLevel, que mantiene Deja
+  Vu IA, está solo en `/free-water-test`. Los tres enlaces legales van antes
+  del formulario. No se duplican campos ni textos de consentimiento.
+- **Páginas legales en español:** muestran la traducción y, debajo, el texto
+  oficial en inglés.
+- **Pie legal:** está en todas las páginas.
 
 ---
 
-## Pendiente / a revisar
+## Despliegue
 
-- **Textos legales**: el inglés es el que fija la especificación A2P y no debe
-  reescribirse por estilo. Aun así conviene que un abogado en Florida los revise
-  antes de darlos por definitivos.
-- **Correo de contacto**: se publica `g.innovar@gmail.com`, tal y como fija la
-  especificación A2P. Debe estar operativo: los revisores escriben a esa
-  dirección. Un correo del propio dominio daría mejor impresión en la revisión,
-  pero eso es decisión del negocio.
-- **Reseñas**: hace falta el Place ID de Google para activar la sección.
+### VPS con nginx (producción actual)
+
+`npm run build` y copiar `dist/` a `/var/www/static/infinitywater/dist`. La
+configuración está en [`deploy/`](deploy/):
+
+- `try_files $uri $uri/index.html =404` sirve cada ruta sin redirecciones.
+- Las rutas que no existen responden con un **404 real** usando `404.html`.
+  Antes devolvían la portada con código 200.
+
+Después de actualizar `deploy/infinitywater-common.conf` en el servidor:
+`sudo nginx -t && sudo systemctl reload nginx`.
+
+### Docker
+
+```bash
+docker compose --profile prod up --build web    # http://localhost:8080
+```
+
+### Panel tipo Pterodactyl
+
+`npm start` compila y sirve `dist/` en `PORT`. Con `SKIP_BUILD=1` no recompila.
+
+---
+
+## Pendiente
+
+- **Fotos reales:** equipo, instalaciones, camioneta, antes y después. Las
+  actuales son ilustrativas. Las antiguas de equipos eran generadas por IA,
+  con logos mal escritos y marca de agua, y se eliminaron.
+- **Horario real:** rellenar `HOURS` en `business.ts`. Hoy solo dice "7 días
+  a la semana".
+- **Reseñas:** faltan la clave de Places y el Place ID. El perfil de Google
+  (`GOOGLE_PROFILE_URL`) apunta a un pin en el Golfo de México, así que
+  conviene revisar la ficha de Google Business.
+- **Datos oficiales:** revisar las cifras de cada ciudad cuando se publiquen
+  los reportes CCR de cada año.
+- **Textos legales:** conviene que los revise un abogado en Florida.
 
 ---
 

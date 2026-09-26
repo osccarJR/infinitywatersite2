@@ -1,0 +1,28 @@
+---
+/**
+ * Icono SVG en linea (lucide-static): cero JavaScript, se hereda el color
+ * con currentColor. `label` lo hace accesible; sin el, es decorativo.
+ */
+import * as icons from 'lucide-static';
+
+interface Props {
+  name: string;
+  class?: string;
+  label?: string;
+  strokeWidth?: number;
+}
+
+const { name, class: className = 'h-5 w-5', label, strokeWidth = 1.75 } = Astro.props;
+const raw = (icons as Record<string, string>)[name] ?? icons.Droplet;
+
+const svg = raw
+  .replace(/class="[^"]*"/, `class="${className}"`)
+  .replace(/stroke-width="[^"]*"/, `stroke-width="${strokeWidth}"`)
+  .replace(
+    '<svg',
+    label ? `<svg role="img" aria-label="${label}" focusable="false"` : '<svg aria-hidden="true" focusable="false"'
+  )
+  .replace(/\s*\n\s*/g, ' ');
+---
+
+<Fragment set:html={svg} />

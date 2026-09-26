@@ -51,7 +51,9 @@ async function main() {
   }
 
   console.log(`> sirviendo dist/ en el puerto ${port}`);
-  const code = await run('npx', ['serve', '-s', 'dist', '-l', String(port)]);
+  // Sin -s (modo SPA): cada ruta tiene su propio index.html y lo que no
+  // existe debe responder 404, no la portada.
+  const code = await run('npx', ['serve', 'dist', '-l', String(port)]);
   process.exit(code ?? 0);
 }
 

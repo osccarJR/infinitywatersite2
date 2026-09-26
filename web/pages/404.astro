@@ -1,0 +1,26 @@
+---
+/**
+ * 404 real: nginx la sirve con codigo 404 (error_page 404 /404.html). Antes
+ * cualquier URL inexistente devolvia 200 con la portada.
+ * Es bilingue porque no sabemos en que idioma llego el visitante.
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import { STATIC_ROUTES } from '../i18n/routes';
+---
+
+<Base lang="en" title="Page not found · Página no encontrada | Infinity Water" description="The page you are looking for does not exist." paths={STATIC_ROUTES.home} noindex>
+  <section class="relative overflow-hidden bg-foam py-24 sm:py-32">
+    <div aria-hidden="true" class="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-violet/15 blur-3xl"></div>
+    <div class="container-x relative max-w-2xl text-center">
+      <p class="font-display text-8xl font-semibold text-gradient">404</p>
+      <h1 class="mt-6 text-3xl sm:text-4xl">Page not found</h1>
+      <p class="mt-2 text-2xl font-display text-muted" lang="es">Página no encontrada</p>
+      <p class="mt-6 text-lg text-ink/75">The page you’re looking for doesn’t exist. <span lang="es">La página que buscas no existe.</span></p>
+      <div class="mt-10 flex flex-col justify-center gap-3 sm:flex-row">
+        <a href="/" class="btn btn-primary"><Icon name="Home" />Home</a>
+        <a href="/es" class="btn btn-ghost" lang="es"><Icon name="Home" />Inicio en español</a>
+      </div>
+    </div>
+  </section>
+</Base>

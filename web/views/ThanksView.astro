@@ -1,0 +1,74 @@
+---
+/**
+ * Pagina de gracias tras enviar el formulario. noindex: no aporta nada en
+ * buscadores y una visita directa inflaria las conversiones por URL.
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import type { Lang } from '../data/types';
+import { pathFor, STATIC_ROUTES } from '../i18n/routes';
+import { WHATSAPP_MESSAGE, whatsappUrl, PRIMARY_PHONE } from '../config/business';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const es = lang === 'es';
+
+const c = es
+  ? {
+      title: '¡Recibimos tu solicitud! | Infinity Water',
+      h1: '¡Listo! Recibimos tu solicitud.',
+      lead: 'Te vamos a contactar pronto para coordinar el día y la hora del análisis. Si quieres adelantar, escríbenos por WhatsApp.',
+      next: 'Mientras tanto',
+      tips: [
+        { icon: 'Search', text: 'Si tienes pozo, ubica el tanque de presión y cualquier filtro que ya tengas.' },
+        { icon: 'FileText', text: 'Si tienes agua de ciudad, ten a mano una factura del agua: nos dice quién te la suministra.' },
+        { icon: 'MessageCircle', text: 'Anota lo que notas en tu agua (olor, manchas, sabor) y desde cuándo.' },
+      ],
+      back: 'Volver al inicio',
+      guide: 'Leer la guía de agua de pozo',
+    }
+  : {
+      title: 'We got your request! | Infinity Water',
+      h1: 'Done! We received your request.',
+      lead: 'We’ll contact you shortly to schedule your water test. Want to speed things up? Message us on WhatsApp.',
+      next: 'In the meantime',
+      tips: [
+        { icon: 'Search', text: 'On a well? Locate the pressure tank and any filters you already have.' },
+        { icon: 'FileText', text: 'On city water? Keep a water bill handy — it tells us who supplies your water.' },
+        { icon: 'MessageCircle', text: 'Jot down what you notice (smell, stains, taste) and since when.' },
+      ],
+      back: 'Back to home',
+      guide: 'Read the well water guide',
+    };
+---
+
+<Base lang={lang} title={c.title} description={c.lead} paths={STATIC_ROUTES.thanks} noindex>
+  <section class="relative overflow-hidden bg-foam py-20 sm:py-28">
+    <div aria-hidden="true" class="absolute left-1/2 top-0 h-96 w-96 -translate-x-1/2 rounded-full bg-aqua/20 blur-3xl"></div>
+    <div class="container-x relative max-w-3xl text-center">
+      <span class="mx-auto grid h-20 w-20 place-items-center rounded-full bg-white shadow-lift"><Icon name="CircleCheck" class="h-10 w-10 text-aqua-deep" /></span>
+      <h1 class="mt-8 text-4xl sm:text-5xl">{c.h1}</h1>
+      <p class="mx-auto mt-5 max-w-xl text-lg leading-relaxed text-ink/75">{c.lead}</p>
+      <div class="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+        <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa" data-track="whatsapp" data-location="thanks"><Icon name="MessageCircle" />WhatsApp</a>
+        <a href={`tel:${PRIMARY_PHONE.tel}`} class="btn btn-ghost" data-track="call" data-location="thanks"><Icon name="Phone" />{PRIMARY_PHONE.display}</a>
+      </div>
+
+      <div class="mt-14 rounded-4xl bg-white p-8 text-left shadow-soft">
+        <h2 class="font-sans text-sm font-bold uppercase tracking-[0.14em] text-muted">{c.next}</h2>
+        <ul class="mt-5 space-y-4">
+          {c.tips.map((tip) => (
+            <li class="flex gap-4"><span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-aqua-soft text-aqua-deep"><Icon name={tip.icon} class="h-5 w-5" /></span><span class="pt-2 leading-relaxed">{tip.text}</span></li>
+          ))}
+        </ul>
+      </div>
+      <p class="mt-8 flex flex-wrap justify-center gap-6 text-sm">
+        <a href={pathFor('home', lang)} class="link">{c.back}</a>
+        <a href={pathFor('well-water', lang)} class="link">{c.guide}</a>
+      </p>
+    </div>
+  </section>
+</Base>

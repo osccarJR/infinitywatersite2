@@ -1,0 +1,138 @@
+---
+import Icon from './Icon.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { labelOf } from '../data/labels';
+import { pathFor, pagesOfKind, contentPath } from '../i18n/routes';
+import {
+  ADDRESS_LINE_1,
+  ADDRESS_LINE_2,
+  EMAIL,
+  HOURS_LABEL,
+  IDENTITY_STATEMENT,
+  LEGAL_ENTITY_DBA,
+  PRIMARY_PHONE,
+  SECONDARY_PHONE,
+  SMS_PHONE_NUMBER,
+  SUPPORT_PHONE,
+  WHATSAPP_MESSAGE,
+  whatsappUrl,
+} from '../config/business';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const ui = t(lang);
+const link = (key: string) => pathFor(key, lang);
+const year = new Date().getFullYear();
+
+const explore = [
+  { href: link('well-water'), label: ui.nav.wellWater },
+  { href: link('city-water'), label: ui.nav.cityWater },
+  ...pagesOfKind('service').map((page) => ({ href: contentPath(page, lang), label: labelOf(page, lang) })),
+];
+const help = [
+  { href: link('freeWaterTest'), label: ui.cta.freeTestShort },
+  { href: link('faq'), label: ui.nav.faq },
+  { href: link('financing'), label: ui.nav.financing },
+  { href: link('hurricane-well-care'), label: lang === 'es' ? 'Pozo después del huracán' : 'Well care after a storm' },
+  { href: link('about'), label: ui.nav.about },
+  { href: link('contact'), label: ui.nav.contact },
+];
+const cities = pagesOfKind('city').map((page) => ({ href: contentPath(page, lang), label: labelOf(page, lang) }));
+
+// Los cinco enlaces que revisa la operadora A2P, visibles en todas las paginas.
+const legal = [
+  { href: link('privacy'), label: ui.footer.privacy },
+  { href: link('terms'), label: ui.footer.terms },
+  { href: link('smsPolicy'), label: ui.footer.smsPolicy },
+  { href: link('contact'), label: ui.nav.contact },
+  { href: link('freeWaterTest'), label: ui.cta.freeTestShort },
+];
+---
+
+<footer class="relative overflow-hidden bg-ink text-white/80">
+  <div aria-hidden="true" class="pointer-events-none absolute -right-40 -top-40 h-96 w-96 rounded-full bg-violet/25 blur-3xl"></div>
+  <div aria-hidden="true" class="pointer-events-none absolute -bottom-48 -left-24 h-96 w-96 rounded-full bg-aqua/20 blur-3xl"></div>
+
+  <div class="container-x relative pb-10 pt-16 sm:pt-20">
+    <div class="grid gap-12 lg:grid-cols-12">
+      <div class="lg:col-span-4">
+        <img src="/images/logo.webp" alt="Infinity Water" width="190" height="34" class="h-8 w-auto" loading="lazy" />
+        <p class="mt-5 max-w-sm leading-relaxed text-white/70">{ui.footer.tagline}</p>
+        <div class="mt-6 flex flex-wrap gap-3">
+          <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} class="btn btn-wa !min-h-11 text-sm" target="_blank" rel="noopener" data-track="whatsapp" data-location="footer">
+            <Icon name="MessageCircle" />{ui.cta.whatsappShort}
+          </a>
+          <a href={`tel:${PRIMARY_PHONE.tel}`} class="btn btn-outline-light !min-h-11 text-sm" data-track="call" data-location="footer">
+            <Icon name="Phone" />{PRIMARY_PHONE.display}
+          </a>
+        </div>
+      </div>
+
+      <div class="grid gap-10 sm:grid-cols-3 lg:col-span-8">
+        <div>
+          <h2 class="f-title">{ui.footer.explore}</h2>
+          <ul class="space-y-2.5">{explore.map((item) => <li><a class="f-link" href={item.href}>{item.label}</a></li>)}</ul>
+        </div>
+        <div>
+          <h2 class="f-title">{ui.footer.help}</h2>
+          <ul class="space-y-2.5">{help.map((item) => <li><a class="f-link" href={item.href}>{item.label}</a></li>)}</ul>
+        </div>
+        <div>
+          <h2 class="f-title">{ui.menuGroups.areas}</h2>
+          <ul class="space-y-2.5">{cities.map((item) => <li><a class="f-link" href={item.href}>{item.label}</a></li>)}</ul>
+          <h2 class="f-title mt-8">{ui.footer.hours}</h2>
+          <p class="text-sm">{HOURS_LABEL[lang]}</p>
+        </div>
+      </div>
+    </div>
+
+    <!--
+      Bloque de identidad legal. Es lo que revisa la operadora A2P: entidad,
+      marca, direccion, contacto y enlaces legales, visible en todas las
+      paginas y sin esconderse detras de un menu.
+    -->
+    <div class="mt-14 grid gap-6 border-t border-white/10 pt-8 lg:grid-cols-2">
+      <div class="space-y-1.5 text-sm">
+        <p class="font-bold text-white">{LEGAL_ENTITY_DBA}</p>
+        <p class="text-white/60">{IDENTITY_STATEMENT[lang]}</p>
+        <p>{ADDRESS_LINE_1}, {ADDRESS_LINE_2}</p>
+        <p class="flex flex-wrap gap-x-3 gap-y-1">
+          <a href={`mailto:${EMAIL}`} class="hover:text-aqua">{EMAIL}</a>
+          <span aria-hidden="true" class="text-white/30">·</span>
+          <a href={`tel:${SUPPORT_PHONE.tel}`} class="hover:text-aqua" data-track="call" data-location="footer-legal">{ui.footer.support}: {SUPPORT_PHONE.display}</a>
+          <span aria-hidden="true" class="text-white/30">·</span>
+          <a href={`tel:${SECONDARY_PHONE.tel}`} class="hover:text-aqua" data-track="call" data-location="footer-legal">{SECONDARY_PHONE.display}</a>
+          {SMS_PHONE_NUMBER && (
+            <>
+              <span aria-hidden="true" class="text-white/30">·</span>
+              <span>{ui.footer.sms}: {SMS_PHONE_NUMBER}</span>
+            </>
+          )}
+        </p>
+      </div>
+      <nav aria-label={ui.footer.legal} class="lg:justify-self-end">
+        <ul class="flex flex-wrap gap-x-5 gap-y-2 text-sm">
+          {legal.map((item) => <li><a class="underline decoration-white/30 underline-offset-4 hover:text-aqua hover:decoration-aqua" href={item.href}>{item.label}</a></li>)}
+        </ul>
+      </nav>
+    </div>
+
+    <div class="mt-8 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-white/50 sm:flex-row sm:items-center sm:justify-between">
+      <p>© {year} {LEGAL_ENTITY_DBA}. {ui.footer.rights}</p>
+      <p>
+        {ui.footer.madeBy}
+        <a href="https://www.nivusoftware.com/" target="_blank" rel="noopener" class="font-semibold text-white/70 hover:text-aqua">Nivusoftware</a>
+      </p>
+    </div>
+  </div>
+</footer>
+
+<style>
+  @reference '../styles/global.css';
+  .f-title { @apply mb-4 font-sans text-xs font-bold uppercase tracking-[0.16em] text-white/45; letter-spacing: 0.16em; }
+  .f-link { @apply text-[0.95rem] text-white/80 transition hover:text-aqua; }
+</style>

@@ -1,0 +1,40 @@
+---
+/**
+ * Enrutador unico: genera todas las paginas del sitio en ingles y espanol a
+ * partir de web/i18n/routes.ts. Cada vista pinta su propio layout.
+ */
+import type { GetStaticPaths } from 'astro';
+import type { ContentPage, Lang } from '../data/types';
+import { CONTENT_PAGES, LANGS, STATIC_ROUTES, contentPath, type StaticKey } from '../i18n/routes';
+import HomeView from '../views/HomeView.astro';
+import ContentView from '../views/ContentView.astro';
+import FreeTestView from '../views/FreeTestView.astro';
+import ThanksView from '../views/ThanksView.astro';
+import ContactView from '../views/ContactView.astro';
+import LegalView from '../views/LegalView.astro';
+import HubView from '../views/HubView.astro';
+
+type Props = { lang: Lang; staticKey?: StaticKey; page?: ContentPage };
+
+export const getStaticPaths = (() => {
+  // Va dentro: Astro aisla getStaticPaths del resto del frontmatter.
+  const toSlug = (path: string) => (path === '/' ? undefined : path.replace(/^\//, ''));
+  const statics = (Object.keys(STATIC_ROUTES) as StaticKey[]).flatMap((staticKey) =>
+    LANGS.map((lang) => ({ params: { slug: toSlug(STATIC_ROUTES[staticKey][lang]) }, props: { lang, staticKey } }))
+  );
+  const content = CONTENT_PAGES.flatMap((page) =>
+    LANGS.map((lang) => ({ params: { slug: toSlug(contentPath(page, lang)) }, props: { lang, page } }))
+  );
+  return [...statics, ...content];
+}) satisfies GetStaticPaths;
+
+const { lang, staticKey, page } = Astro.props as Props;
+---
+
+{page && <ContentView lang={lang} page={page} />}
+{staticKey === 'home' && <HomeView lang={lang} />}
+{staticKey === 'freeWaterTest' && <FreeTestView lang={lang} />}
+{staticKey === 'thanks' && <ThanksView lang={lang} />}
+{staticKey === 'contact' && <ContactView lang={lang} />}
+{(staticKey === 'privacy' || staticKey === 'terms' || staticKey === 'smsPolicy') && <LegalView lang={lang} doc={staticKey} />}
+{(staticKey === 'services' || staticKey === 'areas') && <HubView lang={lang} hub={staticKey} />}

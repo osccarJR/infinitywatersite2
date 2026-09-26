@@ -1,0 +1,186 @@
+---
+/**
+ * Layout comun: <head> con SEO completo por pagina e idioma, datos
+ * estructurados, cabecera, pie, barra movil y scripts globales.
+ *
+ * Todo lo que ve un rastreador (titulo, descripcion, canonical, hreflang,
+ * Open Graph, JSON-LD) sale ya en el HTML estatico: WhatsApp, Facebook y
+ * los revisores de A2P no ejecutan JavaScript.
+ */
+import '../styles/global.css';
+import Header from '../components/Header.astro';
+import Footer from '../components/Footer.astro';
+import MobileBar from '../components/MobileBar.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { otherLang } from '../i18n/routes';
+import {
+  ADDRESS_LINE_1,
+  BRAND,
+  EMAIL,
+  GEO,
+  HOURS,
+  LEGAL_ENTITY,
+  LEGAL_ENTITY_DBA,
+  PRIMARY_PHONE,
+  SECONDARY_PHONE,
+  SITE_URL,
+  CORE_CITIES,
+  OTHER_FLORIDA,
+} from '../config/business';
+
+interface Props {
+  lang: Lang;
+  title: string;
+  description: string;
+  /** Rutas de esta misma pagina en cada idioma. */
+  paths: Record<Lang, string>;
+  noindex?: boolean;
+  /** JSON-LD adicional de la pagina (Service, FAQPage, BreadcrumbList...). */
+  schema?: Record<string, unknown>[];
+  ogImage?: string;
+  onFormPage?: boolean;
+}
+
+const { lang, title, description, paths, noindex = false, schema = [], ogImage, onFormPage = false } = Astro.props;
+const ui = t(lang);
+
+const abs = (path: string) => `${SITE_URL}${path}`;
+const canonical = abs(paths[lang]);
+const image = ogImage ?? `${SITE_URL}/images/og-image.jpg`;
+
+const business = {
+  '@context': 'https://schema.org',
+  '@type': 'HomeAndConstructionBusiness',
+  '@id': `${SITE_URL}/#business`,
+  name: BRAND,
+  legalName: LEGAL_ENTITY,
+  alternateName: LEGAL_ENTITY_DBA,
+  url: `${SITE_URL}/`,
+  image: `${SITE_URL}/images/og-image.jpg`,
+  logo: `${SITE_URL}/images/logo.webp`,
+  telephone: PRIMARY_PHONE.tel,
+  email: EMAIL,
+  priceRange: '$$',
+  knowsLanguage: ['en', 'es'],
+  address: {
+    '@type': 'PostalAddress',
+    streetAddress: ADDRESS_LINE_1,
+    addressLocality: 'Fort Myers',
+    addressRegion: 'FL',
+    postalCode: '33916',
+    addressCountry: 'US',
+  },
+  geo: { '@type': 'GeoCoordinates', latitude: GEO.lat, longitude: GEO.lng },
+  areaServed: [...CORE_CITIES, ...OTHER_FLORIDA].map((name) => ({ '@type': 'City', name: `${name}, FL` })),
+  contactPoint: [PRIMARY_PHONE, SECONDARY_PHONE].map((phone) => ({
+    '@type': 'ContactPoint',
+    telephone: phone.tel,
+    contactType: 'customer service',
+    availableLanguage: ['English', 'Spanish'],
+    areaServed: 'US',
+  })),
+  ...(HOURS && {
+    openingHoursSpecification: {
+      '@type': 'OpeningHoursSpecification',
+      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'],
+      opens: HOURS.opens,
+      closes: HOURS.closes,
+    },
+  }),
+};
+
+const jsonLd = [business, ...schema];
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="canonical" href={canonical} />
+    <link rel="alternate" hreflang="en-US" href={abs(paths.en)} />
+    <link rel="alternate" hreflang="es-US" href={abs(paths.es)} />
+    <link rel="alternate" hreflang="x-default" href={abs(paths.en)} />
+    {noindex && <meta name="robots" content="noindex,follow" />}
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content={BRAND} />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={canonical} />
+    <meta property="og:image" content={image} />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:locale" content={lang === 'es' ? 'es_US' : 'en_US'} />
+    <meta property="og:locale:alternate" content={lang === 'es' ? 'en_US' : 'es_US'} />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={image} />
+
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="icon" href="/images/favicon.png" type="image/png" />
+    <link rel="apple-touch-icon" href="/images/apple-touch-icon.png" />
+    <meta name="theme-color" content="#0a1a2f" />
+    <slot name="head" />
+
+    <script type="application/ld+json" set:html={JSON.stringify(jsonLd.length === 1 ? business : { '@context': 'https://schema.org', '@graph': jsonLd.map(({ ['@context']: _, ...rest }) => rest) })} />
+  </head>
+
+  <body class="has-mobile-bar">
+    <a href="#contenido" class="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-white focus:px-4 focus:py-2 focus:text-ink focus:shadow-lift">
+      {ui.skip}
+    </a>
+
+    <Header lang={lang} alternatePath={paths[otherLang(lang)]} hideCta={onFormPage} />
+
+    <main id="contenido" class="pt-[4.5rem]">
+      <slot />
+    </main>
+
+    <Footer lang={lang} />
+    <MobileBar lang={lang} onFormPage={onFormPage} />
+
+    {lang === 'en' && (
+      <div id="lang-banner" hidden class="fixed inset-x-3 bottom-[5.5rem] z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-ink p-3 pl-4 text-sm text-white shadow-lift lg:bottom-6 lg:left-6 lg:right-auto">
+        <span class="flex-1">{ui.langBanner.text}</span>
+        <a href={paths.es} class="rounded-full bg-white px-3 py-1.5 font-bold text-ink" lang="es">{ui.langBanner.action}</a>
+        <button type="button" class="rounded-full p-1.5 text-white/70 hover:text-white" data-dismiss aria-label={ui.langBanner.dismiss}>✕</button>
+      </div>
+    )}
+
+    <script>
+      import { scheduleAnalytics } from '../scripts/analytics';
+      import { initAttribution } from '../scripts/attribution';
+
+      initAttribution();
+      scheduleAnalytics();
+
+      // Sugerencia de idioma: nunca redirige (Google y los revisores deben ver
+      // cada URL tal cual), solo ofrece la version en espanol a quien tiene
+      // el navegador en espanol.
+      const banner = document.getElementById('lang-banner');
+      if (banner) {
+        let dismissed = false;
+        try {
+          dismissed = localStorage.getItem('iw-lang-banner') === '1';
+        } catch {
+          /* almacenamiento bloqueado */
+        }
+        const prefersSpanish = navigator.languages?.some((code) => code.toLowerCase().startsWith('es'));
+        if (prefersSpanish && !dismissed) banner.hidden = false;
+        banner.querySelector('[data-dismiss]')?.addEventListener('click', () => {
+          banner.hidden = true;
+          try {
+            localStorage.setItem('iw-lang-banner', '1');
+          } catch {
+            /* almacenamiento bloqueado */
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

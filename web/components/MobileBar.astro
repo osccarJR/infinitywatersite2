@@ -1,0 +1,44 @@
+---
+/**
+ * Barra fija inferior en movil: los tres caminos de contacto siempre a un
+ * toque. En la pagina del formulario se oculta el boton del analisis (ya
+ * estas ahi) para no tapar el envio del iframe con botones que distraen.
+ */
+import Icon from './Icon.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { pathFor } from '../i18n/routes';
+import { PRIMARY_PHONE, WHATSAPP_MESSAGE, whatsappUrl } from '../config/business';
+
+interface Props {
+  lang: Lang;
+  onFormPage?: boolean;
+}
+
+const { lang, onFormPage = false } = Astro.props;
+const ui = t(lang);
+---
+
+<div
+  class="fixed inset-x-0 bottom-0 z-40 border-t border-ink/10 bg-white/95 px-3 pt-2.5 backdrop-blur-md lg:hidden"
+  style="padding-bottom: calc(0.625rem + env(safe-area-inset-bottom));"
+>
+  <div class:list={['mx-auto grid max-w-md gap-2', onFormPage ? 'grid-cols-2' : 'grid-cols-[1fr_1fr_1.35fr]']}>
+    <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="mb-btn bg-wa text-white" data-track="whatsapp" data-location="mobile-bar">
+      <Icon name="MessageCircle" class="h-5 w-5" />{ui.cta.whatsappShort}
+    </a>
+    <a href={`tel:${PRIMARY_PHONE.tel}`} class="mb-btn border border-ink/15 text-ink" data-track="call" data-location="mobile-bar">
+      <Icon name="Phone" class="h-5 w-5" />{ui.cta.call}
+    </a>
+    {!onFormPage && (
+      <a href={pathFor('freeWaterTest', lang)} class="mb-btn btn-brand !shadow-none" data-track="free_test_cta" data-location="mobile-bar">
+        <Icon name="TestTube" class="h-5 w-5" />{ui.cta.freeTestShort}
+      </a>
+    )}
+  </div>
+</div>
+
+<style>
+  @reference '../styles/global.css';
+  .mb-btn { @apply inline-flex min-h-12 items-center justify-center gap-1.5 rounded-2xl px-2 text-[0.85rem] font-bold; }
+</style>

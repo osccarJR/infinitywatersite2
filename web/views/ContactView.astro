@@ -1,0 +1,141 @@
+---
+/**
+ * /contact — identidad, direccion y datos de contacto (URL declarada en el
+ * registro A2P). A proposito NO lleva formulario: el unico punto de
+ * captura es /free-water-test.
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import type { Lang } from '../data/types';
+import { pathFor, STATIC_ROUTES } from '../i18n/routes';
+import {
+  ADDRESS_LINE_1,
+  ADDRESS_LINE_2,
+  EMAIL,
+  GOOGLE_MAPS_EMBED,
+  HOURS_LABEL,
+  IDENTITY_STATEMENT,
+  LEGAL_ENTITY_DBA,
+  PRIMARY_PHONE,
+  SECONDARY_PHONE,
+  SMS_PHONE_NUMBER,
+  WHATSAPP_MESSAGE,
+  whatsappUrl,
+} from '../config/business';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const es = lang === 'es';
+
+const c = es
+  ? {
+      metaTitle: 'Contacto | Infinity Water',
+      metaDescription:
+        'Contáctanos: Infinity Water en Fort Myers, Florida. Teléfono, WhatsApp, correo y dirección para agua de pozo, filtración y ósmosis inversa. Te atendemos en español.',
+      eyebrow: 'Contacto',
+      title: 'Contáctanos',
+      lead: 'Escríbenos o llámanos directamente. Para un análisis de agua gratis, usa el formulario y así preparamos tu visita.',
+      whatsapp: 'WhatsApp',
+      whatsappText: 'La forma más rápida. Te respondemos en español.',
+      main: 'Línea principal',
+      second: 'Línea adicional',
+      email: 'Correo',
+      address: 'Dirección',
+      hours: 'Horario',
+      sms: 'Texto/SMS',
+      business: 'Información del negocio',
+      ctaTitle: '¿Quieres un análisis de agua gratis?',
+      ctaText: 'Llena el formulario y te contactamos para coordinar la visita.',
+      ctaButton: 'Solicitar mi análisis gratis',
+      mapTitle: 'Ubicación de Infinity Water en Google Maps',
+    }
+  : {
+      metaTitle: 'Contact | Infinity Water',
+      metaDescription:
+        'Contact Infinity Water in Fort Myers, Florida. Phone, WhatsApp, email and address for well water treatment, filtration and reverse osmosis. English and Spanish.',
+      eyebrow: 'Contact',
+      title: 'Contact Infinity Water',
+      lead: 'Reach us directly by phone, WhatsApp or email. For a free water analysis, use the request form so we can prepare your visit.',
+      whatsapp: 'WhatsApp',
+      whatsappText: 'The fastest way. English or Spanish.',
+      main: 'Main line',
+      second: 'Additional line',
+      email: 'Email',
+      address: 'Address',
+      hours: 'Hours',
+      sms: 'Text/SMS',
+      business: 'Business information',
+      ctaTitle: 'Want a free water analysis?',
+      ctaText: 'Fill in the request form and we will contact you to coordinate the visit.',
+      ctaButton: 'Request my free water analysis',
+      mapTitle: 'Infinity Water location on Google Maps',
+    };
+---
+
+<Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES.contact}>
+  <section class="bg-foam">
+    <div class="container-x py-12 sm:py-16">
+      <p class="eyebrow">{c.eyebrow}</p>
+      <h1 class="mt-4 text-4xl sm:text-5xl">{c.title}</h1>
+      <p class="mt-5 max-w-2xl text-lg leading-relaxed text-ink/75">{c.lead}</p>
+    </div>
+  </section>
+
+  <section class="container-x grid gap-8 py-14 lg:grid-cols-[1.1fr_1fr]">
+    <div class="grid content-start gap-4 sm:grid-cols-2">
+      <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="group rounded-3xl bg-wa p-6 text-white sm:col-span-2" data-track="whatsapp" data-location="contact">
+        <Icon name="MessageCircle" class="h-7 w-7" />
+        <p class="mt-4 font-display text-2xl font-semibold">{c.whatsapp} · {PRIMARY_PHONE.display}</p>
+        <p class="mt-1 text-white/85">{c.whatsappText}</p>
+      </a>
+      <a href={`tel:${PRIMARY_PHONE.tel}`} class="card p-6 transition hover:shadow-lift" data-track="call" data-location="contact">
+        <Icon name="Phone" class="h-6 w-6 text-aqua-deep" />
+        <p class="mt-3 text-sm text-muted">{c.main}</p>
+        <p class="text-xl font-bold">{PRIMARY_PHONE.display}</p>
+      </a>
+      <a href={`tel:${SECONDARY_PHONE.tel}`} class="card p-6 transition hover:shadow-lift" data-track="call" data-location="contact">
+        <Icon name="Phone" class="h-6 w-6 text-aqua-deep" />
+        <p class="mt-3 text-sm text-muted">{c.second}</p>
+        <p class="text-xl font-bold">{SECONDARY_PHONE.display}</p>
+      </a>
+      <a href={`mailto:${EMAIL}`} class="card p-6 transition hover:shadow-lift">
+        <Icon name="FileText" class="h-6 w-6 text-aqua-deep" />
+        <p class="mt-3 text-sm text-muted">{c.email}</p>
+        <p class="break-all text-lg font-bold">{EMAIL}</p>
+      </a>
+      <div class="card p-6">
+        <Icon name="Clock" class="h-6 w-6 text-aqua-deep" />
+        <p class="mt-3 text-sm text-muted">{c.hours}</p>
+        <p class="text-lg font-bold">{HOURS_LABEL[lang]}</p>
+      </div>
+      {SMS_PHONE_NUMBER && (
+        <div class="card p-6 sm:col-span-2">
+          <p class="text-sm text-muted">{c.sms}</p>
+          <p class="text-lg font-bold">{SMS_PHONE_NUMBER}</p>
+        </div>
+      )}
+
+      <div class="rounded-3xl border border-ink/10 p-6 sm:col-span-2">
+        <h2 class="font-sans text-sm font-bold uppercase tracking-[0.14em] text-muted">{c.business}</h2>
+        <p class="mt-3 font-bold">{LEGAL_ENTITY_DBA}</p>
+        <p class="mt-1 text-sm text-muted">{IDENTITY_STATEMENT[lang]}</p>
+        <address class="mt-3 not-italic">{ADDRESS_LINE_1}<br />{ADDRESS_LINE_2}</address>
+      </div>
+    </div>
+
+    <div class="space-y-6">
+      <div class="overflow-hidden rounded-4xl border border-ink/10 shadow-soft">
+        <iframe src={GOOGLE_MAPS_EMBED} title={c.mapTitle} class="h-80 w-full border-0" loading="lazy" referrerpolicy="no-referrer-when-downgrade" allowfullscreen></iframe>
+        <p class="flex items-center gap-2 bg-white p-4 text-sm font-semibold"><Icon name="MapPin" class="h-4 w-4 text-violet" />{ADDRESS_LINE_1}, {ADDRESS_LINE_2}</p>
+      </div>
+      <div class="rounded-4xl bg-ink p-8 text-white">
+        <h2 class="text-2xl text-white">{c.ctaTitle}</h2>
+        <p class="mt-2 text-white/75">{c.ctaText}</p>
+        <a href={pathFor('freeWaterTest', lang)} class="btn btn-light mt-6" data-track="free_test_cta" data-location="contact">{c.ctaButton}</a>
+      </div>
+    </div>
+  </section>
+</Base>

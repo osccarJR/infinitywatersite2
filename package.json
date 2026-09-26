@@ -1,38 +1,30 @@
 {
   "name": "infinitywater-site",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.0.0",
   "type": "module",
-  "description": "Sitio web de Infinity Water - filtracion, osmosis inversa y tratamiento de agua en Florida",
+  "description": "Sitio web de Infinity Water - tratamiento de agua de pozo y de ciudad en el suroeste de Florida",
   "scripts": {
-    "dev": "vite --host",
-    "build": "vite build && node scripts/prerender.mjs",
-    "preview": "vite preview --host",
-    "lint": "eslint .",
+    "dev": "astro dev --host",
+    "build": "astro build",
+    "preview": "astro preview --host",
+    "check": "astro check",
+    "test:smoke": "node scripts/smoke.mjs",
     "optimize:images": "node scripts/optimize-images.mjs",
-    "start": "node index.js",
-    "test:smoke": "vite build --ssr scripts/smoke-entry.jsx --outDir node_modules/.smoke --logLevel error && node node_modules/.smoke/smoke-entry.js"
+    "start": "node index.js"
   },
   "dependencies": {
-    "lucide-react": "^0.545.0",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
-    "react-router-dom": "^7.6.2",
     "serve": "^14.2.4"
   },
   "devDependencies": {
-    "@eslint/js": "^9.25.0",
-    "@types/react": "^19.1.2",
-    "@types/react-dom": "^19.1.2",
-    "@vitejs/plugin-react": "^4.4.1",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.25.0",
-    "eslint-plugin-react-hooks": "^5.2.0",
-    "eslint-plugin-react-refresh": "^0.4.19",
-    "globals": "^16.0.0",
-    "postcss": "^8.5.6",
+    "@astrojs/check": "^0.9.10",
+    "@fontsource-variable/fraunces": "^5.3.0",
+    "@fontsource-variable/manrope": "^5.3.0",
+    "@tailwindcss/vite": "^4.3.3",
+    "astro": "^7.3.5",
+    "lucide-static": "^1.48.0",
     "sharp": "^0.34.2",
-    "tailwindcss": "^3.4.1",
-    "vite": "^6.3.5"
+    "tailwindcss": "^4.3.3",
+    "typescript": "^5.9.0"
   }
 }

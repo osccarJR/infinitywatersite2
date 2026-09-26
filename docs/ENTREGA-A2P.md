@@ -10,6 +10,32 @@ Infinity Water"* del 5 de agosto de 2026.
 
 ---
 
+> **Actualización (rediseño, septiembre de 2026).** El sitio se reconstruyó
+> con Astro. Nada de lo que revisa la operadora cambió:
+>
+> - **URLs:** las seis URLs de abajo y sus versiones en español son las mismas.
+> - **Textos legales:** el inglés es idéntico letra por letra y se comprobó con
+>   `diff`. A la traducción al español solo se le añadieron tildes.
+> - **Formulario:** es el mismo de GoHighLevel, se sigue incrustando solo en
+>   `/free-water-test`, y los tres enlaces legales siguen visibles antes de él.
+> - **Identidad y datos de contacto:** entidad, dirección y correo son los
+>   mismos, con el pie legal en todas las páginas.
+>
+> Novedades que no afectan a la revisión:
+>
+> - **Títulos:** cambian los `<title>` de la portada y del contacto, así que
+>   los de la tabla de la sección 12 son los anteriores.
+> - **Página de gracias:** la nueva `/thank-you` no se indexa.
+> - **Atribución:** además de los parámetros de campaña, al formulario se le
+>   pasan `gclid` y el contexto del "Chequeo de agua" (`water_source`,
+>   `concerns`, `city`).
+> - **404 real:** las rutas que no existen responden 404 en lugar de la portada.
+>
+> La prueba `npm run test:smoke` verifica todo lo anterior sobre el HTML
+> compilado.
+
+---
+
 ## 1–5. URLs finales
 
 El dominio canónico es **con www**. `infinitywatersite.com` responde 301 a

@@ -1,0 +1,56 @@
+---
+/**
+ * Cierre comun de las paginas: los tres caminos de contacto con la
+ * jerarquia clara (analisis gratis > WhatsApp > telefono).
+ */
+import Icon from './Icon.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { pathFor } from '../i18n/routes';
+import { PRIMARY_PHONE, WHATSAPP_MESSAGE, whatsappUrl } from '../config/business';
+
+interface Props {
+  lang: Lang;
+  title?: string;
+  text?: string;
+  location?: string;
+}
+
+const es = Astro.props.lang === 'es';
+const { lang, location = 'final-cta' } = Astro.props;
+const ui = t(lang);
+const title = Astro.props.title ?? (es ? 'Tu agua, explicada en tu idioma.' : 'Your water, explained clearly.');
+const text =
+  Astro.props.text ??
+  (es
+    ? 'Pide tu análisis gratis. Vamos a tu casa, medimos, te explicamos el resultado y tú decides con calma. Sin presión y sin compromiso.'
+    : 'Request your free test. We come to your home, measure, explain the results and you decide calmly. No pressure, no obligation.');
+---
+
+<section class="px-4 py-16 sm:px-6 sm:py-24">
+  <div class="relative mx-auto max-w-6xl overflow-hidden rounded-5xl bg-ink px-6 py-14 text-white sm:px-14 sm:py-20">
+    <div aria-hidden="true" class="absolute -right-24 -top-32 h-96 w-96 rounded-full bg-violet/40 blur-3xl"></div>
+    <div aria-hidden="true" class="absolute -bottom-40 left-10 h-96 w-96 rounded-full bg-aqua/30 blur-3xl"></div>
+    <svg aria-hidden="true" class="absolute inset-x-0 bottom-0 w-full text-white/[0.04]" viewBox="0 0 1200 120" preserveAspectRatio="none">
+      <path fill="currentColor" d="M0 60c150-40 300-40 450 0s300 40 450 0 225-30 300-20v80H0z" />
+    </svg>
+
+    <div class="relative grid items-center gap-10 lg:grid-cols-[1.3fr_1fr]">
+      <div>
+        <h2 class="text-4xl text-white sm:text-5xl">{title}</h2>
+        <p class="mt-5 max-w-xl text-lg leading-relaxed text-white/75">{text}</p>
+      </div>
+      <div class="grid gap-3">
+        <a href={pathFor('freeWaterTest', lang)} class="btn btn-light !min-h-14 text-base" data-track="free_test_cta" data-location={location}>
+          <Icon name="TestTube" class="text-violet" />{ui.cta.freeTest}
+        </a>
+        <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-14 text-base" data-track="whatsapp" data-location={location}>
+          <Icon name="MessageCircle" />{ui.cta.whatsapp}
+        </a>
+        <a href={`tel:${PRIMARY_PHONE.tel}`} class="btn btn-outline-light !min-h-14 text-base" data-track="call" data-location={location}>
+          <Icon name="Phone" />{ui.cta.callNow}: {PRIMARY_PHONE.display}
+        </a>
+      </div>
+    </div>
+  </div>
+</section>

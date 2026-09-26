@@ -1,0 +1,321 @@
+---
+/**
+ * Plantilla de todas las paginas de contenido (servicios, problemas,
+ * ciudades, guias y empresa). El texto llega en bloques desde
+ * web/data/pages; aqui solo se decide como se ve cada bloque.
+ */
+import { Image } from 'astro:assets';
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import FinalCta from '../components/FinalCta.astro';
+import type { ContentPage, Lang, PhotoName } from '../data/types';
+import { t } from '../i18n/ui';
+import { contentPath, getContentPage, hasPage, pathFor, STATIC_ROUTES } from '../i18n/routes';
+import { labelOf } from '../data/labels';
+import { SITE_URL, BRAND, PRIMARY_PHONE, WHATSAPP_MESSAGE, whatsappUrl, FOUNDER_YEARS } from '../config/business';
+import family from '../assets/photos/family.png';
+import smell from '../assets/photos/smell.png';
+import stains from '../assets/photos/stains.png';
+import contaminants from '../assets/photos/contaminants.png';
+
+interface Props {
+  lang: Lang;
+  page: ContentPage;
+}
+
+const { lang, page } = Astro.props;
+const es = lang === 'es';
+const ui = t(lang);
+const content = page[lang];
+const photos: Record<PhotoName, ImageMetadata> = { family, smell, stains, contaminants };
+const photo = page.photo ? photos[page.photo] : undefined;
+
+const paths = { en: contentPath(page, 'en'), es: contentPath(page, 'es') };
+const related = page.related.filter(hasPage).map((key) => getContentPage(key)).filter(Boolean) as ContentPage[];
+
+const parent =
+  page.kind === 'service'
+    ? { href: pathFor('services', lang), label: es ? 'Servicios' : 'Services' }
+    : page.kind === 'city'
+      ? { href: pathFor('areas', lang), label: es ? 'Zonas' : 'Service areas' }
+      : null;
+
+const toneStyles = {
+  info: { box: 'bg-aqua-soft/70 border-aqua/30', icon: 'Info', color: 'text-aqua-deep' },
+  warning: { box: 'bg-coral/8 border-coral/30', icon: 'AlertTriangle', color: 'text-coral' },
+  success: { box: 'bg-emerald-50 border-emerald-600/25', icon: 'CircleCheck', color: 'text-emerald-700' },
+} as const;
+
+/* ------------------------------ JSON-LD ------------------------------ */
+const faqItems = content.blocks.flatMap((block) => (block.type === 'faq' ? block.items : []));
+const breadcrumbs = [
+  { name: BRAND, url: `${SITE_URL}${STATIC_ROUTES.home[lang]}` },
+  ...(parent ? [{ name: parent.label, url: `${SITE_URL}${parent.href}` }] : []),
+  { name: labelOf(page, lang), url: `${SITE_URL}${paths[lang]}` },
+];
+const schema: Record<string, unknown>[] = [
+  {
+    '@context': 'https://schema.org',
+    '@type': 'BreadcrumbList',
+    itemListElement: breadcrumbs.map((crumb, i) => ({ '@type': 'ListItem', position: i + 1, name: crumb.name, item: crumb.url })),
+  },
+];
+if (faqItems.length) {
+  schema.push({
+    '@context': 'https://schema.org',
+    '@type': 'FAQPage',
+    mainEntity: faqItems.map((f) => ({ '@type': 'Question', name: f.q, acceptedAnswer: { '@type': 'Answer', text: f.a } })),
+  });
+}
+if (page.kind === 'service') {
+  schema.push({
+    '@context': 'https://schema.org',
+    '@type': 'Service',
+    name: labelOf(page, lang),
+    description: content.metaDescription,
+    provider: { '@id': `${SITE_URL}/#business` },
+    areaServed: { '@type': 'State', name: 'Florida' },
+  });
+}
+---
+
+<Base lang={lang} title={content.metaTitle} description={content.metaDescription} paths={paths} schema={schema}>
+  <!-- ============================ CABECERA ============================ -->
+  <section class="relative overflow-hidden bg-foam">
+    <div aria-hidden="true" class="absolute -right-32 -top-32 h-[28rem] w-[28rem] rounded-full bg-aqua/15 blur-3xl"></div>
+    <div aria-hidden="true" class="absolute -bottom-40 left-1/4 h-80 w-80 rounded-full bg-violet/10 blur-3xl"></div>
+
+    <div class:list={['container-x relative grid items-center gap-12 py-12 sm:py-16 lg:py-20', photo ? 'lg:grid-cols-[1.25fr_1fr]' : 'lg:grid-cols-[1.6fr_1fr]']}>
+      <div class="reveal">
+        <nav aria-label={es ? 'Ruta de navegación' : 'Breadcrumb'} class="mb-6 text-sm">
+          <ol class="flex flex-wrap items-center gap-1.5 text-muted">
+            <li><a href={pathFor('home', lang)} class="hover:text-ink">{es ? 'Inicio' : 'Home'}</a></li>
+            {parent && (<><li aria-hidden="true">/</li><li><a href={parent.href} class="hover:text-ink">{parent.label}</a></li></>)}
+            <li aria-hidden="true">/</li>
+            <li class="font-semibold text-ink" aria-current="page">{labelOf(page, lang)}</li>
+          </ol>
+        </nav>
+        <p class="eyebrow">{content.eyebrow}</p>
+        <h1 class="mt-4 text-4xl sm:text-5xl lg:text-[3.6rem]">{content.title}</h1>
+        <p class="mt-6 max-w-2xl text-lg leading-relaxed text-ink/75 sm:text-xl">{content.lead}</p>
+
+        <ul class="mt-8 flex flex-wrap gap-2.5">
+          {content.highlights.map((item) => (
+            <li class="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-semibold shadow-soft">
+              <Icon name="CircleCheck" class="h-4 w-4 text-aqua-deep" />{item}
+            </li>
+          ))}
+        </ul>
+
+        <div class="mt-9 flex flex-col gap-3 sm:flex-row">
+          <a href={pathFor('freeWaterTest', lang)} class="btn btn-primary !min-h-13" data-track="free_test_cta" data-location={`${page.kind}-hero`}>
+            <Icon name="TestTube" />{ui.cta.freeTest}
+          </a>
+          <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-13" data-track="whatsapp" data-location={`${page.kind}-hero`}>
+            <Icon name="MessageCircle" />{ui.cta.whatsappShort}
+          </a>
+        </div>
+      </div>
+
+      {photo ? (
+        <div class="relative">
+          <Image src={photo} alt="" widths={[420, 640, 900]} sizes="(min-width: 1024px) 460px, 90vw" class="aspect-square w-full rounded-[2.25rem] object-cover shadow-lift" loading="eager" />
+          <span class="absolute -bottom-5 -left-5 grid h-20 w-20 place-items-center rounded-3xl bg-white shadow-lift"><Icon name={page.icon} class="h-9 w-9 text-violet" /></span>
+        </div>
+      ) : (
+        <div class="relative mx-auto hidden aspect-square w-full max-w-sm lg:block" aria-hidden="true">
+          <div class="absolute inset-6 rounded-full bg-gradient-to-br from-violet/20 via-white to-aqua/25"></div>
+          <div class="absolute inset-16 rounded-full border border-aqua/30"></div>
+          <div class="absolute inset-0 grid place-items-center">
+            <span class="grid h-36 w-36 place-items-center rounded-[2.5rem] bg-white shadow-lift"><Icon name={page.icon} class="h-16 w-16 text-aqua-deep" strokeWidth={1.4} /></span>
+          </div>
+        </div>
+      )}
+    </div>
+  </section>
+
+  <!-- ============================ CUERPO ============================ -->
+  <div class="container-x grid gap-14 py-16 sm:py-20 lg:grid-cols-[minmax(0,1fr)_20rem] xl:gap-20">
+    <article class="min-w-0 space-y-16">
+      {content.blocks.map((block) => (
+        <section>
+          {block.type === 'prose' && (
+            <div>
+              {block.heading && <h2 class="text-3xl sm:text-[2.1rem]">{block.heading}</h2>}
+              <div class:list={['prose-iw', block.heading && 'mt-5']}>{block.paragraphs.map((p) => <p>{p}</p>)}</div>
+            </div>
+          )}
+
+          {block.type === 'features' && (
+            <div>
+              <h2 class="text-3xl sm:text-[2.1rem]">{block.heading}</h2>
+              {block.intro && <p class="prose-iw mt-4">{block.intro}</p>}
+              <div class="mt-8 grid gap-4 sm:grid-cols-2">
+                {block.items.map((item, i) => (
+                  <div class="rounded-3xl border border-ink/8 bg-white p-6 shadow-soft">
+                    <span class:list={['grid h-11 w-11 place-items-center rounded-xl', i % 2 ? 'bg-violet-soft text-violet' : 'bg-aqua-soft text-aqua-deep']}><Icon name={item.icon} class="h-5 w-5" /></span>
+                    <h3 class="mt-4 text-lg">{item.title}</h3>
+                    <p class="mt-2 leading-relaxed text-muted">{item.text}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {block.type === 'steps' && (
+            <div>
+              <h2 class="text-3xl sm:text-[2.1rem]">{block.heading}</h2>
+              {block.intro && <p class="prose-iw mt-4">{block.intro}</p>}
+              <ol class="relative mt-8 space-y-6 border-l-2 border-dashed border-aqua/30 pl-8">
+                {block.items.map((item, i) => (
+                  <li class="relative">
+                    <span class="absolute -left-[3.05rem] top-0 grid h-9 w-9 place-items-center rounded-full bg-ink text-sm font-bold text-white ring-4 ring-white">{i + 1}</span>
+                    <h3 class="text-lg">{item.title}</h3>
+                    <p class="mt-1.5 leading-relaxed text-muted">{item.text}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {block.type === 'facts' && (
+            <div class="relative overflow-hidden rounded-4xl bg-ink p-7 text-white sm:p-10">
+              <div aria-hidden="true" class="absolute -right-20 -top-20 h-64 w-64 rounded-full bg-aqua/20 blur-3xl"></div>
+              <p class="relative inline-flex items-center gap-2 text-xs font-bold uppercase tracking-[0.16em] text-aqua"><Icon name="FileText" class="h-4 w-4" />{es ? 'Datos oficiales' : 'Official data'}</p>
+              <h2 class="relative mt-3 text-3xl text-white">{block.heading}</h2>
+              {block.intro && <p class="relative mt-3 leading-relaxed text-white/75">{block.intro}</p>}
+              <dl class="relative mt-8 grid gap-px overflow-hidden rounded-2xl bg-white/10 sm:grid-cols-2">
+                {block.items.map((item) => (
+                  <div class="bg-ink/95 p-5">
+                    <dt class="text-sm text-white/60">{item.label}</dt>
+                    <dd class="mt-1 font-display text-2xl font-semibold text-white">{item.value}</dd>
+                    {item.detail && <dd class="mt-1.5 text-sm leading-relaxed text-white/60">{item.detail}</dd>}
+                  </div>
+                ))}
+              </dl>
+              {block.source && (
+                <p class="relative mt-6 text-sm text-white/60">
+                  {es ? 'Fuente:' : 'Source:'}{' '}
+                  <a href={block.source.url} target="_blank" rel="noopener" class="font-semibold text-aqua underline underline-offset-4 hover:text-white">{block.source.label} ↗</a>
+                </p>
+              )}
+            </div>
+          )}
+
+          {block.type === 'signs' && (
+            <div class="rounded-4xl bg-sand p-7 sm:p-10">
+              <h2 class="text-3xl">{block.heading}</h2>
+              {block.intro && <p class="prose-iw mt-4">{block.intro}</p>}
+              <ul class="mt-7 grid gap-3 sm:grid-cols-2">
+                {block.items.map((item) => (
+                  <li class="flex gap-3 rounded-2xl bg-white p-4 shadow-soft"><Icon name="CircleCheck" class="mt-0.5 h-5 w-5 shrink-0 text-violet" /><span class="leading-relaxed">{item}</span></li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {block.type === 'callout' && (
+            <div class:list={['flex gap-4 rounded-3xl border p-6 sm:p-7', toneStyles[block.tone].box]}>
+              <Icon name={toneStyles[block.tone].icon} class:list={['mt-1 h-6 w-6 shrink-0', toneStyles[block.tone].color]} />
+              <div>
+                <h2 class="font-sans text-lg font-bold tracking-normal">{block.title}</h2>
+                <p class="mt-2 leading-relaxed text-ink/80">{block.text}</p>
+              </div>
+            </div>
+          )}
+
+          {block.type === 'compare' && (
+            <div>
+              <h2 class="text-3xl sm:text-[2.1rem]">{block.heading}</h2>
+              {block.intro && <p class="prose-iw mt-4">{block.intro}</p>}
+              <div class="mt-8 overflow-x-auto rounded-3xl border border-ink/10">
+                <table class="w-full min-w-[34rem] border-collapse text-left">
+                  <thead class="bg-ink text-white">
+                    <tr>
+                      <th scope="col" class="w-1/4 p-4 text-sm font-bold"><span class="sr-only">{es ? 'Aspecto' : 'Aspect'}</span></th>
+                      <th scope="col" class="p-4 text-sm font-bold">{block.columns[0]}</th>
+                      <th scope="col" class="p-4 text-sm font-bold">{block.columns[1]}</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {block.rows.map((row, i) => (
+                      <tr class:list={[i % 2 ? 'bg-foam' : 'bg-white']}>
+                        <th scope="row" class="p-4 align-top text-sm font-bold">{row.label}</th>
+                        <td class="p-4 align-top text-[0.95rem] leading-relaxed text-ink/80">{row.values[0]}</td>
+                        <td class="p-4 align-top text-[0.95rem] leading-relaxed text-ink/80">{row.values[1]}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {block.type === 'faq' && (
+            <div>
+              <h2 class="text-3xl sm:text-[2.1rem]">{block.heading}</h2>
+              <div class="mt-6 divide-y divide-ink/10 border-y border-ink/10">
+                {block.items.map((item) => (
+                  <details class="group">
+                    <summary class="flex cursor-pointer items-center justify-between gap-6 py-5 text-[1.05rem] font-bold">
+                      {item.q}
+                      <span class="grid h-8 w-8 shrink-0 place-items-center rounded-full bg-foam transition group-open:rotate-45"><Icon name="Plus" class="h-4 w-4 text-aqua-deep" /></span>
+                    </summary>
+                    <p class="pb-6 pr-10 leading-relaxed text-muted">{item.a}</p>
+                  </details>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {block.type === 'cta' && (
+            <div class="relative overflow-hidden rounded-4xl bg-gradient-to-br from-[#4d2bb4] via-tide to-aqua-deep p-8 text-white sm:p-10">
+              <div aria-hidden="true" class="absolute -right-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl"></div>
+              <h2 class="relative text-3xl text-white">{block.title}</h2>
+              <p class="relative mt-3 max-w-xl leading-relaxed text-white/85">{block.text}</p>
+              <div class="relative mt-7 flex flex-col gap-3 sm:flex-row">
+                <a href={pathFor('freeWaterTest', lang)} class="btn btn-light" data-track="free_test_cta" data-location={`${page.kind}-inline`}>{ui.cta.freeTest}</a>
+                <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-outline-light" data-track="whatsapp" data-location={`${page.kind}-inline`}><Icon name="MessageCircle" />{ui.cta.whatsappShort}</a>
+              </div>
+            </div>
+          )}
+        </section>
+      ))}
+    </article>
+
+    <!-- Barra lateral: contacto siempre a mano y paginas relacionadas -->
+    <aside class="space-y-6 lg:sticky lg:top-28 lg:self-start">
+      <div class="rounded-4xl bg-ink p-7 text-white">
+        <p class="font-display text-2xl font-semibold">{es ? '¿Hablamos de tu agua?' : 'Let’s talk about your water'}</p>
+        <p class="mt-3 text-sm leading-relaxed text-white/70">
+          {es
+            ? `Análisis gratis en tu casa, en español, con más de ${FOUNDER_YEARS} años de experiencia detrás.`
+            : `Free in-home test, backed by ${FOUNDER_YEARS}+ years of experience.`}
+        </p>
+        <div class="mt-6 grid gap-2.5">
+          <a href={pathFor('freeWaterTest', lang)} class="btn btn-light !min-h-11 text-sm" data-track="free_test_cta" data-location="sidebar">{ui.cta.freeTestShort}</a>
+          <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-11 text-sm" data-track="whatsapp" data-location="sidebar"><Icon name="MessageCircle" />{ui.cta.whatsappShort}</a>
+          <a href={`tel:${PRIMARY_PHONE.tel}`} class="btn btn-outline-light !min-h-11 text-sm" data-track="call" data-location="sidebar"><Icon name="Phone" />{PRIMARY_PHONE.display}</a>
+        </div>
+      </div>
+
+      {related.length > 0 && (
+        <nav class="rounded-4xl border border-ink/8 p-6" aria-label={es ? 'Páginas relacionadas' : 'Related pages'}>
+          <p class="text-xs font-bold uppercase tracking-[0.14em] text-muted">{es ? 'También te puede servir' : 'You may also need'}</p>
+          <ul class="mt-4 space-y-1">
+            {related.map((rel) => (
+              <li>
+                <a href={contentPath(rel, lang)} class="flex items-center gap-3 rounded-xl px-2 py-2.5 font-semibold transition hover:bg-foam">
+                  <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-foam text-aqua-deep"><Icon name={rel.icon} class="h-4 w-4" /></span>
+                  {labelOf(rel, lang)}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
+      )}
+    </aside>
+  </div>
+
+  <FinalCta lang={lang} location={`${page.kind}-final`} />
+</Base>
