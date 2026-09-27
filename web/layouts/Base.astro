@@ -40,9 +40,11 @@ interface Props {
   schema?: Record<string, unknown>[];
   ogImage?: string;
   onFormPage?: boolean;
+  /** La pagina empieza con una seccion a sangre bajo la barra (sin margen). */
+  flush?: boolean;
 }
 
-const { lang, title, description, paths, noindex = false, schema = [], ogImage, onFormPage = false } = Astro.props;
+const { lang, title, description, paths, noindex = false, schema = [], ogImage, onFormPage = false, flush = false } = Astro.props;
 const ui = t(lang);
 
 const abs = (path: string) => `${SITE_URL}${path}`;
@@ -149,7 +151,7 @@ const jsonLd = [business, ...schema];
       </div>
     )}
 
-    <main id="contenido" class="pt-14">
+    <main id="contenido" class:list={[!flush && 'pt-14']}>
       <slot />
     </main>
 

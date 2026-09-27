@@ -84,11 +84,11 @@ const c = es
     </div>
   </header>
 
-  <section class="container-wide grid gap-4 py-14 lg:grid-cols-[1.1fr_1fr]">
-    <div class="grid content-start gap-4 sm:grid-cols-2">
+  <section class="container-wide grid grid-cols-[minmax(0,1fr)] gap-4 py-14 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
+    <div class="grid min-w-0 content-start gap-4 sm:grid-cols-2 [&>*]:min-w-0">
       <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="group rounded-[2rem] bg-wa p-7 text-white sm:col-span-2" data-track="whatsapp" data-location="contact">
         <Icon name="MessageCircle" class="h-7 w-7" />
-        <p class="mt-4 font-display text-2xl font-semibold">{c.whatsapp} · {PRIMARY_PHONE.display}</p>
+        <p class="mt-4 text-xl font-semibold sm:text-2xl">{c.whatsapp} · <span class="whitespace-nowrap">{PRIMARY_PHONE.display}</span></p>
         <p class="mt-1 text-white/85">{c.whatsappText}</p>
       </a>
       <a href={`tel:${PRIMARY_PHONE.tel}`} class="rounded-[2rem] bg-mist p-7 transition hover:bg-[#ebebef]" data-track="call" data-location="contact">

@@ -1,0 +1,184 @@
+---
+/**
+ * "El agua, revelada": portada narrativa al estilo de las paginas de
+ * producto de Apple.
+ *
+ * Un marco fijo (sticky) ocupa la pantalla mientras el usuario baja. En
+ * cada tramo del desplazamiento el vaso cambia de estado y el texto cuenta
+ * un problema: azufre, hierro, dureza, cloro... hasta que el agua queda
+ * cristalina. El proposito del negocio se entiende sin leer.
+ *
+ * Sin JavaScript (o con movimiento reducido) sigue funcionando: se ve el
+ * primer paso con el titular y los botones.
+ */
+import WaterGlass from './WaterGlass.astro';
+import type { Lang } from '../data/types';
+import { t } from '../i18n/ui';
+import { pathFor } from '../i18n/routes';
+import { WHATSAPP_MESSAGE, whatsappUrl } from '../config/business';
+
+interface Props {
+  lang: Lang;
+}
+
+const { lang } = Astro.props;
+const es = lang === 'es';
+const ui = t(lang);
+
+type Step = { water: string; kicker: string; title: string; text: string; cta?: boolean; hero?: boolean };
+
+const steps: Step[] = es
+  ? [
+      { water: 'murky', kicker: 'Análisis de agua gratis · Suroeste de Florida', title: 'Tu agua,<br/>por fin clara.', text: 'Descubre qué hay en el agua de tu casa. La medimos gratis y te decimos la verdad.', cta: true, hero: true },
+      { water: 'sulfur', kicker: 'Agua de pozo', title: 'Azufre.', text: 'Ese olor a huevo podrido que sale de la llave.' },
+      { water: 'iron', kicker: 'Agua de pozo', title: 'Hierro.', text: 'Esas manchas naranjas en la ropa, el baño y las paredes.' },
+      { water: 'hard', kicker: 'Pozo y ciudad', title: 'Dureza.', text: 'Ese sarro blanco en llaves, vidrios y el calentador.' },
+      { water: 'chlorine', kicker: 'Agua de ciudad', title: 'Cloro.', text: 'Ese sabor a piscina en cada vaso.' },
+      { water: 'clear', kicker: 'Infinity Water', title: 'Lo medimos.<br/>Lo quitamos.', text: 'Agua cristalina en cada llave de tu casa.', cta: true },
+    ]
+  : [
+      { water: 'murky', kicker: 'Free water test · Southwest Florida', title: 'Your water,<br/>finally clear.', text: 'Find out what’s in your home’s water. We test it for free and tell you the truth.', cta: true, hero: true },
+      { water: 'sulfur', kicker: 'Well water', title: 'Sulfur.', text: 'That rotten-egg smell coming from the tap.' },
+      { water: 'iron', kicker: 'Well water', title: 'Iron.', text: 'Those orange stains on clothes, tubs and walls.' },
+      { water: 'hard', kicker: 'Well and city', title: 'Hardness.', text: 'That white scale on faucets, glass and your water heater.' },
+      { water: 'chlorine', kicker: 'City water', title: 'Chlorine.', text: 'That pool taste in every glass.' },
+      { water: 'clear', kicker: 'Infinity Water', title: 'We test it.<br/>We fix it.', text: 'Crystal-clear water from every tap in your home.', cta: true },
+    ];
+
+const scrollHint = es ? 'Desliza para ver qué hay en tu agua' : 'Scroll to see what’s in your water';
+---
+
+<section
+  data-story
+  data-nav="dark"
+  class="story relative bg-black text-white"
+  style={`--steps:${steps.length}`}
+>
+  <div class="story-frame sticky top-0 h-[100svh] overflow-hidden" data-story-frame data-water="murky" data-step="0">
+    <!-- Luz ambiental que toma el color del agua -->
+    <div class="ambient pointer-events-none absolute inset-0" aria-hidden="true"></div>
+
+    <div class="container-wide relative grid h-full grid-rows-[auto_1fr] items-center gap-2 pb-6 pt-20 lg:grid-cols-[1.05fr_1fr] lg:grid-rows-1 lg:gap-10 lg:pb-0 lg:pt-14">
+      <!-- Textos apilados en la misma celda; solo uno visible -->
+      <div class="grid text-center lg:text-left">
+        {steps.map((step, i) => (
+          <div class:list={['caption [grid-area:1/1] self-center', i === 0 && 'is-active']} data-caption={i}>
+            <p class="text-[0.95rem] font-semibold text-[#5ec2ff] sm:text-lg">{step.kicker}</p>
+            {step.hero ? (
+              <h1 class="t-display mt-3" set:html={step.title} />
+            ) : (
+              <h2 class="t-display mt-3" set:html={step.title} />
+            )}
+            <p class="mx-auto mt-5 max-w-md text-[1.15rem] leading-snug text-white/70 sm:text-2xl lg:mx-0">{step.text}</p>
+            {step.cta && (
+              <div class="mt-8 flex flex-col items-center gap-4 sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-8 lg:justify-start">
+                <a href={pathFor('freeWaterTest', lang)} class="btn btn-primary !min-h-13 !px-8 !text-lg" data-track="free_test_cta" data-location={step.hero ? 'hero' : 'story-end'} tabindex={i === 0 ? undefined : '-1'}>{ui.cta.freeTest}</a>
+                <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="more !text-lg !text-[#5ec2ff]" data-track="whatsapp" data-location={step.hero ? 'hero' : 'story-end'} tabindex={i === 0 ? undefined : '-1'}>{ui.cta.whatsapp}</a>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      <!-- El vaso -->
+      <div class="flex h-full min-h-0 items-center justify-center">
+        <WaterGlass id="story" class="glass-stage h-[min(44svh,30rem)] w-auto lg:h-[min(68svh,44rem)]" />
+      </div>
+    </div>
+
+    <!-- Progreso -->
+    <ol class="absolute right-4 top-1/2 hidden -translate-y-1/2 flex-col gap-3 sm:flex lg:right-8" aria-hidden="true">
+      {steps.map((_, i) => <li class:list={['dot h-2 w-2 rounded-full bg-white/25 transition', i === 0 && 'is-active']} data-dot={i}></li>)}
+    </ol>
+
+    <p class="hint absolute inset-x-0 bottom-5 flex flex-col items-center gap-2 text-sm text-white/55" aria-hidden="true">
+      {scrollHint}
+      <span class="chev block h-6 w-3.5 rounded-full border border-white/40"><span class="mx-auto mt-1 block h-1.5 w-0.5 rounded bg-white/70"></span></span>
+    </p>
+  </div>
+</section>
+
+<style>
+  /* Alto del recorrido: una pantalla fija + 75 % de pantalla por paso,
+     y un poco mas para que el ultimo paso se pueda leer con calma. */
+  .story { height: calc(100svh + (var(--steps) - 1) * 75svh + 40svh); }
+  .no-js .story, .reduced .story { height: auto; }
+  .no-js .story-frame { position: relative; }
+
+  .caption {
+    opacity: 0;
+    transform: translateY(28px);
+    pointer-events: none;
+    transition: opacity 0.7s cubic-bezier(0.3, 0.7, 0.2, 1), transform 0.7s cubic-bezier(0.3, 0.7, 0.2, 1);
+  }
+  .caption.is-active { opacity: 1; transform: none; pointer-events: auto; }
+
+  .dot.is-active { background: white; transform: scale(1.35); }
+
+  .ambient { transition: background 1s ease; }
+  [data-water='murky'] .ambient { background: radial-gradient(60% 55% at 70% 65%, rgb(122 99 49 / 0.35), transparent 70%); }
+  [data-water='sulfur'] .ambient { background: radial-gradient(60% 55% at 70% 65%, rgb(184 176 74 / 0.32), transparent 70%); }
+  [data-water='iron'] .ambient { background: radial-gradient(60% 55% at 70% 65%, rgb(194 88 31 / 0.35), transparent 70%); }
+  [data-water='hard'] .ambient { background: radial-gradient(60% 55% at 70% 65%, rgb(201 210 218 / 0.22), transparent 70%); }
+  [data-water='chlorine'] .ambient { background: radial-gradient(60% 55% at 70% 65%, rgb(63 176 184 / 0.32), transparent 70%); }
+  [data-water='clear'] .ambient { background: radial-gradient(60% 55% at 70% 65%, rgb(22 179 212 / 0.4), transparent 70%); }
+  @media (max-width: 1023px) {
+    [data-water] .ambient { background-position: center; }
+  }
+
+  .glass-stage { filter: drop-shadow(0 30px 60px rgb(0 0 0 / 0.5)); transition: transform 0.9s cubic-bezier(0.3, 0.7, 0.2, 1); }
+  [data-water='clear'] .glass-stage { transform: scale(1.04); }
+
+  .hint { transition: opacity 0.5s; }
+  [data-step]:not([data-step='0']) .hint { opacity: 0; }
+  .chev span { animation: wheel 1.8s ease-in-out infinite; }
+  @keyframes wheel { 0% { transform: translateY(0); opacity: 1; } 100% { transform: translateY(8px); opacity: 0; } }
+</style>
+
+<script>
+  const story = document.querySelector<HTMLElement>('[data-story]');
+  const frame = story?.querySelector<HTMLElement>('[data-story-frame]');
+
+  if (story && frame) {
+    const captions = [...frame.querySelectorAll<HTMLElement>('[data-caption]')];
+    const dots = [...frame.querySelectorAll<HTMLElement>('[data-dot]')];
+    const waters = captions.map((_, i) => ['murky', 'sulfur', 'iron', 'hard', 'chlorine', 'clear'][i]);
+    let current = -1;
+    let ticking = false;
+
+    const setStep = (step: number) => {
+      if (step === current) return;
+      current = step;
+      frame.dataset.step = String(step);
+      frame.dataset.water = waters[step];
+      captions.forEach((el, i) => {
+        const active = i === step;
+        el.classList.toggle('is-active', active);
+        el.querySelectorAll('a').forEach((a) => (active ? a.removeAttribute('tabindex') : a.setAttribute('tabindex', '-1')));
+      });
+      dots.forEach((el, i) => el.classList.toggle('is-active', i === step));
+    };
+
+    const update = () => {
+      ticking = false;
+      const vh = window.innerHeight;
+      const scrolled = -story.getBoundingClientRect().top;
+      // Cada paso ocupa el 75 % de una pantalla (ver .story en el CSS).
+      const step = Math.max(0, Math.min(captions.length - 1, Math.floor(scrolled / (vh * 0.75) + 0.3)));
+      setStep(step);
+    };
+
+    window.addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(update);
+        }
+      },
+      { passive: true }
+    );
+    window.addEventListener('resize', update);
+    update();
+  }
+</script>

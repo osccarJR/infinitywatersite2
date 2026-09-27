@@ -21,7 +21,7 @@ const title = Astro.props.title ?? (es ? '¿Qué hay en tu agua?' : 'What’s in
 const text = Astro.props.text ?? (es ? 'Descúbrelo gratis. Sin presión y en español.' : 'Find out for free. No pressure.');
 ---
 
-<section class="bg-night py-24 text-center text-white sm:py-32">
+<section data-nav="dark" class="bg-night py-24 text-center text-white sm:py-32">
   <div class="container-x">
     <h2 class="t-section reveal">{title}</h2>
     <p class="reveal mt-4 text-xl text-white/65 sm:text-2xl">{text}</p>

@@ -35,15 +35,23 @@ const ui = t(lang);
     {onFormPage ? (
       <a href={`tel:${PRIMARY_PHONE.tel}`} class="btn btn-dark h-12 flex-1" data-track="call" data-location="mobile-bar">{PRIMARY_PHONE.display}</a>
     ) : (
-      <a href={pathFor('freeWaterTest', lang)} class="btn btn-primary h-12 flex-1" data-track="free_test_cta" data-location="mobile-bar">{ui.cta.freeTest}</a>
+      <a href={pathFor('freeWaterTest', lang)} class="btn btn-primary h-12 min-w-0 flex-1 !px-4" data-track="free_test_cta" data-location="mobile-bar">
+        <span class="min-[400px]:hidden">{ui.cta.freeTestShort}</span><span class="hidden min-[400px]:inline">{ui.cta.freeTest}</span>
+      </a>
     )}
   </div>
 </div>
 
 <script>
   const bar = document.getElementById('mobile-bar');
+  const story = document.querySelector<HTMLElement>('[data-story]');
   if (bar) {
-    const update = () => bar.classList.toggle('translate-y-full', window.scrollY < 420);
+    // Oculta al principio y mientras la historia de la portada ocupa la
+    // pantalla (ya tiene sus propios botones y la barra taparia el vaso).
+    const update = () => {
+      const inStory = story ? story.getBoundingClientRect().bottom > window.innerHeight * 0.6 : false;
+      bar.classList.toggle('translate-y-full', window.scrollY < 420 || inStory);
+    };
     update();
     window.addEventListener('scroll', update, { passive: true });
   }

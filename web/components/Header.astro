@@ -1,10 +1,10 @@
 ---
 /**
- * Barra global, al estilo de la de Apple: fina, translucida, pocos enlaces
- * y sin desplegables. Todo lo demas vive en el pie o dentro de cada pagina.
+ * Barra global al estilo de Apple: fina, translucida, cinco enlaces y sin
+ * desplegables. Se adapta al fondo: clara sobre secciones claras y oscura
+ * sobre las marcadas con data-nav="dark" (portada, cierres).
  * En movil abre un menu a pantalla completa con enlaces grandes.
  */
-import Icon from './Icon.astro';
 import type { Lang } from '../data/types';
 import { t } from '../i18n/ui';
 import { pathFor, otherLang } from '../i18n/routes';
@@ -34,32 +34,24 @@ const mobileExtra = [
 ];
 ---
 
-<header id="site-header" class="fixed inset-x-0 top-0 z-50 bg-[#161617]/85 text-white backdrop-blur-xl backdrop-saturate-150">
+<header id="site-header" data-theme="light" class="site-header fixed inset-x-0 top-0 z-50">
+  <div class="bar absolute inset-0 -z-10 backdrop-blur-xl backdrop-saturate-150"></div>
   <div class="container-wide flex h-14 items-center gap-4">
-    <a href={link('home')} class="shrink-0" aria-label="Infinity Water">
-      <img src="/images/logo.webp" alt="Infinity Water" width="140" height="25" class="h-[22px] w-auto" />
+    <a href={link('home')} class="relative shrink-0" aria-label="Infinity Water">
+      <img src="/images/logo-dark.webp" alt="Infinity Water" width="140" height="25" class="logo-light h-[22px] w-auto" />
+      <img src="/images/logo.webp" alt="" width="140" height="25" class="logo-dark absolute inset-0 h-[22px] w-auto" />
     </a>
 
     <nav class="mx-auto hidden items-center gap-8 lg:flex" aria-label={ui.menu}>
       {nav.map((item) => (
-        <a
-          href={item.href}
-          class:list={['text-[0.82rem] transition hover:text-white', current === item.href ? 'text-white' : 'text-white/75']}
-          aria-current={current === item.href ? 'page' : undefined}
-        >
+        <a href={item.href} class:list={['nav-link text-[0.82rem] transition', current === item.href && 'is-current']} aria-current={current === item.href ? 'page' : undefined}>
           {item.label}
         </a>
       ))}
     </nav>
 
     <div class="ml-auto flex items-center gap-3 lg:ml-0">
-      <a
-        href={alternatePath}
-        hreflang={otherLang(lang)}
-        lang={otherLang(lang)}
-        class="rounded-full px-2 py-1 text-[0.8rem] font-medium text-white/75 transition hover:text-white"
-        aria-label={ui.langSwitchLabel}
-      >
+      <a href={alternatePath} hreflang={otherLang(lang)} lang={otherLang(lang)} class="nav-link px-1 text-[0.8rem] transition" aria-label={ui.langSwitchLabel}>
         {lang === 'es' ? 'English' : 'Español'}
       </a>
       {!hideCta && (
@@ -67,33 +59,26 @@ const mobileExtra = [
           {ui.cta.freeTestShort}
         </a>
       )}
-      <button
-        type="button"
-        class="-mr-2 inline-flex h-10 w-10 items-center justify-center text-white/90 lg:hidden"
-        aria-expanded="false"
-        aria-controls="mobile-menu"
-        data-menu-toggle
-      >
+      <button type="button" class="nav-link -mr-2 inline-flex h-10 w-10 items-center justify-center lg:hidden" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
         <span class="sr-only" data-menu-label data-open={ui.menu} data-close={ui.close}>{ui.menu}</span>
         <span class="relative block h-3 w-[18px]" aria-hidden="true">
-          <span class="bar absolute left-0 top-0 h-[1.5px] w-full rounded bg-current transition duration-300"></span>
-          <span class="bar absolute bottom-0 left-0 h-[1.5px] w-full rounded bg-current transition duration-300"></span>
+          <span class="bar-line absolute left-0 top-0 h-[1.5px] w-full rounded bg-current transition duration-300"></span>
+          <span class="bar-line absolute bottom-0 left-0 h-[1.5px] w-full rounded bg-current transition duration-300"></span>
         </span>
       </button>
     </div>
   </div>
 
-  <!-- Menu movil a pantalla completa -->
-  <div id="mobile-menu" class="hidden h-[calc(100dvh-3.5rem)] overflow-y-auto bg-[#161617] lg:hidden">
+  <div id="mobile-menu" class="hidden h-[calc(100dvh-3.5rem)] overflow-y-auto bg-white lg:hidden">
     <nav class="container-wide pb-16 pt-6" aria-label={ui.menu}>
       <ul class="space-y-1">
         {nav.map((item) => (
-          <li><a href={item.href} class="block py-2.5 text-[1.75rem] font-semibold tracking-tight text-white/90 hover:text-white">{item.label}</a></li>
+          <li><a href={item.href} class="block py-2.5 text-[1.75rem] font-semibold tracking-tight text-ink hover:text-accent">{item.label}</a></li>
         ))}
       </ul>
-      <ul class="mt-8 space-y-1 border-t border-white/10 pt-6">
+      <ul class="mt-8 space-y-1 border-t border-line pt-6">
         {mobileExtra.map((item) => (
-          <li><a href={item.href} class="block py-2 text-lg text-white/70 hover:text-white">{item.label}</a></li>
+          <li><a href={item.href} class="block py-2 text-lg text-muted hover:text-ink">{item.label}</a></li>
         ))}
       </ul>
       <a href={link('freeWaterTest')} class="btn btn-primary mt-10 w-full" data-track="free_test_cta" data-location="mobile-menu">{ui.cta.freeTest}</a>
@@ -102,24 +87,63 @@ const mobileExtra = [
 </header>
 
 <style>
-  [aria-expanded='true'] .bar:first-child { top: 50%; transform: translateY(-50%) rotate(45deg); }
-  [aria-expanded='true'] .bar:last-child { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
+  .site-header .bar { background: rgb(255 255 255 / 0.78); border-bottom: 1px solid rgb(0 0 0 / 0.06); transition: background 0.4s, border-color 0.4s; }
+  .site-header .nav-link { color: rgb(29 29 31 / 0.8); }
+  .site-header .nav-link:hover, .site-header .nav-link.is-current { color: #1d1d1f; }
+  .site-header .logo-dark { opacity: 0; transition: opacity 0.4s; }
+  .site-header .logo-light { transition: opacity 0.4s; }
+
+  .site-header[data-theme='dark'] .bar { background: rgb(0 0 0 / 0.6); border-color: rgb(255 255 255 / 0.06); }
+  .site-header[data-theme='dark'] .nav-link { color: rgb(255 255 255 / 0.78); }
+  .site-header[data-theme='dark'] .nav-link:hover, .site-header[data-theme='dark'] .nav-link.is-current { color: white; }
+  .site-header[data-theme='dark'] .logo-dark { opacity: 1; }
+  .site-header[data-theme='dark'] .logo-light { opacity: 0; }
+
+  /* Con el menu abierto la barra siempre es clara (el panel es blanco). */
+  .site-header.menu-open .bar { background: white; }
+  .site-header.menu-open .nav-link { color: #1d1d1f; }
+  .site-header.menu-open .logo-dark { opacity: 0; }
+  .site-header.menu-open .logo-light { opacity: 1; }
+
+  [aria-expanded='true'] .bar-line:first-child { top: 50%; transform: translateY(-50%) rotate(45deg); }
+  [aria-expanded='true'] .bar-line:last-child { bottom: 50%; transform: translateY(50%) rotate(-45deg); }
 </style>
 
 <script>
-  const toggle = document.querySelector<HTMLButtonElement>('[data-menu-toggle]');
+  const header = document.getElementById('site-header')!;
+  const toggle = header.querySelector<HTMLButtonElement>('[data-menu-toggle]');
   const menu = document.getElementById('mobile-menu');
-  const label = document.querySelector<HTMLElement>('[data-menu-label]');
+  const label = header.querySelector<HTMLElement>('[data-menu-label]');
 
   toggle?.addEventListener('click', () => {
     const open = toggle.getAttribute('aria-expanded') !== 'true';
     toggle.setAttribute('aria-expanded', String(open));
     menu?.classList.toggle('hidden', !open);
+    header.classList.toggle('menu-open', open);
     document.documentElement.classList.toggle('overflow-hidden', open);
     if (label) label.textContent = (open ? label.dataset.close : label.dataset.open) ?? '';
   });
-
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && toggle?.getAttribute('aria-expanded') === 'true') toggle.click();
   });
+
+  // Tema de la barra segun la seccion que tiene debajo.
+  const darkSections = [...document.querySelectorAll<HTMLElement>('[data-nav="dark"]')];
+  let ticking = false;
+  const updateTheme = () => {
+    ticking = false;
+    const probe = 28; // mitad de la barra
+    const dark = darkSections.some((el) => {
+      const r = el.getBoundingClientRect();
+      return r.top <= probe && r.bottom >= probe;
+    });
+    header.dataset.theme = dark ? 'dark' : 'light';
+  };
+  window.addEventListener('scroll', () => {
+    if (!ticking) {
+      ticking = true;
+      requestAnimationFrame(updateTheme);
+    }
+  }, { passive: true });
+  updateTheme();
 </script>

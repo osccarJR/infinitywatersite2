@@ -94,6 +94,21 @@ async function main() {
   await writeFile(path.join(OUTPUT_DIR, 'apple-touch-icon.png'), await dropIcon(180, 0.16));
   await writeFile(path.join(root, 'public', 'favicon.ico'), pngToIco(await dropIcon(32, 0.08), 32));
   console.log('  logo.png (gota)                    -> favicon.png, apple-touch-icon.png, favicon.ico');
+
+  // Logo para fondos claros: las letras grises del original pasan a casi
+  // negro; la gota (con color) se conserva.
+  const { data, info } = await sharp(path.join(SOURCE_DIR, 'logo.png')).ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+  for (let i = 0; i < data.length; i += 4) {
+    const max = Math.max(data[i], data[i + 1], data[i + 2]);
+    const min = Math.min(data[i], data[i + 1], data[i + 2]);
+    if (max === 0 || (max - min) / max < 0.18) {
+      data[i] = 29;
+      data[i + 1] = 29;
+      data[i + 2] = 31;
+    }
+  }
+  await sharp(data, { raw: info }).resize({ width: 420 }).webp({ quality: 90 }).toFile(path.join(OUTPUT_DIR, 'logo-dark.webp'));
+  console.log('  logo.png (letras oscuras)          -> logo-dark.webp');
 }
 
 main().catch((error) => {

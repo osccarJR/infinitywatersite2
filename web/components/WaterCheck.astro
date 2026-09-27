@@ -19,6 +19,9 @@ interface Props {
 const { lang } = Astro.props;
 const es = lang === 'es';
 const formPath = pathFor('freeWaterTest', lang);
+/** Se muestra una respuesta de ejemplo desde el principio: la herramienta
+ *  se entiende sin tener que adivinar que hay que tocar. */
+const DEFAULT = 'smell';
 
 const c = {
   title: es ? '¿Qué notas en tu agua?' : 'What do you notice in your water?',
@@ -55,7 +58,7 @@ const c = {
     <!-- Sintomas -->
     <div class="reveal mx-auto mt-8 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-3">
       {CONCERNS.map((concern) => (
-        <button type="button" class="tile group flex flex-col items-center gap-3 rounded-3xl bg-mist px-4 py-6 transition" data-concern-btn={concern.id} aria-pressed="false">
+        <button type="button" class="tile group flex flex-col items-center gap-3 rounded-3xl bg-mist px-4 py-6 transition" data-concern-btn={concern.id} aria-pressed={concern.id === DEFAULT ? 'true' : 'false'}>
           <Icon name={concern.icon} class="h-7 w-7 text-accent" strokeWidth={1.6} />
           <span class="text-[0.98rem] font-semibold">{concern.label[lang]}</span>
         </button>
@@ -64,12 +67,11 @@ const c = {
 
     <!-- Respuesta -->
     <div class="mx-auto mt-8 max-w-3xl text-left" aria-live="polite">
-      <p class="text-center text-sm text-muted" data-hint>{c.hint}</p>
       {CONCERNS.map((concern) =>
         (['well', 'city'] as const).map((source) => {
           const r = concern.result[source];
           return (
-            <article class="answer hidden rounded-4xl bg-night p-8 text-white sm:p-10" data-answer={`${concern.id}:${source}`}>
+            <article class:list={['answer rounded-4xl bg-night p-8 text-white sm:p-10', !(concern.id === DEFAULT && source === 'well') && 'hidden']} data-answer={`${concern.id}:${source}`}>
               <p class="text-sm font-medium text-white/60">{concern.label[lang]} · {source === 'well' ? c.well : c.city}</p>
               <h3 class="mt-2 text-3xl sm:text-4xl">{r.headline[lang]}</h3>
               <p class="mt-4 text-lg leading-relaxed text-white/80">{r.cause[lang]} {r.action[lang]}</p>
@@ -98,7 +100,7 @@ const c = {
 <script>
   document.querySelectorAll<HTMLElement>('[data-water-check]').forEach((root) => {
     let source = 'well';
-    let concern: string | null = null;
+    let concern: string | null = 'smell';
 
     const render = () => {
       root.querySelectorAll<HTMLElement>('[data-source-btn]').forEach((btn) =>
@@ -110,7 +112,6 @@ const c = {
       root.querySelectorAll<HTMLElement>('[data-answer]').forEach((el) =>
         el.classList.toggle('hidden', el.dataset.answer !== `${concern}:${source}`)
       );
-      root.querySelector('[data-hint]')?.classList.toggle('hidden', concern !== null);
     };
 
     root.querySelectorAll<HTMLElement>('[data-source-btn]').forEach((btn) =>

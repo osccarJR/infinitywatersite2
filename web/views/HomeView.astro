@@ -1,31 +1,26 @@
 ---
 /**
- * Portada. Seis pantallas, una idea por pantalla (estilo Apple):
- *   1. Que hacemos (hero)          4. Como funciona
- *   2. Pozo o ciudad               5. Por que nosotros
- *   3. Chequeo de agua             6. Cierre
- * Todo lo demas (servicios, zonas, financiamiento, preguntas) vive en su
- * propia pagina y en el pie.
+ * Portada: "El agua, revelada".
+ *
+ *  1. Historia (WaterStory): el vaso cambia con cada problema hasta quedar
+ *     cristalino. Explica el proposito del negocio sin leer.
+ *  2. El analisis: que pasa cuando nos llamas (1-2-3) + tarjeta de resultado.
+ *  3. Pozo o ciudad: las dos puertas de entrada.
+ *  4. Chequeo de agua: la respuesta a "¿y lo mio que es?".
+ *  5. Por que nosotros: tres cifras.
+ *  6. Cierre.
  */
-import { Image } from 'astro:assets';
 import Base from '../layouts/Base.astro';
 import Icon from '../components/Icon.astro';
+import WaterStory from '../components/WaterStory.astro';
+import WaterGlass from '../components/WaterGlass.astro';
 import WaterCheck from '../components/WaterCheck.astro';
 import FinalCta from '../components/FinalCta.astro';
 import type { Lang } from '../data/types';
 import { t } from '../i18n/ui';
 import { pathFor, STATIC_ROUTES } from '../i18n/routes';
 import { getReviews } from '../lib/reviews';
-import familyPhoto from '../assets/photos/family.png';
-import {
-  FOUNDER_YEARS,
-  GOOGLE_PROFILE_URL,
-  MADE_IN_USA,
-  SEALS,
-  WARRANTY,
-  WHATSAPP_MESSAGE,
-  whatsappUrl,
-} from '../config/business';
+import { FOUNDER_YEARS, GOOGLE_PROFILE_URL, MADE_IN_USA, SEALS, WARRANTY } from '../config/business';
 
 interface Props {
   lang: Lang;
@@ -42,31 +37,33 @@ const c = es
   ? {
       metaTitle: 'Infinity Water | Análisis de agua gratis en Fort Myers y SW Florida',
       metaDescription: `Especialistas en agua de pozo y de ciudad en Fort Myers, Cape Coral, Lehigh Acres y Naples. Análisis gratis en tu casa, en español y sin presión. ${FOUNDER_YEARS}+ años de experiencia.`,
-      eyebrow: 'Análisis de agua gratis en tu casa',
-      titleA: 'Agua limpia.',
-      titleB: 'Sin dudas.',
-      lead: 'Medimos el agua de tu casa y te decimos la verdad. Gratis y en español.',
-      report: 'Ejemplo de análisis',
-      rows: [
-        { label: 'Azufre', value: 'Alto', tone: 'bad' },
-        { label: 'Hierro', value: 'Alto', tone: 'bad' },
-        { label: 'Dureza', value: 'Media', tone: 'mid' },
-        { label: 'pH', value: 'Normal', tone: 'ok' },
-      ],
-      well: { eyebrow: 'Agua de pozo', title: 'Nuestra especialidad.', text: 'Azufre, hierro, dureza. Lo resolvemos.' },
-      city: { eyebrow: 'Agua de ciudad', title: 'Sin cloro. Sin exagerar.', text: 'Y si no necesitas nada, te lo decimos.' },
-      more: 'Más información',
-      howTitle: 'Así de simple.',
+      testEyebrow: 'El análisis',
+      testTitle: 'Primero, lo medimos. Gratis.',
+      testLead: 'Vamos a tu casa, medimos tu agua y te explicamos cada resultado. Si no necesitas nada, te lo decimos.',
       steps: [
-        { title: 'Escríbenos.', text: 'Por WhatsApp o teléfono. Agendamos cuando te convenga.' },
-        { title: 'Medimos.', text: 'En tu casa, gratis. Te explicamos cada resultado.' },
-        { title: 'Tú decides.', text: 'Sin presión. Y por ley, 3 días para cancelar.' },
+        { title: 'Escríbenos', text: 'Por WhatsApp o teléfono, en español.' },
+        { title: 'Medimos en tu casa', text: 'Sin costo y sin compromiso.' },
+        { title: 'Tú decides', text: 'Sin presión. Por ley, 3 días para cancelar.' },
       ],
-      whyTitle: 'Por qué Infinity Water.',
+      report: {
+        title: 'Tu resultado',
+        sub: 'Ejemplo · agua de pozo',
+        rows: [
+          { label: 'Azufre', value: 'Alto', level: 82, tone: 'bad' },
+          { label: 'Hierro', value: 'Alto', level: 70, tone: 'bad' },
+          { label: 'Dureza', value: 'Media', level: 48, tone: 'mid' },
+          { label: 'pH', value: 'Normal', level: 34, tone: 'ok' },
+        ],
+        verdict: 'Recomendación: inyección de aire + filtro de hierro.',
+      },
+      well: { eyebrow: 'Agua de pozo', title: 'Nuestra especialidad.', text: 'Azufre, hierro y dureza, resueltos a la medida de tu pozo.' },
+      city: { eyebrow: 'Agua de ciudad', title: 'Adiós al sabor a cloro.', text: 'Y si tu agua está bien, te lo decimos.' },
+      more: 'Más información',
+      whyTitle: 'Una familia que conoce tu agua.',
       stats: [
-        { big: `${FOUNDER_YEARS}+`, text: 'años de experiencia de nuestro fundador.' },
-        ...(MADE_IN_USA ? [{ big: 'EE. UU.', text: 'Equipos fabricados en Estados Unidos.' }] : []),
-        { big: 'Español', text: 'De la primera llamada al último papel.' },
+        { big: `${FOUNDER_YEARS}+`, text: 'años de experiencia de nuestro fundador' },
+        ...(MADE_IN_USA ? [{ big: 'EE. UU.', text: 'equipos fabricados en Estados Unidos' }] : []),
+        { big: 'Español', text: 'de la primera llamada al último papel' },
       ],
       extras: [
         { icon: 'ShieldCheck', text: WARRANTY.es.short, href: link('about') },
@@ -78,31 +75,33 @@ const c = es
   : {
       metaTitle: 'Infinity Water | Free Water Test in Fort Myers & SW Florida',
       metaDescription: `Well and city water specialists in Fort Myers, Cape Coral, Lehigh Acres and Naples. Free in-home water test, no pressure, English or Spanish. ${FOUNDER_YEARS}+ years of experience.`,
-      eyebrow: 'Free in-home water test',
-      titleA: 'Clean water.',
-      titleB: 'No guesswork.',
-      lead: 'We test your home’s water and tell you the truth. Free.',
-      report: 'Sample water test',
-      rows: [
-        { label: 'Sulfur', value: 'High', tone: 'bad' },
-        { label: 'Iron', value: 'High', tone: 'bad' },
-        { label: 'Hardness', value: 'Medium', tone: 'mid' },
-        { label: 'pH', value: 'Normal', tone: 'ok' },
-      ],
-      well: { eyebrow: 'Well water', title: 'Our specialty.', text: 'Sulfur, iron, hardness. Solved.' },
-      city: { eyebrow: 'City water', title: 'No chlorine. No upsell.', text: 'If you don’t need anything, we’ll say so.' },
-      more: 'Learn more',
-      howTitle: 'It’s that simple.',
+      testEyebrow: 'The water test',
+      testTitle: 'First, we test it. Free.',
+      testLead: 'We come to your home, test your water and explain every result. If you don’t need anything, we’ll tell you.',
       steps: [
-        { title: 'Reach out.', text: 'WhatsApp or call. We schedule when it suits you.' },
-        { title: 'We test.', text: 'At your home, free. We explain every result.' },
-        { title: 'You decide.', text: 'No pressure. And by law, 3 days to cancel.' },
+        { title: 'Reach out', text: 'WhatsApp or call, English or Spanish.' },
+        { title: 'We test at home', text: 'No cost, no obligation.' },
+        { title: 'You decide', text: 'No pressure. By law, 3 days to cancel.' },
       ],
-      whyTitle: 'Why Infinity Water.',
+      report: {
+        title: 'Your result',
+        sub: 'Sample · well water',
+        rows: [
+          { label: 'Sulfur', value: 'High', level: 82, tone: 'bad' },
+          { label: 'Iron', value: 'High', level: 70, tone: 'bad' },
+          { label: 'Hardness', value: 'Medium', level: 48, tone: 'mid' },
+          { label: 'pH', value: 'Normal', level: 34, tone: 'ok' },
+        ],
+        verdict: 'Recommendation: air injection + iron filter.',
+      },
+      well: { eyebrow: 'Well water', title: 'Our specialty.', text: 'Sulfur, iron and hardness, solved for your well.' },
+      city: { eyebrow: 'City water', title: 'Goodbye, chlorine taste.', text: 'And if your water is fine, we’ll tell you.' },
+      more: 'Learn more',
+      whyTitle: 'A family that knows your water.',
       stats: [
-        { big: `${FOUNDER_YEARS}+`, text: 'years of our founder’s experience.' },
-        ...(MADE_IN_USA ? [{ big: 'USA', text: 'Equipment made in the United States.' }] : []),
-        { big: 'Bilingual', text: 'English or Spanish, start to finish.' },
+        { big: `${FOUNDER_YEARS}+`, text: 'years of our founder’s experience' },
+        ...(MADE_IN_USA ? [{ big: 'USA', text: 'equipment made in the United States' }] : []),
+        { big: 'Bilingual', text: 'English or Spanish, start to finish' },
       ],
       extras: [
         { icon: 'ShieldCheck', text: WARRANTY.en.short, href: link('about') },
@@ -112,118 +111,95 @@ const c = es
       reviewsLink: 'See all on Google',
     };
 
-const tone = { bad: 'bg-[#ff6b4a]', mid: 'bg-[#f5b400]', ok: 'bg-[#34c759]' } as const;
+const tone = { bad: '#ff6b4a', mid: '#f5b400', ok: '#34c759' } as const;
 ---
 
-<Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES.home}>
-  <!-- 1 · HERO ---------------------------------------------------------- -->
-  <section class="overflow-hidden pt-14 text-center sm:pt-20">
-    <div class="container-x">
-      <p class="eyebrow">{c.eyebrow}</p>
-      <h1 class="t-hero mt-3">
-        {c.titleA}<br /><span class="text-gradient">{c.titleB}</span>
-      </h1>
-      <p class="t-lead mx-auto mt-6 max-w-2xl">{c.lead}</p>
-      <div class="mt-9 flex flex-col items-center justify-center gap-4 sm:flex-row sm:gap-8">
-        <a href={link('freeWaterTest')} class="btn btn-primary !min-h-13 !px-8 !text-lg" data-track="free_test_cta" data-location="hero">{ui.cta.freeTest}</a>
-        <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="more !text-lg" data-track="whatsapp" data-location="hero">{ui.cta.whatsapp}</a>
-      </div>
-    </div>
+<Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES.home} flush>
+  <!-- 1 · HISTORIA ------------------------------------------------------- -->
+  <WaterStory lang={lang} />
 
-    <div class="container-wide relative mt-14 sm:mt-20">
-      <Image
-        src={familyPhoto}
-        alt={es ? 'Familia con un vaso de agua limpia en casa' : 'Family with a glass of clean water at home'}
-        widths={[640, 960, 1280, 1600]}
-        sizes="(min-width: 1320px) 1280px, 96vw"
-        class="aspect-[4/5] w-full rounded-[2rem] object-cover object-[60%_center] sm:aspect-[16/9] sm:rounded-[2.5rem]"
-        loading="eager"
-        fetchpriority="high"
-      />
-      <!-- Tarjeta de analisis: explica en un vistazo que hacemos -->
-      <div class="absolute bottom-6 left-1/2 w-[82%] max-w-[20rem] -translate-x-1/2 rounded-3xl bg-white/90 p-5 text-left shadow-lift backdrop-blur-xl sm:bottom-10 sm:left-auto sm:right-16 sm:translate-x-0 motion-safe:animate-float">
-        <p class="text-xs font-semibold uppercase tracking-wider text-muted">{c.report}</p>
-        <ul class="mt-3 divide-y divide-black/5">
-          {c.rows.map((row) => (
-            <li class="flex items-center justify-between py-2.5 text-[0.95rem]">
-              <span class="font-medium">{row.label}</span>
-              <span class="flex items-center gap-2 font-semibold">
-                <span class:list={['h-2 w-2 rounded-full', tone[row.tone as keyof typeof tone]]}></span>{row.value}
+  <!-- 2 · EL ANALISIS ---------------------------------------------------- -->
+  <section class="py-24 sm:py-36">
+    <div class="container-x grid items-center gap-14 lg:grid-cols-[1.1fr_1fr] lg:gap-20">
+      <div>
+        <p class="eyebrow reveal">{c.testEyebrow}</p>
+        <h2 class="t-section reveal mt-2">{c.testTitle}</h2>
+        <p class="t-lead reveal mt-6 max-w-xl">{c.testLead}</p>
+        <ol class="mt-10 space-y-6">
+          {c.steps.map((step, i) => (
+            <li class="reveal flex items-start gap-5">
+              <span class="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-mist text-lg font-bold text-accent">{i + 1}</span>
+              <span>
+                <span class="block text-xl font-semibold tracking-tight">{step.title}</span>
+                <span class="block text-lg text-muted">{step.text}</span>
               </span>
             </li>
           ))}
-        </ul>
+        </ol>
+        <a href={link('freeWaterTest')} class="btn btn-primary reveal mt-10 !min-h-13 !px-8 !text-lg" data-track="free_test_cta" data-location="test-section">{ui.cta.freeTest}</a>
+      </div>
+
+      <!-- Tarjeta de resultado: las barras se llenan al entrar en pantalla -->
+      <div class="reveal report mx-auto w-full max-w-md rounded-[2.25rem] bg-mist p-3">
+        <div class="rounded-[1.8rem] bg-white p-7 shadow-soft sm:p-9">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="text-2xl font-bold tracking-tight">{c.report.title}</p>
+              <p class="text-sm text-muted">{c.report.sub}</p>
+            </div>
+            <span class="grid h-12 w-12 place-items-center rounded-2xl bg-mist"><Icon name="FlaskConical" class="h-6 w-6 text-accent" /></span>
+          </div>
+          <ul class="mt-8 space-y-6">
+            {c.report.rows.map((row, i) => (
+              <li>
+                <div class="flex justify-between text-[1.02rem]"><span class="font-medium">{row.label}</span><span class="font-semibold" style={`color:${tone[row.tone as keyof typeof tone]}`}>{row.value}</span></div>
+                <div class="mt-2 h-2 overflow-hidden rounded-full bg-mist">
+                  <div class="bar h-full rounded-full" style={`--w:${row.level}%;background:${tone[row.tone as keyof typeof tone]};transition-delay:${0.25 + i * 0.12}s`}></div>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <p class="mt-8 flex items-start gap-2 rounded-2xl bg-mist p-4 text-[0.95rem] font-medium"><Icon name="CircleCheck" class="mt-0.5 h-5 w-5 shrink-0 text-accent" />{c.report.verdict}</p>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- 2 · POZO O CIUDAD -------------------------------------------------- -->
-  <section class="container-wide mt-4 grid gap-4 pb-4 pt-20 sm:pt-28 lg:grid-cols-2">
-    <a href={link('well-water')} class="reveal group flex min-h-[30rem] flex-col items-center rounded-[2rem] bg-night px-8 pb-10 pt-14 text-center text-white sm:min-h-[36rem] sm:rounded-[2.5rem]">
-      <p class="text-lg font-semibold text-[#5ec2ff]">{c.well.eyebrow}</p>
-      <h2 class="mt-2 text-4xl sm:text-5xl">{c.well.title}</h2>
-      <p class="mt-3 text-lg text-white/70 sm:text-xl">{c.well.text}</p>
-      <span class="more mt-5 !text-[#5ec2ff]">{c.more}</span>
-      <div class="mt-auto pt-10" aria-hidden="true">
-        <svg viewBox="0 0 200 200" class="h-40 w-40 transition duration-700 group-hover:scale-105 sm:h-52 sm:w-52">
-          <defs>
-            <linearGradient id="drop-a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8b5cf6" /><stop offset="1" stop-color="#16b3d4" /></linearGradient>
-          </defs>
-          <path d="M100 18C100 18 42 88 42 128a58 58 0 0 0 116 0C158 88 100 18 100 18z" fill="url(#drop-a)" />
-          <path d="M74 132a28 28 0 0 0 26 26" stroke="white" stroke-opacity=".55" stroke-width="6" fill="none" stroke-linecap="round" />
-        </svg>
-      </div>
+  <!-- 3 · POZO O CIUDAD -------------------------------------------------- -->
+  <section class="container-wide grid gap-4 pb-4 lg:grid-cols-2">
+    <a href={link('well-water')} data-nav="dark" class="reveal group relative flex min-h-[34rem] flex-col items-center overflow-hidden rounded-[2rem] bg-black px-8 pt-14 text-center text-white sm:min-h-[40rem] sm:rounded-[2.5rem]" data-water="iron">
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(50%_60%_at_50%_85%,rgb(194_88_31/0.35),transparent)]"></div>
+      <p class="relative text-lg font-semibold text-[#5ec2ff]">{c.well.eyebrow}</p>
+      <h2 class="t-title relative mt-2 !text-[clamp(2rem,1.2rem+2.4vw,3.4rem)]">{c.well.title}</h2>
+      <p class="relative mt-3 max-w-sm text-lg text-white/70">{c.well.text}</p>
+      <span class="more relative mt-5 !text-[#5ec2ff]">{c.more}</span>
+      <WaterGlass id="tile-well" class="relative mt-auto h-64 w-auto translate-y-6 transition duration-700 group-hover:-translate-y-0 sm:h-80" />
     </a>
-    <a href={link('city-water')} class="reveal group flex min-h-[30rem] flex-col items-center rounded-[2rem] bg-mist px-8 pb-10 pt-14 text-center sm:min-h-[36rem] sm:rounded-[2.5rem]">
-      <p class="text-lg font-semibold text-accent">{c.city.eyebrow}</p>
-      <h2 class="mt-2 text-4xl sm:text-5xl">{c.city.title}</h2>
-      <p class="mt-3 text-lg text-muted sm:text-xl">{c.city.text}</p>
-      <span class="more mt-5">{c.more}</span>
-      <div class="mt-auto pt-10" aria-hidden="true">
-        <svg viewBox="0 0 200 200" class="h-40 w-40 transition duration-700 group-hover:scale-105 sm:h-52 sm:w-52">
-          <defs>
-            <linearGradient id="glass-a" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#cfeaf7" /><stop offset="1" stop-color="#16b3d4" /></linearGradient>
-          </defs>
-          <path d="M52 30h96l-12 146a10 10 0 0 1-10 9H74a10 10 0 0 1-10-9z" fill="white" stroke="#d2d2d7" stroke-width="3" />
-          <path d="M60 80h80l-8 92a8 8 0 0 1-8 7H76a8 8 0 0 1-8-7z" fill="url(#glass-a)" />
-          <circle cx="92" cy="120" r="5" fill="white" fill-opacity=".7" /><circle cx="110" cy="146" r="3.5" fill="white" fill-opacity=".7" /><circle cx="102" cy="100" r="3" fill="white" fill-opacity=".7" />
-        </svg>
-      </div>
+    <a href={link('city-water')} class="reveal group relative flex min-h-[34rem] flex-col items-center overflow-hidden rounded-[2rem] bg-mist px-8 pt-14 text-center sm:min-h-[40rem] sm:rounded-[2.5rem]" data-water="clear">
+      <div class="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-[radial-gradient(50%_60%_at_50%_85%,rgb(22_179_212/0.22),transparent)]"></div>
+      <p class="relative text-lg font-semibold text-accent">{c.city.eyebrow}</p>
+      <h2 class="t-title relative mt-2 !text-[clamp(2rem,1.2rem+2.4vw,3.4rem)]">{c.city.title}</h2>
+      <p class="relative mt-3 max-w-sm text-lg text-muted">{c.city.text}</p>
+      <span class="more relative mt-5">{c.more}</span>
+      <WaterGlass id="tile-city" on="light" class="relative mt-auto h-64 w-auto translate-y-6 transition duration-700 group-hover:-translate-y-0 sm:h-80" />
     </a>
   </section>
 
-  <!-- 3 · CHEQUEO -------------------------------------------------------- -->
+  <!-- 4 · CHEQUEO -------------------------------------------------------- -->
   <WaterCheck lang={lang} />
 
-  <!-- 4 · COMO FUNCIONA -------------------------------------------------- -->
-  <section class="bg-mist py-24 sm:py-32">
-    <div class="container-x">
-      <h2 class="t-section reveal text-center">{c.howTitle}</h2>
-      <ol class="mt-16 grid gap-12 sm:grid-cols-3 sm:gap-8">
-        {c.steps.map((step, i) => (
-          <li class="reveal text-center sm:text-left">
-            <span class="text-gradient text-6xl font-bold tracking-tight sm:text-7xl">{i + 1}</span>
-            <h3 class="mt-4 text-2xl sm:text-3xl">{step.title}</h3>
-            <p class="mt-2 text-lg text-muted">{step.text}</p>
-          </li>
-        ))}
-      </ol>
-    </div>
-  </section>
-
   <!-- 5 · POR QUE NOSOTROS ----------------------------------------------- -->
-  <section class="py-24 sm:py-32">
+  <section class="bg-mist py-24 sm:py-36">
     <div class="container-x">
-      <h2 class="t-section reveal text-center">{c.whyTitle}</h2>
-      <div class="mt-16 grid gap-4 sm:grid-cols-3">
+      <h2 class="t-section reveal mx-auto max-w-3xl text-center">{c.whyTitle}</h2>
+      <div class="mt-16 grid gap-4 md:grid-cols-3">
         {c.stats.map((stat) => (
-          <div class="reveal rounded-[2rem] bg-mist px-8 py-12 text-center">
-            <p class="text-gradient text-5xl font-bold tracking-tight sm:text-6xl">{stat.big}</p>
+          <div class="reveal rounded-[2rem] bg-white px-8 py-12 text-center">
+            <p class="text-gradient text-[clamp(3rem,2rem+3vw,4.5rem)] font-bold leading-none tracking-tight">{stat.big}</p>
             <p class="mt-4 text-lg text-muted">{stat.text}</p>
           </div>
         ))}
       </div>
-
       <div class="reveal mt-10 flex flex-wrap items-center justify-center gap-x-10 gap-y-5 text-[1.02rem]">
         {seals.map((seal) => (
           <span class="flex items-center gap-3"><img src={seal.image} alt="" width="44" height="44" class="h-11 w-auto" loading="lazy" />{seal.label[lang]}</span>
@@ -236,15 +212,13 @@ const tone = { bad: 'bg-[#ff6b4a]', mid: 'bg-[#f5b400]', ok: 'bg-[#34c759]' } as
   </section>
 
   {reviews && reviews.reviews.length > 0 && (
-    <section class="bg-mist py-24 sm:py-32">
+    <section class="py-24 sm:py-32">
       <div class="container-x">
         <h2 class="t-section reveal text-center">{c.reviewsTitle}</h2>
-        {reviews.rating && (
-          <p class="mt-4 text-center text-xl text-muted">★ {reviews.rating.toFixed(1)} · {reviews.total} Google</p>
-        )}
+        {reviews.rating && <p class="mt-4 text-center text-xl text-muted">★ {reviews.rating.toFixed(1)} · {reviews.total} Google</p>}
         <div class="mt-12 flex snap-x gap-4 overflow-x-auto pb-4">
           {reviews.reviews.map((review) => (
-            <figure class="w-[85%] shrink-0 snap-start rounded-[2rem] bg-white p-8 sm:w-[24rem]">
+            <figure class="w-[85%] shrink-0 snap-start rounded-[2rem] bg-mist p-8 sm:w-[24rem]">
               <p class="text-amber-500" aria-label={`${review.rating}/5`}>{'★'.repeat(Math.round(review.rating))}</p>
               <blockquote class="mt-3 text-lg leading-relaxed">{review.text}</blockquote>
               <figcaption class="mt-5 text-sm text-muted">{review.author} · {review.time}</figcaption>
@@ -259,3 +233,8 @@ const tone = { bad: 'bg-[#ff6b4a]', mid: 'bg-[#f5b400]', ok: 'bg-[#34c759]' } as
   <!-- 6 · CIERRE --------------------------------------------------------- -->
   <FinalCta lang={lang} location="home-final" />
 </Base>
+
+<style>
+  .report .bar { width: 0; transition: width 1.2s cubic-bezier(0.3, 0.7, 0.2, 1); }
+  .report.is-in .bar, .no-js .report .bar { width: var(--w); }
+</style>

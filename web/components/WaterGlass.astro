@@ -1,0 +1,161 @@
+---
+/**
+ * Vaso de agua ilustrado: el "producto" del sitio.
+ *
+ * El estado se controla desde fuera con el atributo `data-water` de
+ * cualquier ancestro (o con la prop `state`):
+ *   murky | sulfur | iron | hard | chlorine | clear
+ * Cada estado es una capa que aparece por opacidad (transicion suave y
+ * barata para el navegador). Sin JavaScript se ve el estado inicial.
+ */
+interface Props {
+  state?: 'murky' | 'sulfur' | 'iron' | 'hard' | 'chlorine' | 'clear';
+  class?: string;
+  /** Identificador unico si hay varios vasos en la misma pagina. */
+  id: string;
+  /** Fondo sobre el que se dibuja: cambia el brillo del cristal. */
+  on?: 'dark' | 'light';
+}
+
+const { state, class: className = '', id, on = 'dark' } = Astro.props;
+
+const layers = [
+  { name: 'murky', top: '#9b8a57', bottom: '#4a3b1f', glow: '#7a6331' },
+  { name: 'sulfur', top: '#e6df93', bottom: '#9f9a3e', glow: '#b8b04a' },
+  { name: 'iron', top: '#f0a060', bottom: '#8c3a12', glow: '#c2581f' },
+  { name: 'hard', top: '#e4eaee', bottom: '#9fafbb', glow: '#c9d2da' },
+  { name: 'chlorine', top: '#b6f0ea', bottom: '#3fb0b8', glow: '#3fb0b8' },
+  { name: 'clear', top: '#d8f3ff', bottom: '#0c8fd6', glow: '#16b3d4' },
+];
+
+const glass = on === 'dark' ? { stroke: 'rgba(255,255,255,0.55)', shine: 'rgba(255,255,255,0.45)' } : { stroke: 'rgba(29,29,31,0.28)', shine: 'rgba(255,255,255,0.9)' };
+const water = 'M47 112 L66 378 Q68 392 86 392 L214 392 Q232 392 234 378 L253 112 Z';
+---
+
+<div class:list={['water-glass relative', className]} data-water={state} aria-hidden="true">
+  <svg viewBox="0 0 300 470" class="relative z-10 h-full w-full overflow-visible">
+    <defs>
+      {layers.map((l) => (
+        <>
+          <linearGradient id={`${id}-w-${l.name}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stop-color={l.top} stop-opacity="0.92" />
+            <stop offset="1" stop-color={l.bottom} stop-opacity="0.98" />
+          </linearGradient>
+          <radialGradient id={`${id}-g-${l.name}`} cx="0.5" cy="0.5" r="0.5">
+            <stop offset="0" stop-color={l.glow} stop-opacity="0.55" />
+            <stop offset="1" stop-color={l.glow} stop-opacity="0" />
+          </radialGradient>
+        </>
+      ))}
+      <linearGradient id={`${id}-shine`} x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0" stop-color="white" stop-opacity="0" />
+        <stop offset="0.5" stop-color="white" stop-opacity="0.55" />
+        <stop offset="1" stop-color="white" stop-opacity="0" />
+      </linearGradient>
+      <clipPath id={`${id}-clip`}><path d={water} /></clipPath>
+    </defs>
+
+    <!-- Resplandor bajo el vaso (luz que atraviesa el agua) -->
+    {layers.map((l) => (
+      <ellipse class={`layer layer-${l.name}`} cx="150" cy="420" rx="150" ry="42" fill={`url(#${id}-g-${l.name})`} />
+    ))}
+
+    <!-- Agua -->
+    <g clip-path={`url(#${id}-clip)`}>
+      {layers.map((l) => (
+        <g class={`layer layer-${l.name}`}>
+          <path d={water} fill={`url(#${id}-w-${l.name})`} />
+        </g>
+      ))}
+
+      <!-- Dureza: turbidez lechosa -->
+      <g class="layer layer-hard">
+        <rect x="40" y="100" width="220" height="300" fill="white" opacity="0.18" />
+      </g>
+
+      <!-- Hierro / agua turbia: sedimento -->
+      <g class="layer layer-iron layer-murky fx-sediment">
+        {[[90, 360, 3.2], [120, 372, 2.4], [150, 366, 3.6], [182, 374, 2.8], [206, 360, 2.2], [104, 330, 1.8], [168, 318, 2.1], [138, 290, 1.6], [196, 300, 1.9], [80, 300, 1.4]].map(([cx, cy, r]) => (
+          <circle cx={cx} cy={cy} r={r} fill="#5a2a0c" opacity="0.55" />
+        ))}
+      </g>
+
+      <!-- Burbujas (todas menos la turbia) -->
+      <g class="bubbles">
+        {[[92, 0], [128, 1.4], [164, 0.6], [196, 2.1], [112, 2.8], [180, 3.4]].map(([cx, delay], i) => (
+          <circle cx={cx} cy="386" r={i % 2 ? 2.6 : 3.8} fill="white" opacity="0.7" style={`animation-delay:${delay}s`} />
+        ))}
+      </g>
+
+      <!-- Reflejo interior -->
+      <rect x="70" y="112" width="26" height="280" fill={`url(#${id}-shine)`} opacity="0.5" />
+    </g>
+
+    <!-- Superficie del agua -->
+    {layers.map((l) => (
+      <ellipse class={`layer layer-${l.name}`} cx="150" cy="112" rx="103" ry="9" fill={l.top} opacity="0.95" />
+    ))}
+    <!-- Dureza: aro de sarro en la linea del agua -->
+    <ellipse class="layer layer-hard" cx="150" cy="113" rx="104" ry="10" fill="none" stroke="white" stroke-width="3" opacity="0.9" />
+
+    <!-- Cristal -->
+    <path d="M40 20 L65 380 Q67 400 87 400 L213 400 Q233 400 235 380 L260 20" fill="none" stroke={glass.stroke} stroke-width="2.5" />
+    <ellipse cx="150" cy="20" rx="110" ry="10" fill="none" stroke={glass.stroke} stroke-width="2.5" />
+    <path d="M58 40 L78 360" stroke={glass.shine} stroke-width="7" stroke-linecap="round" opacity="0.5" />
+    <path d="M236 60 L226 250" stroke={glass.shine} stroke-width="3" stroke-linecap="round" opacity="0.35" />
+    <path d="M70 399 Q150 410 230 399" fill="none" stroke={glass.stroke} stroke-width="2" opacity="0.6" />
+
+    <!-- Azufre: ondas de olor -->
+    <g class="layer layer-sulfur odor" fill="none" stroke="#e6df93" stroke-width="4" stroke-linecap="round">
+      <path d="M110 -10 q-12 -18 0 -36 q12 -18 0 -36" />
+      <path d="M150 -20 q-12 -18 0 -36 q12 -18 0 -36" style="animation-delay:.6s" />
+      <path d="M190 -10 q-12 -18 0 -36 q12 -18 0 -36" style="animation-delay:1.2s" />
+    </g>
+
+    <!-- Cloro: pequenas burbujas en la superficie -->
+    <g class="layer layer-chlorine" fill="white" opacity="0.85">
+      <circle cx="110" cy="108" r="3" /><circle cx="160" cy="104" r="2.2" /><circle cx="198" cy="109" r="2.6" /><circle cx="132" cy="110" r="1.8" />
+    </g>
+
+    <!-- Cristalina: destellos -->
+    <g class="layer layer-clear sparkles" fill="white">
+      <path d="M100 170 l4 -12 l4 12 l12 4 l-12 4 l-4 12 l-4 -12 l-12 -4z" />
+      <path d="M196 250 l3 -9 l3 9 l9 3 l-9 3 l-3 9 l-3 -9 l-9 -3z" style="animation-delay:.8s" />
+      <path d="M150 320 l2.5 -7 l2.5 7 l7 2.5 l-7 2.5 l-2.5 7 l-2.5 -7 l-7 -2.5z" style="animation-delay:1.5s" />
+    </g>
+  </svg>
+</div>
+
+<style>
+  .layer { opacity: 0; transition: opacity 0.9s cubic-bezier(0.3, 0.7, 0.2, 1); }
+
+  /* Estado activo: el propio componente o cualquier ancestro con data-water
+     (global: el ancestro suele ser otro componente). */
+  :global([data-water='murky']) .layer-murky,
+  :global([data-water='sulfur']) .layer-sulfur,
+  :global([data-water='iron']) .layer-iron,
+  :global([data-water='hard']) .layer-hard,
+  :global([data-water='chlorine']) .layer-chlorine,
+  :global([data-water='clear']) .layer-clear { opacity: 1; }
+
+  .water-glass .bubbles circle { animation: rise 4.2s linear infinite; opacity: 0; }
+  :global([data-water='murky']) .bubbles { display: none; }
+  @keyframes rise {
+    0% { transform: translateY(0); opacity: 0; }
+    15% { opacity: 0.7; }
+    100% { transform: translateY(-270px); opacity: 0; }
+  }
+  .odor path { animation: odor 2.4s ease-in-out infinite; }
+  @keyframes odor {
+    0%, 100% { transform: translateY(0); opacity: 0.25; }
+    50% { transform: translateY(-10px); opacity: 0.9; }
+  }
+  .sparkles path { transform-box: fill-box; transform-origin: center; animation: twinkle 2.6s ease-in-out infinite; }
+  @keyframes twinkle {
+    0%, 100% { transform: scale(0.5); opacity: 0.2; }
+    50% { transform: scale(1); opacity: 1; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .water-glass .bubbles, .odor path, .sparkles path { animation: none !important; }
+  }
+</style>

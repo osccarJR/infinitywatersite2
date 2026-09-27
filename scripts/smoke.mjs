@@ -56,8 +56,8 @@ const check = (label, ok, detail = '') => {
 
 console.log(`\n${pages.size} paginas HTML en dist/\n\nRutas declaradas en el registro A2P`);
 const a2pRoutes = [
-  ['/', ['Clean water.', LEGAL_ENTITY_DBA]],
-  ['/es', ['Agua limpia.', LEGAL_ENTITY_DBA]],
+  ['/', ['finally clear.', LEGAL_ENTITY_DBA]],
+  ['/es', ['por fin clara.', LEGAL_ENTITY_DBA]],
   ['/privacy-policy', ['Privacy Policy', 'SMS and mobile information', 'g.innovar@gmail.com']],
   ['/es/politica-de-privacidad', ['Política de Privacidad', 'SMS and mobile information']],
   ['/terms-and-conditions', ['Terms and Conditions', 'SMS program description', 'Reply STOP']],
