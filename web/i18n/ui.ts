@@ -60,7 +60,7 @@ export const UI = {
       support: 'Customer support',
       sms: 'Text/SMS',
       rights: 'All rights reserved.',
-      madeBy: 'Designed and built by',
+      madeBy: 'Developed by',
     },
     langBanner: {
       text: '¿Prefieres ver el sitio en español?',
@@ -120,7 +120,7 @@ export const UI = {
       support: 'Atención al cliente',
       sms: 'Texto/SMS',
       rights: 'Todos los derechos reservados.',
-      madeBy: 'Diseñado y desarrollado por',
+      madeBy: 'Desarrollado por',
     },
     langBanner: {
       text: 'Prefer to browse in English?',
