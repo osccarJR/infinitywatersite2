@@ -141,7 +141,7 @@ const steps = es
     ];
 ---
 
-<Base lang={lang} title={c.title} description={c.lead} paths={STATIC_ROUTES[landing]} noindex minimal>
+<Base lang={lang} title={c.title} description={c.lead} paths={STATIC_ROUTES[landing]} noindex minimal ogImage={landing === 'lpSmell' ? `og-smell-${lang}.jpg` : landing === 'lpIron' ? `og-iron-${lang}.jpg` : undefined}>
   <section class="bg-gradient-to-b from-[#eef6fc] to-white">
     <div class="container-wide grid items-center gap-8 pb-10 pt-8 sm:pt-12 lg:grid-cols-[1.2fr_1fr] lg:gap-12 lg:pb-16">
       <div class="text-center lg:text-left">

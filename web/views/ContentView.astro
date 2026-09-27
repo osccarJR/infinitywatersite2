@@ -49,6 +49,9 @@ const parent =
       ? { href: pathFor('areas', lang), label: es ? 'Zonas' : 'Service areas' }
       : null;
 
+/** Paginas con tarjeta de vista previa propia (scripts/og-images.mjs). */
+const OG_BY_KEY: Record<string, string> = { 'rotten-egg-smell': 'smell', 'iron-stains': 'iron', prices: 'prices' };
+
 const calloutIcon = { info: 'Info', warning: 'AlertTriangle', success: 'CircleCheck' } as const;
 
 /* ------------------------------ JSON-LD ------------------------------ */
@@ -84,7 +87,7 @@ if (page.kind === 'service') {
 }
 ---
 
-<Base lang={lang} title={content.metaTitle} description={content.metaDescription} paths={paths} schema={schema}>
+<Base lang={lang} title={content.metaTitle} description={content.metaDescription} paths={paths} schema={schema} ogImage={OG_BY_KEY[page.key] ? `og-${OG_BY_KEY[page.key]}-${lang}.jpg` : undefined}>
   <!-- Barra de pagina (como la de producto de Apple) -->
   <div class="sticky top-14 z-30 border-b border-black/5 bg-white/80 backdrop-blur-xl backdrop-saturate-150">
     <div class="container-wide flex h-12 items-center gap-4">

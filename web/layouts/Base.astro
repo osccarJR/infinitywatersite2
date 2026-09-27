@@ -51,7 +51,9 @@ const ui = t(lang);
 
 const abs = (path: string) => `${SITE_URL}${path}`;
 const canonical = abs(paths[lang]);
-const image = ogImage ?? `${SITE_URL}/images/og-image.jpg`;
+// Tarjeta de vista previa al compartir (WhatsApp, Facebook...). Se generan
+// con scripts/og-images.mjs; cada idioma tiene la suya.
+const image = `${SITE_URL}/images/${ogImage ?? `og-${lang}.jpg`}`;
 
 const business = {
   '@context': 'https://schema.org',
@@ -61,7 +63,7 @@ const business = {
   legalName: LEGAL_ENTITY,
   alternateName: LEGAL_ENTITY_DBA,
   url: `${SITE_URL}/`,
-  image: `${SITE_URL}/images/og-image.jpg`,
+  image: `${SITE_URL}/images/og-en.jpg`,
   logo: `${SITE_URL}/images/logo.webp`,
   telephone: PRIMARY_PHONE.tel,
   email: EMAIL,

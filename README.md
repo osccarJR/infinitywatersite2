@@ -38,7 +38,8 @@ npm run dev             # http://localhost:4321
 | `npm run preview` | Sirve `dist/` en local |
 | `npm run check` | Comprobación de tipos de Astro/TypeScript |
 | `npm run test:smoke` | Revisa el HTML compilado: A2P, SEO, enlaces rotos, afirmaciones prohibidas, tildes |
-| `npm run optimize:images` | Regenera logo, sellos, imagen OG y favicons desde `assets/source/` |
+| `npm run optimize:images` | Regenera logo, sellos y favicons desde `assets/source/` |
+| `node scripts/og-images.mjs` | Regenera las tarjetas de vista previa al compartir (`public/images/og-*.jpg`). Usa Chrome |
 
 **Antes de publicar:** `npm run build && npm run test:smoke`.
 
