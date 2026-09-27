@@ -37,6 +37,7 @@ export const PRICE_PAGES: ContentPage[] = [
       blocks: [
         {
           type: 'facts',
+          kicker: 'Market reference',
           heading: 'Typical installed prices',
           intro: 'Consensus of 2026 cost guides and local contractors. Not a quote.',
           items: [
@@ -61,6 +62,7 @@ export const PRICE_PAGES: ContentPage[] = [
         },
         {
           type: 'facts',
+          kicker: 'Market reference',
           heading: 'What it costs to maintain',
           items: [
             { label: 'Typical yearly maintenance', value: '$100–$500', detail: 'Depends on the equipment' },
@@ -100,6 +102,7 @@ export const PRICE_PAGES: ContentPage[] = [
       blocks: [
         {
           type: 'facts',
+          kicker: 'Referencia de mercado',
           heading: 'Precios típicos instalados',
           intro: 'Consenso de guías de costos 2026 y contratistas locales. No es una cotización.',
           items: [
@@ -124,6 +127,7 @@ export const PRICE_PAGES: ContentPage[] = [
         },
         {
           type: 'facts',
+          kicker: 'Referencia de mercado',
           heading: 'Lo que cuesta mantenerlo',
           items: [
             { label: 'Mantenimiento anual típico', value: '$100–$500', detail: 'Según el equipo' },

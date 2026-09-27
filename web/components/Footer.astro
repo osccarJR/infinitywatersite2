@@ -85,7 +85,7 @@ const legal = [
 ---
 
 <footer class="bg-mist text-[0.78rem] leading-relaxed text-muted">
-  <div class="container-x py-12">
+  <div class="container-x pb-28 pt-12 lg:pb-12">
     {!minimal && <div class="grid grid-cols-2 gap-x-6 gap-y-8 border-b border-line pb-8 sm:grid-cols-3 lg:grid-cols-5">
       {columns.map((col) => (
         <div>
@@ -123,9 +123,9 @@ const legal = [
     <div class="flex flex-col gap-3 pt-5 lg:flex-row lg:items-center lg:justify-between">
       <p>Copyright © {year} {LEGAL_ENTITY_DBA}. {ui.footer.rights}</p>
       <nav aria-label={ui.footer.legal}>
-        <ul class="flex flex-wrap gap-y-1">
-          {legal.map((item, i) => (
-            <li class:list={[i > 0 && 'border-l border-line', 'px-2.5 first:pl-0']}>
+        <ul class="flex flex-wrap gap-x-5 gap-y-2">
+          {legal.map((item) => (
+            <li>
               <a href={item.href} class="text-ink/80 hover:text-ink hover:underline">{item.label}</a>
             </li>
           ))}

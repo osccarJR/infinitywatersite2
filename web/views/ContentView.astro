@@ -170,7 +170,7 @@ if (page.kind === 'service') {
 
         {block.type === 'facts' && (
           <div class="container-x">
-            <p class="reveal text-center text-lg font-semibold text-accent">{es ? 'Datos oficiales' : 'Official data'}</p>
+            <p class="reveal text-center text-lg font-semibold text-accent">{block.kicker ?? (es ? 'Datos oficiales' : 'Official data')}</p>
             <h2 class="reveal mx-auto mt-2 max-w-3xl text-center text-4xl sm:text-5xl">{block.heading}</h2>
             {block.intro && <p class="reveal mx-auto mt-5 max-w-2xl text-center text-xl text-muted">{block.intro}</p>}
             <dl class:list={['mt-14 grid gap-4 sm:grid-cols-2', block.items.length === 3 && 'lg:grid-cols-3', block.items.length >= 4 && block.items.every((item) => item.value.length <= 12) && 'lg:grid-cols-4']}>

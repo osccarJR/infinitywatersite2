@@ -85,6 +85,8 @@ export type Block =
    */
   | {
       type: 'facts';
+      /** Etiqueta sobre el titulo. Por defecto "Datos oficiales". */
+      kicker?: string;
       heading: string;
       intro?: string;
       items: { label: string; value: string; detail?: string }[];
