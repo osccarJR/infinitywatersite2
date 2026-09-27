@@ -39,11 +39,11 @@ const states = [
       ))}
     </p>
 
-    <WaterGlass id={id} class="glass mt-12 h-[clamp(12rem,32vh,23rem)] w-auto" />
+    <WaterGlass id={id} class="glass mt-3 h-[clamp(14rem,36vh,26rem)] w-auto" />
 
     <div class="mt-5 flex flex-wrap justify-center gap-1" role="group" aria-label={es ? 'Problemas del agua' : 'Water problems'}>
       {states.map((s) => (
-        <button type="button" data-pick={s.water} class="chip min-h-9 rounded-full px-2.5 py-1.5 text-[0.78rem] font-semibold text-white/70 transition hover:text-white min-[400px]:px-3.5 sm:text-sm">{s.label}</button>
+        <button type="button" data-pick={s.water} class="chip min-h-9 rounded-full px-2 py-1.5 text-[0.74rem] font-semibold text-white/70 transition hover:text-white min-[400px]:px-3.5 sm:text-sm">{s.label}</button>
       ))}
     </div>
   </div>
