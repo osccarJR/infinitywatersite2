@@ -8,14 +8,18 @@
 import type { Lang } from '../data/types';
 import { t } from '../i18n/ui';
 import { pathFor, otherLang } from '../i18n/routes';
+import { PRIMARY_PHONE } from '../config/business';
+import Icon from './Icon.astro';
 
 interface Props {
   lang: Lang;
   alternatePath: string;
   hideCta?: boolean;
+  /** Paginas de aterrizaje: solo logo, idioma y telefono. */
+  minimal?: boolean;
 }
 
-const { lang, alternatePath, hideCta = false } = Astro.props;
+const { lang, alternatePath, hideCta = false, minimal = false } = Astro.props;
 const ui = t(lang);
 const link = (key: string) => pathFor(key, lang);
 const current = Astro.url.pathname.replace(/\/$/, '') || '/';
@@ -36,30 +40,35 @@ const mobileExtra = [
 
 <header id="site-header" data-theme="light" class="site-header fixed inset-x-0 top-0 z-50">
   <div class="bar absolute inset-0 -z-10 backdrop-blur-xl backdrop-saturate-150"></div>
-  <div class="container-wide flex h-14 items-center gap-4">
+  <div class="container-wide flex h-14 items-center gap-2 sm:gap-4">
     <a href={link('home')} class="relative shrink-0" aria-label="Infinity Water">
-      <img src="/images/logo-dark.webp" alt="Infinity Water" width="140" height="25" class="logo-light h-[22px] w-auto" />
-      <img src="/images/logo.webp" alt="" width="140" height="25" class="logo-dark absolute inset-0 h-[22px] w-auto" />
+      <img src="/images/logo-dark.webp" alt="Infinity Water" width="140" height="25" class="logo-light h-5 w-auto sm:h-[22px]" />
+      <img src="/images/logo.webp" alt="" width="140" height="25" class="logo-dark absolute inset-0 h-5 w-auto sm:h-[22px]" />
     </a>
 
-    <nav class="mx-auto hidden items-center gap-8 lg:flex" aria-label={ui.menu}>
+    {!minimal && <nav class="mx-auto hidden items-center gap-8 lg:flex" aria-label={ui.menu}>
       {nav.map((item) => (
         <a href={item.href} class:list={['nav-link text-[0.82rem] transition', current === item.href && 'is-current']} aria-current={current === item.href ? 'page' : undefined}>
           {item.label}
         </a>
       ))}
-    </nav>
+    </nav>}
 
-    <div class="ml-auto flex items-center gap-3 lg:ml-0">
-      <a href={alternatePath} hreflang={otherLang(lang)} lang={otherLang(lang)} class="nav-link px-1 text-[0.8rem] transition" aria-label={ui.langSwitchLabel}>
-        {lang === 'es' ? 'English' : 'Español'}
+    <div class="ml-auto flex items-center gap-1.5 sm:gap-3 lg:ml-0">
+      <a href={alternatePath} hreflang={otherLang(lang)} lang={otherLang(lang)} class="nav-link inline-flex min-h-11 min-w-11 items-center justify-center px-1 text-[0.8rem] font-medium transition" aria-label={ui.langSwitchLabel}>
+        <span class="sm:hidden">{lang === 'es' ? 'EN' : 'ES'}</span><span class="hidden sm:inline">{lang === 'es' ? 'English' : 'Español'}</span>
       </a>
-      {!hideCta && (
-        <a href={link('freeWaterTest')} class="hidden rounded-full bg-accent px-4 py-1.5 text-[0.8rem] font-semibold text-white transition hover:bg-accent-hover sm:inline-flex" data-track="free_test_cta" data-location="header">
+      {minimal && (
+        <a href={`tel:${PRIMARY_PHONE.tel}`} class="inline-flex min-h-10 min-w-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-full bg-accent px-3 text-[0.85rem] font-semibold text-white hover:bg-accent-hover min-[370px]:px-4" data-track="call" data-location="lp-header" aria-label={`${ui.cta.call} ${PRIMARY_PHONE.display}`}>
+          <Icon name="Phone" class="h-4 w-4" /><span class="hidden min-[370px]:inline">{PRIMARY_PHONE.display}</span>
+        </a>
+      )}
+      {!hideCta && !minimal && (
+        <a href={link('freeWaterTest')} class="hidden whitespace-nowrap rounded-full bg-accent min-[370px]:inline-flex px-3.5 py-1.5 text-[0.8rem] font-semibold text-white transition hover:bg-accent-hover sm:px-4" data-track="free_test_cta" data-location="header">
           {ui.cta.freeTestShort}
         </a>
       )}
-      <button type="button" class="nav-link -mr-2 inline-flex h-10 w-10 items-center justify-center lg:hidden" aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
+      <button type="button" class:list={['nav-link -mr-2 h-11 w-11 items-center justify-center lg:hidden', minimal ? 'hidden' : 'inline-flex']} aria-expanded="false" aria-controls="mobile-menu" data-menu-toggle>
         <span class="sr-only" data-menu-label data-open={ui.menu} data-close={ui.close}>{ui.menu}</span>
         <span class="relative block h-3 w-[18px]" aria-hidden="true">
           <span class="bar-line absolute left-0 top-0 h-[1.5px] w-full rounded bg-current transition duration-300"></span>

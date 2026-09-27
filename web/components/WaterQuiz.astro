@@ -1,0 +1,289 @@
+---
+/**
+ * Cuestionario de 4 pasos: pozo o ciudad → que notas → ¿eres dueño? →
+ * codigo postal. Termina en un diagnostico probable y lleva al formulario
+ * con el contexto en la URL (lo recibe el iframe de GoHighLevel).
+ *
+ * Por que asi: los mejores embudos de servicios a domicilio califican
+ * antes de pedir datos (Sunrun pregunta si eres dueno; los quiz de 2
+ * minutos de SpringWell/AquaOx). Aqui ademas filtra la zona de servicio.
+ *
+ * NO pide telefono ni nombre: el unico punto de captura del sitio sigue
+ * siendo el formulario de GoHighLevel (requisito A2P).
+ *
+ * `source` y `concern` preseleccionan los dos primeros pasos (paginas de
+ * aterrizaje de anuncios: el anuncio ya dijo cual es el problema).
+ */
+import Icon from './Icon.astro';
+import type { Lang } from '../data/types';
+import { CONCERNS } from '../data/waterCheck';
+import { pathFor } from '../i18n/routes';
+import { SERVICE_ZIP_PREFIXES, WHATSAPP_MESSAGE, PRIMARY_PHONE } from '../config/business';
+
+interface Props {
+  lang: Lang;
+  source?: 'well' | 'city';
+  concern?: string;
+  /** Titulo de la seccion; en paginas de aterrizaje va sin titulo propio. */
+  title?: string | false;
+  id?: string;
+}
+
+const { lang, source, concern, title, id = 'quiz' } = Astro.props;
+const es = lang === 'es';
+const formPath = pathFor('freeWaterTest', lang);
+const startStep = source && concern ? 3 : source ? 2 : 1;
+
+const c = {
+  title: title ?? (es ? 'Descubre qué tiene tu agua en 30 segundos.' : 'Find out what’s in your water in 30 seconds.'),
+  step: es ? 'Paso' : 'Step',
+  of: es ? 'de' : 'of',
+  back: es ? 'Atrás' : 'Back',
+  q1: es ? '¿De dónde viene el agua de tu casa?' : 'Where does your home’s water come from?',
+  well: es ? 'De un pozo' : 'A private well',
+  wellHint: es ? 'Tienes bomba y tanque' : 'You have a pump and tank',
+  city: es ? 'De la ciudad' : 'City water',
+  cityHint: es ? 'Pagas factura de agua' : 'You pay a water bill',
+  notSure: es ? 'No estoy seguro' : 'Not sure',
+  q2: es ? '¿Qué notas en tu agua?' : 'What do you notice in your water?',
+  q2hint: es ? 'Elige todo lo que aplique.' : 'Pick all that apply.',
+  next: es ? 'Continuar' : 'Continue',
+  q3: es ? '¿Eres dueño de la casa?' : 'Do you own the home?',
+  own: es ? 'Sí, soy dueño' : 'Yes, I own it',
+  rent: es ? 'No, alquilo' : 'No, I rent',
+  q4: es ? '¿Cuál es tu código postal?' : 'What’s your ZIP code?',
+  zipPh: es ? 'Ej. 33971' : 'e.g. 33971',
+  see: es ? 'Ver mi resultado' : 'See my result',
+  zipError: es ? 'Escribe un código postal de 5 dígitos.' : 'Enter a 5-digit ZIP code.',
+  resultTitle: es ? 'Esto es lo más probable:' : 'Here’s what’s most likely:',
+  none: es
+    ? 'No marcaste ningún problema. Si tienes pozo, igual conviene analizarlo una vez al año.'
+    : 'You didn’t pick a problem. If you’re on a well, it’s still worth testing once a year.',
+  renter: es
+    ? 'Como alquilas, necesitaremos el permiso del dueño para instalar un sistema. El análisis sí te lo podemos hacer.'
+    : 'Since you rent, we’ll need the owner’s permission to install a system. We can still test your water.',
+  outside: es
+    ? 'Tu código postal parece fuera de nuestra zona habitual. Escríbenos por WhatsApp y te decimos si llegamos.'
+    : 'Your ZIP looks outside our usual area. Message us on WhatsApp and we’ll tell you if we can come.',
+  cta: es ? 'Agendar mi análisis gratis' : 'Book my free water test',
+  wa: es ? 'Prefiero WhatsApp' : 'I prefer WhatsApp',
+  confirm: es ? 'Solo un análisis lo confirma. Por eso es gratis.' : 'Only a test confirms it. That’s why it’s free.',
+  restart: es ? 'Empezar de nuevo' : 'Start over',
+};
+---
+
+<div
+  id={id}
+  class="quiz mx-auto w-full max-w-2xl"
+  data-quiz
+  data-form={formPath}
+  data-start={startStep}
+  data-source={source ?? ''}
+  data-concern={concern ?? ''}
+  data-zips={SERVICE_ZIP_PREFIXES.join(',')}
+  data-wa={PRIMARY_PHONE.whatsapp}
+  data-wamsg={WHATSAPP_MESSAGE[lang]}
+>
+  {title !== false && <h2 class="t-section mb-10 text-center">{c.title}</h2>}
+
+  <div class="rounded-[2rem] bg-white p-6 shadow-lift ring-1 ring-black/5 sm:rounded-[2.5rem] sm:p-10">
+    <!-- Progreso -->
+    <div class="flex items-center justify-between gap-4" data-progress-row>
+      <button type="button" class="invisible text-sm font-medium text-accent hover:underline" data-back>‹ {c.back}</button>
+      <p class="text-sm font-medium text-muted"><span data-step-label>{c.step} 1 {c.of} 4</span></p>
+    </div>
+    <div class="mt-3 h-1.5 overflow-hidden rounded-full bg-mist" aria-hidden="true"><div class="h-full rounded-full bg-accent transition-all duration-500" style="width:25%" data-bar></div></div>
+
+    <!-- Paso 1 -->
+    <fieldset class="step mt-8" data-step="1">
+      <legend class="t-title font-bold tracking-tight">{c.q1}</legend>
+      <div class="mt-6 grid gap-3 sm:grid-cols-2">
+        {[
+          { v: 'well', label: c.well, hint: c.wellHint, icon: 'Waves' },
+          { v: 'city', label: c.city, hint: c.cityHint, icon: 'Building2' },
+        ].map((o) => (
+          <button type="button" class="opt flex items-center gap-4 rounded-2xl p-5 text-left" data-set="source" data-value={o.v}>
+            <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white text-accent"><Icon name={o.icon} class="h-6 w-6" /></span>
+            <span><span class="block text-lg font-semibold">{o.label}</span><span class="block text-sm text-muted">{o.hint}</span></span>
+          </button>
+        ))}
+      </div>
+      <button type="button" class="more mt-5 !text-base" data-set="source" data-value="unsure">{c.notSure}</button>
+    </fieldset>
+
+    <!-- Paso 2 -->
+    <fieldset class="step mt-8 hidden" data-step="2">
+      <legend class="t-title font-bold tracking-tight">{c.q2}</legend>
+      <p class="mt-1 text-muted">{c.q2hint}</p>
+      <div class="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        {CONCERNS.map((con) => (
+          <button type="button" class="opt flex flex-col items-center gap-2 rounded-2xl px-3 py-5 text-center" data-toggle={con.id} aria-pressed="false">
+            <Icon name={con.icon} class="h-6 w-6 text-accent" />
+            <span class="text-[0.95rem] font-semibold">{con.label[lang]}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" class="btn btn-primary mt-7 w-full sm:w-auto" data-next>{c.next}</button>
+    </fieldset>
+
+    <!-- Paso 3 -->
+    <fieldset class="step mt-8 hidden" data-step="3">
+      <legend class="t-title font-bold tracking-tight">{c.q3}</legend>
+      <div class="mt-6 grid gap-3 sm:grid-cols-2">
+        <button type="button" class="opt rounded-2xl p-5 text-lg font-semibold" data-set="owner" data-value="yes">{c.own}</button>
+        <button type="button" class="opt rounded-2xl p-5 text-lg font-semibold" data-set="owner" data-value="no">{c.rent}</button>
+      </div>
+    </fieldset>
+
+    <!-- Paso 4 -->
+    <fieldset class="step mt-8 hidden" data-step="4">
+      <legend class="t-title font-bold tracking-tight">{c.q4}</legend>
+      <form class="mt-6 flex flex-col gap-3 sm:flex-row" data-zip-form novalidate>
+        <label class="sr-only" for={`${id}-zip`}>{c.q4}</label>
+        <input id={`${id}-zip`} name="zip" inputmode="numeric" autocomplete="postal-code" maxlength="5" pattern="[0-9]{5}" placeholder={c.zipPh} class="h-14 flex-1 rounded-2xl border border-line bg-white px-5 text-xl font-semibold tracking-wider outline-none focus:border-accent" />
+        <button type="submit" class="btn btn-primary !min-h-14">{c.see}</button>
+      </form>
+      <p class="mt-3 hidden text-sm font-medium text-coral" data-zip-error role="alert">{c.zipError}</p>
+    </fieldset>
+
+    <!-- Resultado -->
+    <div class="step mt-8 hidden" data-step="5" tabindex="-1">
+      <h3 class="t-title font-bold tracking-tight">{c.resultTitle}</h3>
+      <div class="mt-6 space-y-3">
+        <p class="hidden rounded-2xl bg-mist p-5 text-lg" data-none>{c.none}</p>
+        {CONCERNS.map((con) =>
+          (['well', 'city'] as const).map((src) => {
+            const r = con.result[src];
+            return (
+              <div class="hidden rounded-2xl bg-mist p-5" data-result={`${con.id}:${src}`}>
+                <p class="flex items-center gap-2 text-sm font-semibold text-muted"><Icon name={con.icon} class="h-4 w-4 text-accent" />{con.label[lang]}</p>
+                <p class="mt-1 text-xl font-bold tracking-tight">{r.headline[lang]}</p>
+                <p class="mt-1 leading-relaxed text-ink/75">{r.cause[lang]} {r.action[lang]}</p>
+              </div>
+            );
+          })
+        )}
+        <p class="hidden rounded-2xl border border-line p-5" data-renter>{c.renter}</p>
+        <p class="hidden rounded-2xl border border-coral/40 bg-coral/5 p-5" data-outside>{c.outside}</p>
+      </div>
+      <p class="mt-6 text-muted">{c.confirm}</p>
+      <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-6">
+        <a href={formPath} class="btn btn-primary !min-h-14 !px-8 !text-lg" data-result-cta data-track="free_test_cta" data-location="quiz">{c.cta}</a>
+        <a href="#" target="_blank" rel="noopener" class="more" data-result-wa data-track="whatsapp" data-location="quiz">{c.wa}</a>
+      </div>
+      <button type="button" class="mt-6 text-sm text-muted underline underline-offset-4 hover:text-ink" data-restart>{c.restart}</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .opt { background: var(--color-mist); border: 2px solid transparent; transition: background 0.2s, border-color 0.2s; }
+  .opt:hover { background: #ebebef; }
+  .opt[aria-pressed='true'] { border-color: var(--color-accent); background: #e8f2fb; }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-quiz]').forEach((quiz) => {
+    const es = document.documentElement.lang === 'es';
+    const zips = (quiz.dataset.zips ?? '').split(',');
+    const state = {
+      source: quiz.dataset.source || '',
+      concerns: new Set<string>(quiz.dataset.concern ? [quiz.dataset.concern] : []),
+      owner: '',
+      zip: '',
+    };
+    const history: number[] = [];
+    let current = 0;
+
+    const $ = <T extends Element = HTMLElement>(sel: string) => quiz.querySelector<T>(sel)!;
+    const $$ = <T extends Element = HTMLElement>(sel: string) => [...quiz.querySelectorAll<T>(sel)];
+
+    const go = (step: number, push = true) => {
+      if (push && current) history.push(current);
+      current = step;
+      $$('[data-step]').forEach((el) => el.classList.toggle('hidden', el.dataset.step !== String(step)));
+      const shown = Math.min(step, 4);
+      $('[data-step-label]').textContent = step === 5 ? (es ? 'Tu resultado' : 'Your result') : `${es ? 'Paso' : 'Step'} ${shown} ${es ? 'de' : 'of'} 4`;
+      ($('[data-bar]') as HTMLElement).style.width = `${(Math.min(step, 4) / 4) * 100}%`;
+      $('[data-back]').classList.toggle('invisible', history.length === 0 || step === 5);
+      if (step === 4) setTimeout(() => $<HTMLInputElement>('input[name="zip"]').focus({ preventScroll: true }), 50);
+      if (step === 5) {
+        render();
+        $('[data-step="5"]').focus({ preventScroll: true });
+      }
+      window.dataLayer = window.dataLayer || [];
+      window.dataLayer.push({ event: 'quiz_step', quiz_step: step });
+    };
+
+    const render = () => {
+      const src = state.source === 'city' ? 'city' : 'well';
+      $$('[data-result]').forEach((el) => {
+        const [id, s] = el.dataset.result!.split(':');
+        el.classList.toggle('hidden', !(state.concerns.has(id) && s === src));
+      });
+      $('[data-none]').classList.toggle('hidden', state.concerns.size > 0);
+      $('[data-renter]').classList.toggle('hidden', state.owner !== 'no');
+      const inArea = zips.some((p) => state.zip.startsWith(p));
+      $('[data-outside]').classList.toggle('hidden', inArea);
+
+      // El contexto viaja al formulario (y al mensaje de WhatsApp).
+      const params = new URLSearchParams({ water_source: state.source || 'unsure', owner: state.owner, zip: state.zip });
+      if (state.concerns.size) params.set('concerns', [...state.concerns].join(','));
+      $<HTMLAnchorElement>('[data-result-cta]').href = `${quiz.dataset.form}?${params}`;
+
+      const labels = $$('[data-toggle]').filter((b) => state.concerns.has(b.dataset.toggle!)).map((b) => b.textContent!.trim());
+      const detail = es
+        ? ` Mi agua es de ${state.source === 'city' ? 'ciudad' : state.source === 'well' ? 'pozo' : '(no sé)'}${labels.length ? ` y noto: ${labels.join(', ')}` : ''}. Código postal ${state.zip}.`
+        : ` My water is ${state.source === 'city' ? 'city' : state.source === 'well' ? 'well' : '(not sure)'} water${labels.length ? ` and I notice: ${labels.join(', ')}` : ''}. ZIP ${state.zip}.`;
+      $<HTMLAnchorElement>('[data-result-wa]').href = `https://wa.me/${quiz.dataset.wa}?text=${encodeURIComponent((quiz.dataset.wamsg ?? '') + detail)}`;
+
+      window.dataLayer.push({ event: 'quiz_complete', water_source: state.source, concerns: [...state.concerns].join(','), owner: state.owner, in_area: inArea });
+    };
+
+    $$('[data-set]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const key = btn.dataset.set as 'source' | 'owner';
+        state[key] = btn.dataset.value!;
+        $$(`[data-set="${key}"]`).forEach((b) => b.setAttribute('aria-pressed', String(b === btn)));
+        go(key === 'source' ? 2 : 4);
+      })
+    );
+    $$('[data-toggle]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        const id = btn.dataset.toggle!;
+        if (state.concerns.has(id)) state.concerns.delete(id);
+        else state.concerns.add(id);
+        btn.setAttribute('aria-pressed', String(state.concerns.has(id)));
+      })
+    );
+    $('[data-next]').addEventListener('click', () => go(3));
+    $('[data-back]').addEventListener('click', () => {
+      const prev = history.pop();
+      if (prev) go(prev, false);
+    });
+    $<HTMLFormElement>('[data-zip-form]').addEventListener('submit', (event) => {
+      event.preventDefault();
+      const zip = $<HTMLInputElement>('input[name="zip"]').value.trim();
+      const ok = /^\d{5}$/.test(zip);
+      $('[data-zip-error]').classList.toggle('hidden', ok);
+      if (!ok) return;
+      state.zip = zip;
+      go(5);
+    });
+    $('[data-restart]').addEventListener('click', () => {
+      state.source = quiz.dataset.source || '';
+      state.concerns = new Set(quiz.dataset.concern ? [quiz.dataset.concern] : []);
+      state.owner = '';
+      state.zip = '';
+      history.length = 0;
+      $$('[aria-pressed]').forEach((b) => b.setAttribute('aria-pressed', 'false'));
+      current = 0;
+      go(Number(quiz.dataset.start) || 1, false);
+    });
+
+    // Preseleccion (paginas de aterrizaje de anuncios).
+    state.concerns.forEach((id) => quiz.querySelector(`[data-toggle="${id}"]`)?.setAttribute('aria-pressed', 'true'));
+    const start = Number(quiz.dataset.start) || 1;
+    if (start > 1) go(start, false);
+  });
+</script>

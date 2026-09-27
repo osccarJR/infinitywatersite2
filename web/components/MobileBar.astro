@@ -1,8 +1,7 @@
 ---
 /**
  * Barra inferior fija en movil: la accion principal siempre a un toque.
- * Aparece cuando el usuario deja atras la cabecera de la pagina, para no
- * duplicar los botones que ya ve arriba. En el formulario solo ofrece
+ * Aparece en cuanto el usuario empieza a bajar. En el formulario solo ofrece
  * WhatsApp y llamada (el formulario ya esta en pantalla).
  */
 import Icon from './Icon.astro';
@@ -44,14 +43,10 @@ const ui = t(lang);
 
 <script>
   const bar = document.getElementById('mobile-bar');
-  const story = document.querySelector<HTMLElement>('[data-story]');
   if (bar) {
-    // Oculta al principio y mientras la historia de la portada ocupa la
-    // pantalla (ya tiene sus propios botones y la barra taparia el vaso).
-    const update = () => {
-      const inStory = story ? story.getBoundingClientRect().bottom > window.innerHeight * 0.6 : false;
-      bar.classList.toggle('translate-y-full', window.scrollY < 420 || inStory);
-    };
+    // Aparece en cuanto el usuario empieza a bajar: la accion principal
+    // nunca debe quedar fuera de alcance.
+    const update = () => bar.classList.toggle('translate-y-full', window.scrollY < 160);
     update();
     window.addEventListener('scroll', update, { passive: true });
   }

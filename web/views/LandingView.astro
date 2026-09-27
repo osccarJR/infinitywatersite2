@@ -1,0 +1,200 @@
+---
+/**
+ * Paginas de aterrizaje para anuncios (Google y Meta).
+ *
+ * Una por mensaje de anuncio y por idioma, sin menu (cada enlace de mas es
+ * una fuga) y noindex. El titular repite la promesa del anuncio, el
+ * cuestionario llega con el problema ya elegido y todo lleva al mismo
+ * formulario. El pie conserva el bloque legal que exige A2P.
+ */
+import Base from '../layouts/Base.astro';
+import Icon from '../components/Icon.astro';
+import WaterGlass from '../components/WaterGlass.astro';
+import WaterQuiz from '../components/WaterQuiz.astro';
+import FinalCta from '../components/FinalCta.astro';
+import type { Lang } from '../data/types';
+import { STATIC_ROUTES, type LandingKey } from '../i18n/routes';
+import { FOUNDER_YEARS, PRIMARY_PHONE, WARRANTY, WHATSAPP_MESSAGE, whatsappUrl } from '../config/business';
+
+interface Props {
+  lang: Lang;
+  landing: LandingKey;
+}
+
+const { lang, landing } = Astro.props;
+const es = lang === 'es';
+
+type Copy = {
+  title: string;
+  kicker: string;
+  headline: string;
+  lead: string;
+  water: 'sulfur' | 'iron' | 'clear';
+  source?: 'well' | 'city';
+  concern?: string;
+  faqs: { q: string; a: string }[];
+};
+
+const pages: Record<LandingKey, Record<Lang, Copy>> = {
+  lpSmell: {
+    es: {
+      title: '¿Tu pozo huele a huevo podrido? | Infinity Water',
+      kicker: 'Agua de pozo · SW Florida',
+      headline: '¿Tu agua huele a huevo podrido?',
+      lead: 'Es azufre, muy común en los pozos de la zona, y tiene solución. Lo medimos gratis en tu casa y te decimos qué necesitas.',
+      water: 'sulfur',
+      source: 'well',
+      concern: 'smell',
+      faqs: [
+        { q: '¿Es peligroso?', a: 'El sulfuro de hidrógeno en los niveles típicos de pozo es sobre todo un problema de olor, sabor y corrosión. Igual conviene analizar el pozo para descartar otras cosas.' },
+        { q: '¿Cómo se quita?', a: 'Lo usual es un sistema de inyección de aire u oxidación, dimensionado según cuánto azufre y hierro tenga tu agua. Por eso primero medimos.' },
+        { q: '¿El análisis tiene costo?', a: 'No. Es gratis y sin compromiso. Si tu agua no necesita nada, te lo decimos.' },
+      ],
+    },
+    en: {
+      title: 'Does your well smell like rotten eggs? | Infinity Water',
+      kicker: 'Well water · SW Florida',
+      headline: 'Does your water smell like rotten eggs?',
+      lead: 'It’s sulfur, very common in local wells — and it’s fixable. We test it free at your home and tell you what you need.',
+      water: 'sulfur',
+      source: 'well',
+      concern: 'smell',
+      faqs: [
+        { q: 'Is it dangerous?', a: 'At typical well levels, hydrogen sulfide is mostly an odor, taste and corrosion problem. It’s still worth testing the well to rule out anything else.' },
+        { q: 'How is it removed?', a: 'Usually with an air-injection or oxidation system, sized to how much sulfur and iron your water has. That’s why we test first.' },
+        { q: 'Does the test cost anything?', a: 'No. It’s free with no obligation. If your water doesn’t need anything, we tell you.' },
+      ],
+    },
+  },
+  lpIron: {
+    es: {
+      title: '¿Manchas naranjas por el agua? | Infinity Water',
+      kicker: 'Agua de pozo · SW Florida',
+      headline: '¿Manchas naranjas en la ropa y el baño?',
+      lead: 'Es hierro del pozo. Lo medimos gratis en tu casa y te recomendamos el filtro exacto para tu agua y tu riego.',
+      water: 'iron',
+      source: 'well',
+      concern: 'iron',
+      faqs: [
+        { q: '¿Por qué mancha?', a: 'El hierro disuelto se oxida al contacto con el aire y deja manchas naranjas en ropa, lavamanos, paredes y la entrada donde pega el riego.' },
+        { q: '¿Cómo se quita?', a: 'Con oxidación y un filtro de hierro del tamaño correcto. Primero medimos el hierro y el pH para no venderte algo que no sirva.' },
+        { q: '¿El análisis tiene costo?', a: 'No. Es gratis y sin compromiso.' },
+      ],
+    },
+    en: {
+      title: 'Orange stains from your water? | Infinity Water',
+      kicker: 'Well water · SW Florida',
+      headline: 'Orange stains on clothes and tubs?',
+      lead: 'It’s iron from your well. We test it free at your home and recommend the right filter for your water and irrigation.',
+      water: 'iron',
+      source: 'well',
+      concern: 'iron',
+      faqs: [
+        { q: 'Why does it stain?', a: 'Dissolved iron oxidizes in air and leaves orange stains on clothes, sinks, walls and driveways where sprinklers hit.' },
+        { q: 'How is it removed?', a: 'With oxidation and a correctly sized iron filter. We measure iron and pH first so you don’t buy something that won’t work.' },
+        { q: 'Does the test cost anything?', a: 'No. It’s free with no obligation.' },
+      ],
+    },
+  },
+  lpTest: {
+    es: {
+      title: 'Análisis de agua gratis en tu casa | Infinity Water',
+      kicker: 'Fort Myers · Cape Coral · Lehigh Acres · Naples',
+      headline: 'Análisis de agua gratis, en tu casa y en español.',
+      lead: 'Medimos tu agua de pozo o de ciudad, te explicamos cada resultado y te decimos la verdad, aunque no necesites nada.',
+      water: 'clear',
+      faqs: [
+        { q: '¿De verdad es gratis?', a: 'Sí. Sin costo y sin compromiso de compra. Si tu agua está bien, te lo decimos.' },
+        { q: '¿Qué miden?', a: 'Según tu caso: dureza, hierro, azufre, pH, cloro y sólidos disueltos. Para bacterias te orientamos a un laboratorio certificado.' },
+        { q: '¿Y si después compro y me arrepiento?', a: 'Por ley de Florida tienes hasta la medianoche del 3.er día hábil para cancelar una compra hecha en tu casa.' },
+      ],
+    },
+    en: {
+      title: 'Free in-home water test | Infinity Water',
+      kicker: 'Fort Myers · Cape Coral · Lehigh Acres · Naples',
+      headline: 'A free water test, at your home.',
+      lead: 'We test your well or city water, explain every result and tell you the truth — even if you don’t need anything.',
+      water: 'clear',
+      faqs: [
+        { q: 'Is it really free?', a: 'Yes. No cost and no obligation to buy. If your water is fine, we tell you.' },
+        { q: 'What do you test?', a: 'Depending on your water: hardness, iron, sulfur, pH, chlorine and dissolved solids. For bacteria we point you to a certified lab.' },
+        { q: 'What if I buy and change my mind?', a: 'Under Florida law you can cancel an in-home purchase until midnight of the third business day.' },
+      ],
+    },
+  },
+};
+
+const c = pages[landing][lang];
+const trust = es
+  ? [`${FOUNDER_YEARS}+ años de experiencia`, 'Todo en español', 'Sin presión', WARRANTY.es.short]
+  : [`${FOUNDER_YEARS}+ years of experience`, 'English or Spanish', 'No pressure', WARRANTY.en.short];
+const steps = es
+  ? [
+      { t: 'Respondes 4 preguntas', d: 'Toma 30 segundos.' },
+      { t: 'Te llamamos', d: 'Agendamos cuando te convenga.' },
+      { t: 'Medimos en tu casa', d: 'Gratis. Tú decides después.' },
+    ]
+  : [
+      { t: 'Answer 4 questions', d: 'Takes 30 seconds.' },
+      { t: 'We call you', d: 'We schedule when it suits you.' },
+      { t: 'We test at home', d: 'Free. You decide after.' },
+    ];
+---
+
+<Base lang={lang} title={c.title} description={c.lead} paths={STATIC_ROUTES[landing]} noindex minimal>
+  <section class="bg-gradient-to-b from-[#eef6fc] to-white">
+    <div class="container-wide grid items-center gap-8 pb-10 pt-8 sm:pt-12 lg:grid-cols-[1.2fr_1fr] lg:gap-12 lg:pb-16">
+      <div class="text-center lg:text-left">
+        <p class="text-sm font-semibold text-accent sm:text-base">{c.kicker}</p>
+        <h1 class="t-hero mt-3">{c.headline}</h1>
+        <p class="t-lead mx-auto mt-5 max-w-xl lg:mx-0">{c.lead}</p>
+        <div class="mt-8 flex flex-col items-center gap-3 sm:flex-row sm:justify-center lg:justify-start">
+          <a href="#cuestionario" class="btn btn-primary !min-h-14 w-full !px-8 !text-lg sm:w-auto" data-track="free_test_cta" data-location={`${landing}-hero`}>{es ? 'Quiero mi análisis gratis' : 'Get my free water test'}</a>
+          <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-14 w-full !px-7 sm:w-auto" data-track="whatsapp" data-location={`${landing}-hero`}><Icon name="MessageCircle" />WhatsApp</a>
+        </div>
+        <ul class="mt-7 flex flex-wrap justify-center gap-x-5 gap-y-2 text-[0.95rem] lg:justify-start">
+          {trust.map((item) => <li class="flex items-center gap-1.5"><Icon name="CircleCheck" class="h-4 w-4 text-accent" />{item}</li>)}
+        </ul>
+      </div>
+      <div class="relative mx-auto hidden h-[22rem] w-full max-w-sm place-items-center overflow-hidden rounded-[2rem] bg-night sm:grid" data-water={c.water}>
+        <WaterGlass id={`lp-${landing}`} class="h-[17rem] w-auto" />
+      </div>
+    </div>
+  </section>
+
+  <section id="cuestionario" class="scroll-mt-20 bg-mist py-14 sm:py-20">
+    <div class="container-x">
+      <WaterQuiz lang={lang} source={c.source} concern={c.concern} id={`quiz-${landing}`} />
+    </div>
+  </section>
+
+  <section class="py-16 sm:py-20">
+    <div class="container-x">
+      <ol class="grid gap-8 sm:grid-cols-3">
+        {steps.map((s, i) => (
+          <li class="text-center">
+            <span class="text-gradient text-5xl font-bold">{i + 1}</span>
+            <p class="mt-2 text-xl font-semibold tracking-tight">{s.t}</p>
+            <p class="text-muted">{s.d}</p>
+          </li>
+        ))}
+      </ol>
+
+      <div class="mx-auto mt-16 max-w-3xl border-t border-line">
+        {c.faqs.map((f) => (
+          <details class="group border-b border-line">
+            <summary class="flex cursor-pointer items-center justify-between gap-6 py-5 text-lg font-semibold">
+              {f.q}<Icon name="Plus" class="h-5 w-5 shrink-0 text-muted transition group-open:rotate-45" />
+            </summary>
+            <p class="pb-6 pr-8 leading-relaxed text-muted">{f.a}</p>
+          </details>
+        ))}
+      </div>
+      <p class="mt-10 text-center text-muted">
+        {es ? '¿Prefieres hablar?' : 'Prefer to talk?'} <a href={`tel:${PRIMARY_PHONE.tel}`} class="font-semibold text-ink underline underline-offset-4" data-track="call" data-location={`${landing}-bottom`}>{PRIMARY_PHONE.display}</a>
+      </p>
+    </div>
+  </section>
+
+  <FinalCta lang={lang} location={`${landing}-final`} />
+</Base>

@@ -15,7 +15,7 @@ import type { Block, ContentPage, Lang, PhotoName } from '../data/types';
 import { t } from '../i18n/ui';
 import { contentPath, getContentPage, hasPage, pathFor, STATIC_ROUTES } from '../i18n/routes';
 import { labelOf } from '../data/labels';
-import { SITE_URL, BRAND } from '../config/business';
+import { SITE_URL, BRAND, WHATSAPP_MESSAGE, whatsappUrl } from '../config/business';
 import family from '../assets/photos/family.png';
 import smell from '../assets/photos/smell.png';
 import stains from '../assets/photos/stains.png';
@@ -92,7 +92,7 @@ if (page.kind === 'service') {
         {parent && <a href={parent.href} class="hidden text-muted hover:text-ink sm:inline">{parent.label} <span aria-hidden="true">›</span> </a>}
         {labelOf(page, lang)}
       </p>
-      <a href={pathFor('freeWaterTest', lang)} class="ml-auto shrink-0 rounded-full bg-accent px-4 py-1.5 text-[0.8rem] font-semibold text-white hover:bg-accent-hover" data-track="free_test_cta" data-location={`${page.kind}-subnav`}>
+      <a href={pathFor('freeWaterTest', lang)} class="ml-auto inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full bg-accent px-4 text-[0.8rem] font-semibold text-white hover:bg-accent-hover" data-track="free_test_cta" data-location={`${page.kind}-subnav`}>
         {ui.cta.freeTestShort}
       </a>
     </div>
@@ -109,6 +109,10 @@ if (page.kind === 'service') {
           <li class="flex items-center gap-2"><Icon name="CircleCheck" class="h-5 w-5 text-accent" />{item}</li>
         ))}
       </ul>
+      <div class="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-4">
+        <a href={pathFor('freeWaterTest', lang)} class="btn btn-primary !min-h-13 w-full !px-8 !text-lg sm:w-auto" data-track="free_test_cta" data-location={`${page.kind}-hero`}>{ui.cta.freeTest}</a>
+        <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-13 w-full !px-7 sm:w-auto" data-track="whatsapp" data-location={`${page.kind}-hero`}><Icon name="MessageCircle" />WhatsApp</a>
+      </div>
     </div>
     {photo && (
       <div class="container-wide mt-14">
@@ -121,6 +125,7 @@ if (page.kind === 'service') {
   {blocks.map((block, index) => {
     const alt = index % 2 === 1;
     return (
+      <>
       <section class:list={['py-20 sm:py-28', alt && 'bg-mist']}>
         {block.type === 'prose' && (
           <div class="container-x reveal max-w-3xl text-center">
@@ -249,12 +254,26 @@ if (page.kind === 'service') {
           </div>
         )}
       </section>
+      {index === 1 && blocks.length > 3 && (
+        <section class="container-wide py-4">
+          <div class="flex flex-col items-center justify-between gap-6 rounded-[2rem] bg-night px-8 py-10 text-center text-white sm:flex-row sm:px-12 sm:text-left">
+            <div>
+              <p class="text-2xl font-bold tracking-tight sm:text-3xl">{es ? '¿Te pasa esto?' : 'Sound familiar?'}</p>
+              <p class="mt-1 text-lg text-white/70">{es ? 'Lo medimos gratis en tu casa y te decimos qué es.' : 'We test it free at home and tell you what it is.'}</p>
+            </div>
+            <a href={pathFor('freeWaterTest', lang)} class="btn btn-primary shrink-0 !min-h-13 !px-8" data-track="free_test_cta" data-location={`${page.kind}-mid`}>{ui.cta.freeTest}</a>
+          </div>
+        </section>
+      )}
+      </>
     );
   })}
 
+  <FinalCta lang={lang} title={ctaBlock?.title} text={ctaBlock?.text} location={`${page.kind}-final`} />
+
   <!-- Sigue explorando -->
   {related.length > 0 && (
-    <section class="border-t border-line py-20">
+    <section class="py-20">
       <div class="container-x">
         <h2 class="text-center text-3xl sm:text-4xl">{es ? 'Sigue explorando.' : 'Keep exploring.'}</h2>
         <div class="mt-10 grid gap-4 sm:grid-cols-3">
@@ -270,5 +289,4 @@ if (page.kind === 'service') {
     </section>
   )}
 
-  <FinalCta lang={lang} title={ctaBlock?.title} text={ctaBlock?.text} location={`${page.kind}-final`} />
 </Base>

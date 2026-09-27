@@ -179,5 +179,21 @@ export const GOOGLE_PROFILE_URL =
 export const GOOGLE_MAPS_EMBED =
   'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d56632.71918687402!2d-81.91605309999999!3d26.602073649999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88db3b4203150575%3A0x68b562b09a393053!2s3940%20Metro%20Pkwy%2C%20Fort%20Myers%2C%20FL%2033916%2C%20EE.%20UU.!5e0!3m2!1ses-419!2sus!4v1700000000000!5m2!1ses-419!2sus';
 
+/**
+ * Zona de servicio por codigo postal (prefijos de 3 digitos). 339 = Lee
+ * County (Fort Myers, Cape Coral, Lehigh Acres, Estero, Bonita), 341 =
+ * Collier (Naples, Golden Gate). Fuera de estos prefijos el cuestionario
+ * invita a escribir por WhatsApp en vez de prometer la visita.
+ */
+export const SERVICE_ZIP_PREFIXES = ['339', '341'];
+
+/**
+ * Fotos reales del equipo (fundador, tecnicos, furgoneta, instalaciones).
+ * Mientras este vacio, la seccion "Conoce a la familia" no muestra fotos:
+ * nunca se usan fotos de archivo para representar al equipo.
+ * Ejemplo: { src: '/images/team/fundador.webp', alt: { en: '...', es: '...' } }
+ */
+export const TEAM_PHOTOS: { src: string; alt: { en: string; es: string } }[] = [];
+
 /** Vendedores validos para el parametro `seller` de las campanas. */
 export const SELLERS = ['Angie', 'Carlos'];

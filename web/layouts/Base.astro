@@ -42,9 +42,11 @@ interface Props {
   onFormPage?: boolean;
   /** La pagina empieza con una seccion a sangre bajo la barra (sin margen). */
   flush?: boolean;
+  /** Pagina de aterrizaje de anuncio: sin menu ni mapa del sitio. */
+  minimal?: boolean;
 }
 
-const { lang, title, description, paths, noindex = false, schema = [], ogImage, onFormPage = false, flush = false } = Astro.props;
+const { lang, title, description, paths, noindex = false, schema = [], ogImage, onFormPage = false, flush = false, minimal = false } = Astro.props;
 const ui = t(lang);
 
 const abs = (path: string) => `${SITE_URL}${path}`;
@@ -140,7 +142,7 @@ const jsonLd = [business, ...schema];
       {ui.skip}
     </a>
 
-    <Header lang={lang} alternatePath={paths[otherLang(lang)]} hideCta={onFormPage} />
+    <Header lang={lang} alternatePath={paths[otherLang(lang)]} hideCta={onFormPage} minimal={minimal} />
     {lang === 'en' && (
       <div id="lang-banner" hidden class="relative z-40 bg-mist pt-14 text-[0.85rem]">
         <div class="container-wide flex items-center gap-4 py-2.5">
@@ -155,7 +157,7 @@ const jsonLd = [business, ...schema];
       <slot />
     </main>
 
-    <Footer lang={lang} />
+    <Footer lang={lang} minimal={minimal} />
     <MobileBar lang={lang} onFormPage={onFormPage} />
 
 

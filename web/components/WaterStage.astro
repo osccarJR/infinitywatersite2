@@ -1,0 +1,113 @@
+---
+/**
+ * Escenario del vaso para la primera pantalla.
+ *
+ * Sustituye a la historia de 5 pantallas: en un solo bloque, el agua pasa
+ * sola por cada problema (azufre, hierro, dureza, cloro) y termina
+ * cristalina. Los botones de abajo permiten elegir un estado; al tocarlos
+ * se detiene la reproduccion automatica. Con movimiento reducido o sin JS
+ * se queda fijo en "cristalina".
+ */
+import WaterGlass from './WaterGlass.astro';
+import type { Lang } from '../data/types';
+
+interface Props {
+  lang: Lang;
+  id?: string;
+  class?: string;
+}
+
+const { lang, id = 'stage', class: className = '' } = Astro.props;
+const es = lang === 'es';
+
+const states = [
+  { water: 'sulfur', label: es ? 'Azufre' : 'Sulfur', text: es ? 'Olor a huevo podrido' : 'Rotten-egg smell' },
+  { water: 'iron', label: es ? 'Hierro' : 'Iron', text: es ? 'Manchas naranjas' : 'Orange stains' },
+  { water: 'hard', label: es ? 'Dureza' : 'Hardness', text: es ? 'Sarro blanco' : 'White scale' },
+  { water: 'chlorine', label: es ? 'Cloro' : 'Chlorine', text: es ? 'Sabor a piscina' : 'Pool taste' },
+  { water: 'clear', label: es ? 'Limpia' : 'Clean', text: es ? 'Así debería salir' : 'The way it should be' },
+];
+---
+
+<div data-stage data-water="clear" class:list={['relative overflow-hidden rounded-[2rem] bg-night text-white sm:rounded-[2.5rem]', className]}>
+  <div class="ambient pointer-events-none absolute inset-0" aria-hidden="true"></div>
+
+  <div class="relative flex h-full flex-col items-center px-5 pb-6 pt-8 sm:pt-10">
+    <p class="text-center text-sm font-medium text-white/60" aria-live="polite">
+      {states.map((s) => (
+        <span class="caption" data-caption={s.water}><span class="font-semibold text-white">{s.label}.</span> {s.text}</span>
+      ))}
+    </p>
+
+    <WaterGlass id={id} class="glass mt-4 h-[clamp(13rem,34vh,24rem)] w-auto" />
+
+    <div class="mt-5 flex flex-wrap justify-center gap-1.5" role="group" aria-label={es ? 'Problemas del agua' : 'Water problems'}>
+      {states.map((s) => (
+        <button type="button" data-pick={s.water} class="chip rounded-full px-3.5 py-2 text-[0.8rem] font-semibold text-white/70 transition hover:text-white sm:text-sm">{s.label}</button>
+      ))}
+    </div>
+  </div>
+</div>
+
+<style>
+  .caption { display: none; }
+  :global([data-water='sulfur']) .caption[data-caption='sulfur'],
+  :global([data-water='iron']) .caption[data-caption='iron'],
+  :global([data-water='hard']) .caption[data-caption='hard'],
+  :global([data-water='chlorine']) .caption[data-caption='chlorine'],
+  :global([data-water='clear']) .caption[data-caption='clear'] { display: inline; }
+
+  .chip { background: rgb(255 255 255 / 0.08); }
+  .chip[aria-pressed='true'] { background: white; color: #0b1726; }
+
+  .ambient { transition: background 1s ease; }
+  [data-water='sulfur'] .ambient { background: radial-gradient(60% 50% at 50% 70%, rgb(184 176 74 / 0.35), transparent 70%); }
+  [data-water='iron'] .ambient { background: radial-gradient(60% 50% at 50% 70%, rgb(194 88 31 / 0.38), transparent 70%); }
+  [data-water='hard'] .ambient { background: radial-gradient(60% 50% at 50% 70%, rgb(201 210 218 / 0.25), transparent 70%); }
+  [data-water='chlorine'] .ambient { background: radial-gradient(60% 50% at 50% 70%, rgb(63 176 184 / 0.35), transparent 70%); }
+  [data-water='clear'] .ambient { background: radial-gradient(60% 50% at 50% 70%, rgb(22 179 212 / 0.42), transparent 70%); }
+
+  .glass { filter: drop-shadow(0 24px 48px rgb(0 0 0 / 0.5)); }
+</style>
+
+<script>
+  document.querySelectorAll<HTMLElement>('[data-stage]').forEach((stage) => {
+    const order = ['sulfur', 'iron', 'hard', 'chlorine', 'clear'];
+    const buttons = [...stage.querySelectorAll<HTMLButtonElement>('[data-pick]')];
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let index = 0;
+    let timer: number | undefined;
+
+    const show = (water: string) => {
+      stage.dataset.water = water;
+      buttons.forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pick === water)));
+    };
+
+    // El estado "limpia" se queda mas tiempo: es el final feliz.
+    const next = () => {
+      show(order[index]);
+      const wait = order[index] === 'clear' ? 4200 : 2400;
+      index = (index + 1) % order.length;
+      timer = window.setTimeout(next, wait);
+    };
+
+    buttons.forEach((b) =>
+      b.addEventListener('click', () => {
+        window.clearTimeout(timer);
+        show(b.dataset.pick!);
+      })
+    );
+
+    if (reduce) {
+      show('clear');
+      return;
+    }
+
+    // Solo se anima mientras esta en pantalla (ahorra bateria en movil).
+    const io = new IntersectionObserver(([entry]) => {
+      window.clearTimeout(timer);
+      if (entry.isIntersecting) next();
+    });
+    io.observe(stage);
+  });
+</script>

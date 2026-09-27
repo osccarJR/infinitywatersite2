@@ -3,11 +3,10 @@
  * paginas: no puede quedarse desfasado.
  */
 import type { APIRoute } from 'astro';
-import { CONTENT_PAGES, STATIC_ROUTES, contentPath, type StaticKey } from '../i18n/routes';
+import { CONTENT_PAGES, NOINDEX_KEYS, STATIC_ROUTES, contentPath, type StaticKey } from '../i18n/routes';
 import { SITE_URL } from '../config/business';
 import type { Lang } from '../data/types';
 
-const NOINDEX: StaticKey[] = ['thanks'];
 const PRIORITY: Partial<Record<string, string>> = {
   home: '1.0',
   freeWaterTest: '0.9',
@@ -18,7 +17,7 @@ const PRIORITY: Partial<Record<string, string>> = {
 export const GET: APIRoute = () => {
   const entries: { key: string; paths: Record<Lang, string> }[] = [
     ...(Object.keys(STATIC_ROUTES) as StaticKey[])
-      .filter((key) => !NOINDEX.includes(key))
+      .filter((key) => !NOINDEX_KEYS.includes(key))
       .map((key) => ({ key, paths: STATIC_ROUTES[key] })),
     ...CONTENT_PAGES.map((page) => ({ key: page.key, paths: { en: contentPath(page, 'en'), es: contentPath(page, 'es') } })),
   ];

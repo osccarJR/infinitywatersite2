@@ -24,9 +24,18 @@ export const STATIC_ROUTES = {
   privacy: { en: '/privacy-policy', es: '/es/politica-de-privacidad' },
   terms: { en: '/terms-and-conditions', es: '/es/terminos-y-condiciones' },
   smsPolicy: { en: '/sms-policy', es: '/es/politica-de-sms' },
+  // Paginas de aterrizaje para anuncios: sin menu y noindex (ver LandingView).
+  lpSmell: { en: '/l/rotten-egg-smell', es: '/es/l/olor-a-huevo' },
+  lpIron: { en: '/l/iron-stains', es: '/es/l/manchas-de-hierro' },
+  lpTest: { en: '/l/free-water-test', es: '/es/l/analisis-gratis' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type StaticKey = keyof typeof STATIC_ROUTES;
+
+/** Paginas que no se indexan ni entran en el sitemap. */
+export const NOINDEX_KEYS: StaticKey[] = ['thanks', 'lpSmell', 'lpIron', 'lpTest'];
+export const LANDING_KEYS = ['lpSmell', 'lpIron', 'lpTest'] as const;
+export type LandingKey = (typeof LANDING_KEYS)[number];
 
 const PREFIX: Record<PageKind, Record<Lang, string>> = {
   service: { en: '/services/', es: '/es/servicios/' },

@@ -28,9 +28,11 @@ import {
 
 interface Props {
   lang: Lang;
+  /** Paginas de aterrizaje: solo el bloque legal (A2P). */
+  minimal?: boolean;
 }
 
-const { lang } = Astro.props;
+const { lang, minimal = false } = Astro.props;
 const es = lang === 'es';
 const ui = t(lang);
 const link = (key: string) => pathFor(key, lang);
@@ -83,7 +85,7 @@ const legal = [
 
 <footer class="bg-mist text-[0.78rem] leading-relaxed text-muted">
   <div class="container-x py-12">
-    <div class="grid grid-cols-2 gap-x-6 gap-y-8 border-b border-line pb-8 sm:grid-cols-3 lg:grid-cols-5">
+    {!minimal && <div class="grid grid-cols-2 gap-x-6 gap-y-8 border-b border-line pb-8 sm:grid-cols-3 lg:grid-cols-5">
       {columns.map((col) => (
         <div>
           <h2 class="mb-2.5 text-[0.78rem] font-semibold tracking-normal text-ink">{col.title}</h2>
@@ -104,7 +106,7 @@ const legal = [
           {col.note && <p class="mt-3">{col.note}</p>}
         </div>
       ))}
-    </div>
+    </div>}
 
     <!-- Identidad legal (A2P): visible en todas las paginas. -->
     <div class="space-y-1 border-b border-line py-6">

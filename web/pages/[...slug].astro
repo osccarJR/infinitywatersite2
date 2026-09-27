@@ -5,7 +5,7 @@
  */
 import type { GetStaticPaths } from 'astro';
 import type { ContentPage, Lang } from '../data/types';
-import { CONTENT_PAGES, LANGS, STATIC_ROUTES, contentPath, type StaticKey } from '../i18n/routes';
+import { CONTENT_PAGES, LANDING_KEYS, LANGS, STATIC_ROUTES, contentPath, type LandingKey, type StaticKey } from '../i18n/routes';
 import HomeView from '../views/HomeView.astro';
 import ContentView from '../views/ContentView.astro';
 import FreeTestView from '../views/FreeTestView.astro';
@@ -13,6 +13,7 @@ import ThanksView from '../views/ThanksView.astro';
 import ContactView from '../views/ContactView.astro';
 import LegalView from '../views/LegalView.astro';
 import HubView from '../views/HubView.astro';
+import LandingView from '../views/LandingView.astro';
 
 type Props = { lang: Lang; staticKey?: StaticKey; page?: ContentPage };
 
@@ -38,3 +39,4 @@ const { lang, staticKey, page } = Astro.props as Props;
 {staticKey === 'contact' && <ContactView lang={lang} />}
 {(staticKey === 'privacy' || staticKey === 'terms' || staticKey === 'smsPolicy') && <LegalView lang={lang} doc={staticKey} />}
 {(staticKey === 'services' || staticKey === 'areas') && <HubView lang={lang} hub={staticKey} />}
+{staticKey && (LANDING_KEYS as readonly string[]).includes(staticKey) && <LandingView lang={lang} landing={staticKey as LandingKey} />}

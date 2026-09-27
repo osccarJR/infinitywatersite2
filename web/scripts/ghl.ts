@@ -16,7 +16,7 @@ import { getAttributionParams } from './attribution';
 import { trackConversion } from './analytics';
 
 const ALLOWED_HOSTS = [/(^|\.)dejavuia\.com$/, /(^|\.)leadconnectorhq\.com$/, /(^|\.)msgsndr\.com$/];
-const CONTEXT_PARAMS = ['water_source', 'concerns', 'city'];
+const CONTEXT_PARAMS = ['water_source', 'concerns', 'city', 'owner', 'zip'];
 
 export function initGhlForm() {
   const iframe = document.querySelector<HTMLIFrameElement>('iframe[data-ghl-form]');
