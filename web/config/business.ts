@@ -176,6 +176,16 @@ export const OTHER_FLORIDA = ['North Fort Myers', 'Golden Gate Estates', 'Pine I
 export const GOOGLE_PROFILE_URL =
   'https://www.google.com/maps/place/Infinity+Water+Florida/@27.698638,-86.4413197,7z/data=!4m17!1m8!3m7!1s0x6247647057ae105:0xe780b2e2412c4fac!2sInfinity+Water+Florida!8m2!3d27.698638!4d-83.804601!10e4!16s%2Fg%2F11lp7zb5n1!3m7!1s0x6247647057ae105:0xe780b2e2412c4fac!8m2!3d27.698638!4d-83.804601!9m1!1b1!16s%2Fg%2F11lp7zb5n1';
 
+/**
+ * Enlace para dejar una resena en Google. Con el Place ID abre directamente
+ * el formulario de resena; sin el, el perfil (donde esta "Escribir una
+ * resena"). Las tarjetas QR apuntan a /es/resena y no aqui, para poder
+ * cambiar este destino sin reimprimirlas.
+ */
+export const REVIEW_URL = import.meta.env.VITE_GOOGLE_PLACE_ID
+  ? `https://search.google.com/local/writereview?placeid=${import.meta.env.VITE_GOOGLE_PLACE_ID}`
+  : GOOGLE_PROFILE_URL;
+
 export const GOOGLE_MAPS_EMBED =
   'https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d56632.71918687402!2d-81.91605309999999!3d26.602073649999997!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x88db3b4203150575%3A0x68b562b09a393053!2s3940%20Metro%20Pkwy%2C%20Fort%20Myers%2C%20FL%2033916%2C%20EE.%20UU.!5e0!3m2!1ses-419!2sus!4v1700000000000!5m2!1ses-419!2sus';
 

@@ -151,7 +151,7 @@ const tone = { bad: '#ff6b4a', mid: '#f5b400', ok: '#34c759' } as const;
 <Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES.home}>
   <!-- 1 · PRIMERA PANTALLA ------------------------------------------------ -->
   <section class="relative overflow-hidden bg-gradient-to-b from-[#eef6fc] via-white to-white">
-    <div class="container-wide grid items-center gap-10 pb-16 pt-10 sm:pt-14 lg:grid-cols-[1.1fr_1fr] lg:gap-14 lg:pb-24 lg:pt-20">
+    <div class="container-wide grid items-center gap-10 pb-16 pt-10 sm:pt-14 lg:min-h-[min(calc(100svh-3.5rem),62rem)] lg:grid-cols-[1.1fr_1fr] lg:gap-14 lg:py-16">
       <div class="text-center lg:text-left">
         <p class="inline-flex items-center gap-1.5 text-sm font-semibold text-accent sm:text-base">
           <Icon name="MapPin" class="h-4 w-4" />{c.area}
@@ -273,6 +273,7 @@ const tone = { bad: '#ff6b4a', mid: '#f5b400', ok: '#34c759' } as const;
       <p class="mt-12 flex flex-wrap items-center gap-x-8 gap-y-3 border-t border-white/10 pt-8 text-white/80">
         {MADE_IN_USA && <span class="flex items-center gap-2"><Icon name="Flag" class="h-5 w-5 text-[#5ec2ff]" />{c.madeInUsa}</span>}
         <a href={link('financing')} class="flex items-center gap-2 hover:text-white"><Icon name="CreditCard" class="h-5 w-5 text-[#5ec2ff]" />{c.financing} ›</a>
+        <a href={link('prices')} class="flex items-center gap-2 hover:text-white"><Icon name="DollarSign" class="h-5 w-5 text-[#5ec2ff]" />{es ? '¿Cuánto cuesta? Guía de precios' : 'What does it cost? Price guide'} ›</a>
       </p>
     </div>
   </section>

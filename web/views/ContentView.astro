@@ -254,7 +254,7 @@ if (page.kind === 'service') {
           </div>
         )}
       </section>
-      {index === 1 && blocks.length > 3 && (
+      {index === 1 && blocks.length > 3 && page.kind !== 'company' && page.key !== 'prices' && (
         <section class="container-wide py-4">
           <div class="flex flex-col items-center justify-between gap-6 rounded-[2rem] bg-night px-8 py-10 text-center text-white sm:flex-row sm:px-12 sm:text-left">
             <div>

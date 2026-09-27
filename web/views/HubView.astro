@@ -6,7 +6,7 @@ import FinalCta from '../components/FinalCta.astro';
 import type { Lang } from '../data/types';
 import { contentPath, pagesOfKind, STATIC_ROUTES } from '../i18n/routes';
 import { labelOf } from '../data/labels';
-import { OTHER_FLORIDA } from '../config/business';
+import { OTHER_FLORIDA, WHATSAPP_MESSAGE, whatsappUrl } from '../config/business';
 
 interface Props {
   lang: Lang;
@@ -65,7 +65,7 @@ const c =
     </div>
   </header>
 
-  <section class="container-wide grid gap-4 pb-24 sm:grid-cols-2 lg:grid-cols-3">
+  <section class:list={['container-wide grid gap-4 pb-24 sm:grid-cols-2', hub === 'services' ? 'xl:grid-cols-4' : 'lg:grid-cols-3']}>
     {pages.map((page, i) => (
       <a
         href={contentPath(page, lang)}
@@ -82,6 +82,14 @@ const c =
         <span class:list={['more mt-5', hub === 'services' && i === 1 && '!text-[#5ec2ff]']}>{es ? 'Más información' : 'Learn more'}</span>
       </a>
     ))}
+    {hub === 'areas' && (
+      <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="reveal flex min-h-[22rem] flex-col rounded-[2rem] bg-night p-9 text-white sm:rounded-[2.5rem]" data-track="whatsapp" data-location="areas-other">
+        <Icon name="MessageCircle" class="h-9 w-9 text-[#5ec2ff]" strokeWidth={1.5} />
+        <h2 class="mt-auto pt-10 text-3xl">{es ? '¿Tu zona no aparece?' : 'Don’t see your area?'}</h2>
+        <p class="mt-3 text-lg leading-snug text-white/70">{es ? 'Escríbenos por WhatsApp y te decimos si llegamos.' : 'Message us on WhatsApp and we’ll tell you if we can come.'}</p>
+        <span class="more mt-5 !text-[#5ec2ff]">WhatsApp</span>
+      </a>
+    )}
   </section>
 
   <section class="bg-mist py-20 text-center">

@@ -14,6 +14,7 @@ import ContactView from '../views/ContactView.astro';
 import LegalView from '../views/LegalView.astro';
 import HubView from '../views/HubView.astro';
 import LandingView from '../views/LandingView.astro';
+import ReviewView from '../views/ReviewView.astro';
 
 type Props = { lang: Lang; staticKey?: StaticKey; page?: ContentPage };
 
@@ -40,3 +41,5 @@ const { lang, staticKey, page } = Astro.props as Props;
 {(staticKey === 'privacy' || staticKey === 'terms' || staticKey === 'smsPolicy') && <LegalView lang={lang} doc={staticKey} />}
 {(staticKey === 'services' || staticKey === 'areas') && <HubView lang={lang} hub={staticKey} />}
 {staticKey && (LANDING_KEYS as readonly string[]).includes(staticKey) && <LandingView lang={lang} landing={staticKey as LandingKey} />}
+{staticKey === 'review' && <ReviewView lang={lang} variant="page" />}
+{staticKey === 'reviewCard' && <ReviewView lang={lang} variant="card" />}

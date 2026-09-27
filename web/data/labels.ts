@@ -25,6 +25,7 @@ const LABELS: Record<string, Record<Lang, string>> = {
   about: { en: 'About us', es: 'Nosotros' },
   financing: { en: 'Financing', es: 'Financiamiento' },
   faq: { en: 'FAQ', es: 'Preguntas frecuentes' },
+  prices: { en: 'Price guide', es: 'Guía de precios' },
 };
 
 export const labelOf = (page: ContentPage, lang: Lang) => LABELS[page.key]?.[lang] ?? page[lang].eyebrow;

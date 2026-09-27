@@ -28,12 +28,15 @@ export const STATIC_ROUTES = {
   lpSmell: { en: '/l/rotten-egg-smell', es: '/es/l/olor-a-huevo' },
   lpIron: { en: '/l/iron-stains', es: '/es/l/manchas-de-hierro' },
   lpTest: { en: '/l/free-water-test', es: '/es/l/analisis-gratis' },
+  // Resenas: pagina para el cliente y tarjeta imprimible con QR (noindex).
+  review: { en: '/review', es: '/es/resena' },
+  reviewCard: { en: '/review-card', es: '/es/tarjeta-resena' },
 } as const satisfies Record<string, Record<Lang, string>>;
 
 export type StaticKey = keyof typeof STATIC_ROUTES;
 
 /** Paginas que no se indexan ni entran en el sitemap. */
-export const NOINDEX_KEYS: StaticKey[] = ['thanks', 'lpSmell', 'lpIron', 'lpTest'];
+export const NOINDEX_KEYS: StaticKey[] = ['thanks', 'lpSmell', 'lpIron', 'lpTest', 'review', 'reviewCard'];
 export const LANDING_KEYS = ['lpSmell', 'lpIron', 'lpTest'] as const;
 export type LandingKey = (typeof LANDING_KEYS)[number];
 

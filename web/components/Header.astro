@@ -54,7 +54,7 @@ const mobileExtra = [
       ))}
     </nav>}
 
-    <div class="ml-auto flex items-center gap-1.5 sm:gap-3 lg:ml-0">
+    <div class:list={['ml-auto flex items-center gap-1.5 sm:gap-3', !minimal && 'lg:ml-0']}>
       <a href={alternatePath} hreflang={otherLang(lang)} lang={otherLang(lang)} class="nav-link inline-flex min-h-11 min-w-11 items-center justify-center px-1 text-[0.8rem] font-medium transition" aria-label={ui.langSwitchLabel}>
         <span class="sm:hidden">{lang === 'es' ? 'EN' : 'ES'}</span><span class="hidden sm:inline">{lang === 'es' ? 'English' : 'Español'}</span>
       </a>
