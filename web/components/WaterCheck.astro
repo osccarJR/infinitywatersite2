@@ -1,17 +1,15 @@
 ---
 /**
- * "Chequeo de agua": herramienta de 3 pasos (fuente, sintomas, ciudad) que
- * explica la causa probable, muestra los datos oficiales de la ciudad y
- * lleva al analisis gratis con el contexto ya rellenado en la URL.
+ * "Chequeo de agua": una sola interaccion. Control segmentado pozo/ciudad
+ * y seis sintomas; al tocar uno aparece la respuesta al instante.
  *
- * Todo el contenido se renderiza en el servidor (indexable y sin JS); el
- * script solo muestra y oculta. NO pide telefono ni datos personales: el
- * unico punto de captura del sitio sigue siendo el formulario de
- * GoHighLevel (requisito A2P).
+ * Las respuestas se renderizan en el servidor (indexables y sin JS se ven
+ * todas); el script solo muestra la elegida. NO pide datos personales: el
+ * unico punto de captura del sitio es el formulario de GoHighLevel (A2P).
  */
 import Icon from './Icon.astro';
 import type { Lang } from '../data/types';
-import { CONCERNS, CITIES } from '../data/waterCheck';
+import { CONCERNS } from '../data/waterCheck';
 import { pathFor } from '../i18n/routes';
 
 interface Props {
@@ -20,251 +18,114 @@ interface Props {
 
 const { lang } = Astro.props;
 const es = lang === 'es';
-
-const copy = {
-  eyebrow: es ? 'Chequeo de agua en 1 minuto' : '1-minute water check',
-  title: es ? '¿Qué le pasa a tu agua?' : 'What’s going on with your water?',
-  lead: es
-    ? 'Responde tres preguntas y te explicamos la causa más probable, con los datos oficiales de tu ciudad. Sin dejar tus datos.'
-    : 'Answer three questions and we’ll explain the most likely cause, with your city’s official data. No personal details needed.',
-  step1: es ? '¿De dónde viene tu agua?' : 'Where does your water come from?',
-  well: es ? 'De un pozo' : 'A private well',
-  wellHint: es ? 'Tienes bomba y tanque' : 'You have a pump and tank',
-  city: es ? 'De la ciudad' : 'City / utility',
-  cityHint: es ? 'Pagas factura de agua' : 'You pay a water bill',
-  step2: es ? '¿Qué notas? (elige todo lo que aplique)' : 'What do you notice? (pick all that apply)',
-  step3: es ? '¿En qué zona vives?' : 'Where do you live?',
-  otherCity: es ? 'Otra zona / no estoy seguro' : 'Somewhere else / not sure',
-  submit: es ? 'Ver mi resultado' : 'Show my result',
-  needSource: es ? 'Elige primero de dónde viene tu agua.' : 'First choose where your water comes from.',
-  resultTitle: es ? 'Tu resultado' : 'Your result',
-  likely: es ? 'Causa probable' : 'Likely cause',
-  whatWeDo: es ? 'Qué haríamos' : 'What we’d do',
-  learnMore: es ? 'Saber más' : 'Learn more',
-  officialData: es ? 'Datos oficiales de tu agua' : 'Your water’s official data',
-  sourceLink: es ? 'Ver reporte oficial' : 'See official report',
-  cityPage: es ? 'Tu zona en detalle' : 'Your area in detail',
-  noConcern: es
-    ? 'No marcaste ningún problema: ¡buena señal! Aun así, si tienes pozo, lo recomendable es analizarlo una vez al año.'
-    : 'You didn’t pick any issue — good sign! Still, if you’re on a well, testing once a year is recommended.',
-  disclaimer: es
-    ? 'Esto es una orientación. Solo un análisis confirma qué tiene tu agua, y por eso lo hacemos gratis.'
-    : 'This is guidance only. Only a test confirms what’s in your water — that’s why ours is free.',
-  cta: es ? 'Confirmarlo con un análisis gratis' : 'Confirm it with a free test',
-  restart: es ? 'Empezar de nuevo' : 'Start over',
-};
-
 const formPath = pathFor('freeWaterTest', lang);
+
+const c = {
+  title: es ? '¿Qué notas en tu agua?' : 'What do you notice in your water?',
+  sub: es ? 'Tócalo. Te decimos qué es.' : 'Tap it. We’ll tell you what it is.',
+  well: es ? 'Pozo' : 'Well',
+  city: es ? 'Ciudad' : 'City',
+  sourceLabel: es ? 'Tu agua viene de' : 'Your water comes from',
+  cta: es ? 'Confírmalo gratis' : 'Confirm it for free',
+  more: es ? 'Más información' : 'Learn more',
+  hint: es ? 'Elige una opción para ver la respuesta.' : 'Pick one to see the answer.',
+};
 ---
 
-<section id="chequeo" class="relative overflow-hidden bg-foam py-20 sm:py-28" data-water-check data-form={formPath}>
-  <div aria-hidden="true" class="pointer-events-none absolute left-1/2 top-0 h-px w-[80%] -translate-x-1/2 bg-gradient-to-r from-transparent via-aqua/40 to-transparent"></div>
-  <div class="container-x">
-    <div class="mx-auto max-w-2xl text-center">
-      <p class="eyebrow">{copy.eyebrow}</p>
-      <h2 class="mt-4 text-4xl sm:text-5xl">{copy.title}</h2>
-      <p class="mt-5 text-lg text-muted">{copy.lead}</p>
+<section id="chequeo" class="py-24 sm:py-32" data-water-check data-form={formPath}>
+  <div class="container-x text-center">
+    <h2 class="t-section reveal">{c.title}</h2>
+    <p class="t-lead reveal mt-4">{c.sub}</p>
+
+    <!-- Control segmentado -->
+    <div class="reveal mt-10 inline-flex rounded-full bg-mist p-1" role="radiogroup" aria-label={c.sourceLabel}>
+      {(['well', 'city'] as const).map((source) => (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={source === 'well' ? 'true' : 'false'}
+          data-source-btn={source}
+          class="seg rounded-full px-7 py-2.5 text-[0.95rem] font-semibold transition sm:px-10"
+        >
+          {source === 'well' ? c.well : c.city}
+        </button>
+      ))}
     </div>
 
-    <div class="mx-auto mt-12 max-w-5xl">
-      <form class="card overflow-hidden" data-check-form novalidate>
-        <div class="grid lg:grid-cols-3">
-          <!-- Paso 1 -->
-          <fieldset class="border-b border-ink/8 p-6 sm:p-8 lg:border-b-0 lg:border-r">
-            <legend class="step-legend"><span class="step-num">1</span>{copy.step1}</legend>
-            <div class="mt-5 grid gap-3">
-              {[
-                { value: 'well', label: copy.well, hint: copy.wellHint, icon: 'Waves' },
-                { value: 'city', label: copy.city, hint: copy.cityHint, icon: 'Building2' },
-              ].map((opt) => (
-                <label class="choice">
-                  <input type="radio" name="source" value={opt.value} class="peer sr-only" />
-                  <span class="choice-box">
-                    <span class="choice-icon"><Icon name={opt.icon} class="h-6 w-6" /></span>
-                    <span>
-                      <span class="block font-bold">{opt.label}</span>
-                      <span class="block text-sm text-muted">{opt.hint}</span>
-                    </span>
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
+    <!-- Sintomas -->
+    <div class="reveal mx-auto mt-8 grid max-w-3xl grid-cols-2 gap-3 sm:grid-cols-3">
+      {CONCERNS.map((concern) => (
+        <button type="button" class="tile group flex flex-col items-center gap-3 rounded-3xl bg-mist px-4 py-6 transition" data-concern-btn={concern.id} aria-pressed="false">
+          <Icon name={concern.icon} class="h-7 w-7 text-accent" strokeWidth={1.6} />
+          <span class="text-[0.98rem] font-semibold">{concern.label[lang]}</span>
+        </button>
+      ))}
+    </div>
 
-          <!-- Paso 2 -->
-          <fieldset class="border-b border-ink/8 p-6 sm:p-8 lg:border-b-0 lg:border-r">
-            <legend class="step-legend"><span class="step-num">2</span>{copy.step2}</legend>
-            <div class="mt-5 flex flex-wrap gap-2">
-              {CONCERNS.map((concern) => (
-                <label class="chip">
-                  <input type="checkbox" name="concern" value={concern.id} class="peer sr-only" />
-                  <span class="chip-box">
-                    <Icon name={concern.icon} class="h-4 w-4" />
-                    {concern.label[lang]}
-                  </span>
-                </label>
-              ))}
-            </div>
-          </fieldset>
-
-          <!-- Paso 3 -->
-          <fieldset class="flex flex-col p-6 sm:p-8">
-            <legend class="step-legend"><span class="step-num">3</span>{copy.step3}</legend>
-            <select name="city" class="mt-5 w-full rounded-2xl border border-ink/15 bg-white px-4 py-3.5 font-semibold focus:border-aqua">
-              {CITIES.map((city) => <option value={city.id}>{city.name}</option>)}
-              <option value="other">{copy.otherCity}</option>
-            </select>
-            <p class="mt-4 hidden rounded-xl bg-coral/10 px-4 py-3 text-sm font-semibold text-coral" role="alert" data-check-error>{copy.needSource}</p>
-            <button type="submit" class="btn btn-primary mt-auto w-full translate-y-0 pt-3 lg:mt-8">
-              {copy.submit}
-              <Icon name="ArrowRight" />
-            </button>
-          </fieldset>
-        </div>
-      </form>
-
-      <!-- Resultado (oculto hasta enviar) -->
-      <div class="mt-8 hidden" data-check-result aria-live="polite" tabindex="-1">
-        <div class="card overflow-hidden">
-          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-ink/8 bg-ink px-6 py-5 text-white sm:px-8">
-            <h3 class="text-2xl">{copy.resultTitle}</h3>
-            <button type="button" class="text-sm font-bold text-white/70 underline underline-offset-4 hover:text-white" data-check-restart>{copy.restart}</button>
-          </div>
-
-          <div class="grid gap-8 p-6 sm:p-8 lg:grid-cols-[1.6fr_1fr]">
-            <div class="space-y-5">
-              <p class="hidden rounded-2xl bg-aqua-soft p-5 font-semibold text-aqua-deep" data-no-concern>{copy.noConcern}</p>
-              {CONCERNS.map((concern) =>
-                (['well', 'city'] as const).map((source) => {
-                  const r = concern.result[source];
-                  return (
-                    <article class="hidden rounded-2xl border border-ink/10 p-5 sm:p-6" data-concern={concern.id} data-source={source}>
-                      <div class="flex items-center gap-3">
-                        <span class="grid h-10 w-10 place-items-center rounded-xl bg-violet-soft text-violet"><Icon name={concern.icon} class="h-5 w-5" /></span>
-                        <h4 class="text-lg">{concern.label[lang]}</h4>
-                      </div>
-                      <dl class="mt-4 grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <dt class="text-xs font-bold uppercase tracking-wider text-muted">{copy.likely}</dt>
-                          <dd class="mt-1.5 leading-relaxed">{r.cause[lang]}</dd>
-                        </div>
-                        <div>
-                          <dt class="text-xs font-bold uppercase tracking-wider text-muted">{copy.whatWeDo}</dt>
-                          <dd class="mt-1.5 leading-relaxed">{r.action[lang]}</dd>
-                        </div>
-                      </dl>
-                      <a href={pathFor(r.serviceKey, lang)} class="link mt-4 inline-block text-sm">{copy.learnMore} →</a>
-                    </article>
-                  );
-                })
-              )}
-            </div>
-
-            <aside class="space-y-5">
-              {CITIES.map((city) => (
-                <div class="hidden rounded-2xl bg-sand p-5 sm:p-6" data-city={city.id}>
-                  <p class="text-xs font-bold uppercase tracking-wider text-muted">{copy.officialData}</p>
-                  <p class="mt-1 font-display text-xl font-semibold">{city.name}</p>
-                  <p class="text-sm text-muted">{city.provider[lang]}</p>
-                  <dl class="mt-4 divide-y divide-ink/10">
-                    {city.facts.map((fact) => (
-                      <div class="flex items-baseline justify-between gap-4 py-2.5">
-                        <dt class="text-sm text-muted">{fact.label[lang]}</dt>
-                        <dd class="text-right font-bold">{fact.value[lang]}</dd>
-                      </div>
-                    ))}
-                  </dl>
-                  {city.note && <p class="mt-3 text-sm font-semibold text-tide">{city.note[lang]}</p>}
-                  <div class="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-sm">
-                    <a href={city.source} target="_blank" rel="noopener" class="link">{copy.sourceLink} ↗</a>
-                    <a href={pathFor(city.pageKey, lang)} class="link">{copy.cityPage} →</a>
-                  </div>
-                </div>
-              ))}
-
-              <div class="rounded-2xl bg-ink p-6 text-white">
-                <p class="text-sm leading-relaxed text-white/75">{copy.disclaimer}</p>
-                <a href={formPath} class="btn btn-brand mt-5 w-full" data-check-cta data-track="free_test_cta" data-location="water-check">
-                  {copy.cta}
-                </a>
+    <!-- Respuesta -->
+    <div class="mx-auto mt-8 max-w-3xl text-left" aria-live="polite">
+      <p class="text-center text-sm text-muted" data-hint>{c.hint}</p>
+      {CONCERNS.map((concern) =>
+        (['well', 'city'] as const).map((source) => {
+          const r = concern.result[source];
+          return (
+            <article class="answer hidden rounded-4xl bg-night p-8 text-white sm:p-10" data-answer={`${concern.id}:${source}`}>
+              <p class="text-sm font-medium text-white/60">{concern.label[lang]} · {source === 'well' ? c.well : c.city}</p>
+              <h3 class="mt-2 text-3xl sm:text-4xl">{r.headline[lang]}</h3>
+              <p class="mt-4 text-lg leading-relaxed text-white/80">{r.cause[lang]} {r.action[lang]}</p>
+              <div class="mt-7 flex flex-wrap items-center gap-x-6 gap-y-3">
+                <a href={`${formPath}?water_source=${source}&concerns=${concern.id}`} class="btn btn-primary" data-track="free_test_cta" data-location="water-check">{c.cta}</a>
+                <a href={pathFor(r.pageKey, lang)} class="more !text-[#5ec2ff]">{c.more}</a>
               </div>
-            </aside>
-          </div>
-        </div>
-      </div>
+            </article>
+          );
+        })
+      )}
     </div>
   </div>
 </section>
 
 <style>
-  @reference '../styles/global.css';
-  .step-legend { @apply flex items-center gap-3 text-[1.05rem] font-bold; }
-  .step-num {
-    @apply grid h-8 w-8 shrink-0 place-items-center rounded-full text-sm font-bold text-white;
-    background: linear-gradient(135deg, var(--color-violet), var(--color-aqua));
-  }
-  .choice { @apply block cursor-pointer; }
-  .choice-box {
-    @apply flex items-center gap-4 rounded-2xl border-2 border-ink/10 bg-white p-4 transition;
-  }
-  .choice-icon { @apply grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-foam text-aqua-deep transition; }
-  .choice:hover .choice-box { @apply border-ink/25; }
-  .peer:checked + .choice-box { @apply border-aqua bg-aqua-soft/60; }
-  .peer:checked + .choice-box .choice-icon { @apply bg-aqua text-white; }
-  .peer:focus-visible + .choice-box, .peer:focus-visible + .chip-box { outline: 3px solid var(--color-aqua); outline-offset: 2px; }
-  .chip { @apply cursor-pointer; }
-  .chip-box {
-    @apply inline-flex items-center gap-2 rounded-full border-2 border-ink/10 bg-white px-3.5 py-2 text-sm font-semibold transition;
-  }
-  .chip:hover .chip-box { @apply border-ink/25; }
-  .peer:checked + .chip-box { @apply border-violet bg-violet text-white; }
+  .seg[aria-checked='true'] { background: white; box-shadow: 0 1px 4px rgb(0 0 0 / 0.12); }
+  .seg[aria-checked='false'] { color: var(--color-muted); }
+  .tile:hover { background: #ebebef; }
+  .tile[aria-pressed='true'] { background: var(--color-night); color: white; }
+  .tile[aria-pressed='true'] svg { color: #5ec2ff; }
+  .answer:not(.hidden) { animation: pop 0.45s cubic-bezier(0.2, 0.7, 0.2, 1); }
+  @keyframes pop { from { opacity: 0; transform: translateY(12px) scale(0.98); } to { opacity: 1; transform: none; } }
 </style>
 
 <script>
   document.querySelectorAll<HTMLElement>('[data-water-check]').forEach((root) => {
-    const form = root.querySelector<HTMLFormElement>('[data-check-form]')!;
-    const result = root.querySelector<HTMLElement>('[data-check-result]')!;
-    const error = root.querySelector<HTMLElement>('[data-check-error]')!;
-    const cta = root.querySelector<HTMLAnchorElement>('[data-check-cta]')!;
-    const formPath = root.dataset.form!;
+    let source = 'well';
+    let concern: string | null = null;
 
-    const show = (selector: string, visible: (el: HTMLElement) => boolean) =>
-      root.querySelectorAll<HTMLElement>(selector).forEach((el) => el.classList.toggle('hidden', !visible(el)));
+    const render = () => {
+      root.querySelectorAll<HTMLElement>('[data-source-btn]').forEach((btn) =>
+        btn.setAttribute('aria-checked', String(btn.dataset.sourceBtn === source))
+      );
+      root.querySelectorAll<HTMLElement>('[data-concern-btn]').forEach((btn) =>
+        btn.setAttribute('aria-pressed', String(btn.dataset.concernBtn === concern))
+      );
+      root.querySelectorAll<HTMLElement>('[data-answer]').forEach((el) =>
+        el.classList.toggle('hidden', el.dataset.answer !== `${concern}:${source}`)
+      );
+      root.querySelector('[data-hint]')?.classList.toggle('hidden', concern !== null);
+    };
 
-    form.addEventListener('submit', (event) => {
-      event.preventDefault();
-      const data = new FormData(form);
-      const source = data.get('source') as string | null;
-      const concerns = data.getAll('concern') as string[];
-      const city = (data.get('city') as string) || 'other';
-
-      if (!source) {
-        error.classList.remove('hidden');
-        return;
-      }
-      error.classList.add('hidden');
-
-      show('[data-concern]', (el) => el.dataset.source === source && concerns.includes(el.dataset.concern!));
-      show('[data-no-concern]', () => concerns.length === 0);
-      show('[data-city]', (el) => el.dataset.city === city);
-
-      // El contexto viaja al formulario para que el tecnico llegue preparado.
-      const params = new URLSearchParams({ water_source: source, city });
-      if (concerns.length) params.set('concerns', concerns.join(','));
-      cta.href = `${formPath}?${params}`;
-
-      result.classList.remove('hidden');
-      result.focus({ preventScroll: true });
-      result.scrollIntoView({ behavior: 'smooth', block: 'start' });
-
-      window.dataLayer = window.dataLayer || [];
-      window.dataLayer.push({ event: 'water_check_complete', water_source: source, concerns: concerns.join(','), city });
-    });
-
-    root.querySelector('[data-check-restart]')?.addEventListener('click', () => {
-      form.reset();
-      result.classList.add('hidden');
-      form.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    });
+    root.querySelectorAll<HTMLElement>('[data-source-btn]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        source = btn.dataset.sourceBtn!;
+        render();
+      })
+    );
+    root.querySelectorAll<HTMLElement>('[data-concern-btn]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        concern = btn.dataset.concernBtn!;
+        render();
+        window.dataLayer = window.dataLayer || [];
+        window.dataLayer.push({ event: 'water_check', water_source: source, concern });
+      })
+    );
   });
 </script>

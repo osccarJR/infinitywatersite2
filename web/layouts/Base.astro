@@ -94,10 +94,11 @@ const jsonLd = [business, ...schema];
 ---
 
 <!doctype html>
-<html lang={lang}>
+<html lang={lang} class="no-js">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <script is:inline>document.documentElement.classList.remove('no-js')</script>
     <title>{title}</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonical} />
@@ -126,7 +127,7 @@ const jsonLd = [business, ...schema];
     <link rel="icon" href="/favicon.ico?v=2" sizes="any" />
     <link rel="icon" href="/images/favicon.png?v=2" type="image/png" />
     <link rel="apple-touch-icon" href="/images/apple-touch-icon.png?v=2" />
-    <meta name="theme-color" content="#0a1a2f" />
+    <meta name="theme-color" content="#161617" />
     <slot name="head" />
 
     <script type="application/ld+json" set:html={JSON.stringify(jsonLd.length === 1 ? business : { '@context': 'https://schema.org', '@graph': jsonLd.map(({ ['@context']: _, ...rest }) => rest) })} />
@@ -138,21 +139,23 @@ const jsonLd = [business, ...schema];
     </a>
 
     <Header lang={lang} alternatePath={paths[otherLang(lang)]} hideCta={onFormPage} />
+    {lang === 'en' && (
+      <div id="lang-banner" hidden class="relative z-40 bg-mist pt-14 text-[0.85rem]">
+        <div class="container-wide flex items-center gap-4 py-2.5">
+          <span class="flex-1 text-ink/80" lang="es">{ui.langBanner.text}</span>
+          <a href={paths.es} class="font-medium text-accent hover:underline" lang="es">{ui.langBanner.action} ›</a>
+          <button type="button" class="px-1 text-muted hover:text-ink" data-dismiss aria-label={ui.langBanner.dismiss}>✕</button>
+        </div>
+      </div>
+    )}
 
-    <main id="contenido" class="pt-[4.5rem]">
+    <main id="contenido" class="pt-14">
       <slot />
     </main>
 
     <Footer lang={lang} />
     <MobileBar lang={lang} onFormPage={onFormPage} />
 
-    {lang === 'en' && (
-      <div id="lang-banner" hidden class="fixed inset-x-3 bottom-[5.5rem] z-40 mx-auto flex max-w-md items-center gap-3 rounded-2xl bg-ink p-3 pl-4 text-sm text-white shadow-lift lg:bottom-6 lg:left-6 lg:right-auto">
-        <span class="flex-1">{ui.langBanner.text}</span>
-        <a href={paths.es} class="rounded-full bg-white px-3 py-1.5 font-bold text-ink" lang="es">{ui.langBanner.action}</a>
-        <button type="button" class="rounded-full p-1.5 text-white/70 hover:text-white" data-dismiss aria-label={ui.langBanner.dismiss}>✕</button>
-      </div>
-    )}
 
     <script>
       import { scheduleAnalytics } from '../scripts/analytics';
@@ -160,6 +163,23 @@ const jsonLd = [business, ...schema];
 
       initAttribution();
       scheduleAnalytics();
+
+      // Aparicion suave de los bloques .reveal al entrar en pantalla.
+      const reveals = document.querySelectorAll('.reveal');
+      if ('IntersectionObserver' in window) {
+        const io = new IntersectionObserver(
+          (entries) =>
+            entries.forEach((entry) => {
+              if (!entry.isIntersecting) return;
+              entry.target.classList.add('is-in');
+              io.unobserve(entry.target);
+            }),
+          { rootMargin: '0px 0px -8% 0px' }
+        );
+        reveals.forEach((el) => io.observe(el));
+      } else {
+        reveals.forEach((el) => el.classList.add('is-in'));
+      }
 
       // Sugerencia de idioma: nunca redirige (Google y los revisores deben ver
       // cada URL tal cual), solo ofrece la version en espanol a quien tiene
@@ -173,7 +193,11 @@ const jsonLd = [business, ...schema];
           /* almacenamiento bloqueado */
         }
         const prefersSpanish = navigator.languages?.some((code) => code.toLowerCase().startsWith('es'));
-        if (prefersSpanish && !dismissed) banner.hidden = false;
+        if (prefersSpanish && !dismissed) {
+          banner.hidden = false;
+          // El banner ya reserva el hueco de la cabecera fija.
+          document.getElementById('contenido')?.classList.replace('pt-14', 'pt-0');
+        }
         banner.querySelector('[data-dismiss]')?.addEventListener('click', () => {
           banner.hidden = true;
           try {

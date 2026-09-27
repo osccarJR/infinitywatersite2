@@ -19,7 +19,7 @@ formulario, por WhatsApp o por teléfono.
 |---|---|
 | Astro 7 | Genera cada página como HTML estático. Solo lleva JavaScript lo interactivo (menú, chequeo de agua, formulario) |
 | Tailwind CSS 4 | Estilos. Paleta y tipografía en `web/styles/global.css` |
-| Fraunces + Manrope | Tipografías autoalojadas (`@fontsource`) |
+| Inter | Tipografía autoalojada (`@fontsource`), la más cercana a la de Apple |
 | lucide-static | Iconos SVG en línea, sin JS |
 | nginx | Servidor de producción (VPS o Docker) |
 
@@ -100,20 +100,30 @@ assets/source/                Originales en alta (no se publican)
 
 57 páginas en total, más `sitemap.xml`, `robots.txt` y `404.html`.
 
+### Criterio de diseño (estilo Apple)
+
+El sitio anterior tenía 2.324 palabras y 11 secciones en la portada, y el
+dueño "no entendía nada". La regla ahora:
+
+- **Una idea por pantalla.** Titular corto que afirma, una frase y una acción.
+- **Poco texto.** Portada ≈ 200 palabras; páginas interiores 300–450.
+  `web/data/types.ts` y los textos de `web/data/pages/` siguen esos límites.
+- **Una acción principal**, siempre la misma: *Quiero mi análisis gratis*
+  (botón azul). WhatsApp va como enlace secundario ("›").
+- **Superficies:** blanco y gris claro (`mist`) alternados; azul noche solo
+  para destacar. La gota violeta→aqua del logo, solo en momentos puntuales.
+- **Navegación mínima:** cinco enlaces arriba, sin desplegables. El resto,
+  en el pie. En las páginas interiores hay una barra fija con el nombre de la
+  página y el botón de acción.
+
 ### El Chequeo de agua
 
-Herramienta de la portada (`web/components/WaterCheck.astro`). El usuario elige
-pozo o ciudad, lo que nota y su zona, y ve:
-
-- la causa probable,
-- qué haríamos,
-- los datos del reporte oficial de su ciudad, con enlace a la fuente.
-
-**No pide datos personales.** Lleva al formulario con el contexto en la URL
-(`water_source`, `concerns`, `city`), que se pasa al iframe de GoHighLevel.
-Las cifras de cada ciudad vienen de los reportes oficiales (CCR) y están en
-`web/data/waterCheck.ts`. Hay que revisarlas cada año cuando salga el reporte
-nuevo.
+Herramienta de la portada (`web/components/WaterCheck.astro`). El usuario
+elige pozo o ciudad y toca lo que nota. La respuesta aparece al instante:
+un titular ("Es azufre."), una frase y un botón para confirmarlo gratis.
+**No pide datos personales.** El contexto (`water_source`, `concerns`) viaja
+en la URL hasta el formulario de GoHighLevel. Los textos están en
+`web/data/waterCheck.ts`.
 
 ---
 

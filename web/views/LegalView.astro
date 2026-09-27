@@ -65,8 +65,8 @@ const renderDocs = es ? [{ doc: current, linkLang: 'es' as Lang }, { doc: englis
 ---
 
 <Base lang={lang} title={titles[doc][lang]} description={descriptions[doc][lang]} paths={STATIC_ROUTES[doc]}>
-  <div class="container-x max-w-3xl py-12 sm:py-16">
-    <a href={pathFor('home', lang)} class="inline-flex items-center gap-2 text-sm font-bold text-aqua-deep hover:underline">
+  <div class="container-x max-w-3xl pb-24 pt-12 sm:pt-16">
+    <a href={pathFor('home', lang)} class="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">
       <Icon name="ArrowLeft" class="h-4 w-4" />{es ? 'Volver al inicio' : 'Back to home'}
     </a>
     <p class="mt-8 flex items-center gap-3 text-sm text-muted">
@@ -78,7 +78,7 @@ const renderDocs = es ? [{ doc: current, linkLang: 'es' as Lang }, { doc: englis
       <article lang={isEnglishCopy ? 'en' : lang} class:list={['mt-8', isEnglishCopy && 'mt-20 border-t-2 border-ink/10 pt-12']}>
         {isEnglishCopy && (
           <div class="mb-10 rounded-3xl bg-foam p-5">
-            <h2 class="font-sans text-lg font-bold tracking-normal">Versión en inglés</h2>
+            <h2 class="text-lg font-semibold tracking-normal">Versión en inglés</h2>
             <p class="mt-1 text-sm text-muted">El texto en inglés que aparece a continuación es la versión oficial de este documento y se incluye para efectos de revisión.</p>
           </div>
         )}

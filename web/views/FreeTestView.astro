@@ -45,10 +45,10 @@ const c = es
         'Dinos si tu hogar recibe agua de pozo o agua de ciudad. Infinity Water se comunicará contigo para coordinar el análisis y explicarte las opciones disponibles. Enviar esta solicitud no te obliga a comprar.',
       includesTitle: 'Qué incluye la visita',
       includes: [
-        { icon: 'FlaskConical', title: 'Medición en tu casa', text: 'Del pozo o de la llave, según tu caso.' },
-        { icon: 'Search', title: 'Revisión de tu instalación', text: 'Tuberías, equipos actuales y punto de entrada.' },
-        { icon: 'FileText', title: 'Resultado explicado', text: 'En español y con palabras claras.' },
-        { icon: 'HeartHandshake', title: 'Cero presión', text: 'Si no necesitas nada, te lo decimos.' },
+        { icon: 'FlaskConical', title: 'Medimos en casa', text: 'Pozo o llave.' },
+        { icon: 'Search', title: 'Revisamos todo', text: 'Tuberías y equipos.' },
+        { icon: 'FileText', title: 'Te lo explicamos', text: 'Claro y en español.' },
+        { icon: 'HeartHandshake', title: 'Cero presión', text: 'Sin compromiso.' },
       ],
       promise: `Más de ${FOUNDER_YEARS} años de experiencia de nuestro fundador. Por ley de Florida, cualquier compra hecha en tu casa se puede cancelar hasta la medianoche del 3.er día hábil.`,
       legalHeading: 'Antes de enviar el formulario',
@@ -58,7 +58,7 @@ const c = es
       formTitle: 'Formulario de solicitud de análisis de agua gratuito',
       altTitle: '¿Prefieres hablar con alguien?',
       whatsapp: 'Escríbenos por WhatsApp',
-      phoneLabel: 'Llámanos al',
+      phoneLabel: 'Llámanos:',
       smsLabel: 'Texto/SMS',
       operatedBy: `Operado por ${LEGAL_ENTITY_DBA}.`,
     }
@@ -72,10 +72,10 @@ const c = es
         'Tell us whether your home uses well water or city water. Infinity Water will contact you to coordinate the analysis and explain the available options. Submitting this request does not obligate you to purchase anything.',
       includesTitle: 'What the visit includes',
       includes: [
-        { icon: 'FlaskConical', title: 'On-site testing', text: 'At the well or the tap, depending on your home.' },
-        { icon: 'Search', title: 'Plumbing check', text: 'Pipes, existing equipment and point of entry.' },
-        { icon: 'FileText', title: 'Results explained', text: 'In plain English or Spanish.' },
-        { icon: 'HeartHandshake', title: 'Zero pressure', text: 'If you don’t need anything, we tell you.' },
+        { icon: 'FlaskConical', title: 'We test at home', text: 'Well or tap.' },
+        { icon: 'Search', title: 'We check it all', text: 'Pipes and equipment.' },
+        { icon: 'FileText', title: 'We explain it', text: 'In plain language.' },
+        { icon: 'HeartHandshake', title: 'Zero pressure', text: 'No obligation.' },
       ],
       promise: `Backed by our founder’s ${FOUNDER_YEARS}+ years of experience. Under Florida law, any purchase made in your home can be canceled until midnight of the third business day.`,
       legalHeading: 'Before you send the form',
@@ -85,7 +85,7 @@ const c = es
       formTitle: 'Free water analysis request form',
       altTitle: 'Prefer to talk to someone?',
       whatsapp: 'Message us on WhatsApp',
-      phoneLabel: 'Call us at',
+      phoneLabel: 'Call:',
       smsLabel: 'Text/SMS',
       operatedBy: `Operated by ${LEGAL_ENTITY_DBA}.`,
     };
@@ -100,65 +100,47 @@ const legalLinks = [
 <Base lang={lang} title={c.metaTitle} description={c.metaDescription} paths={STATIC_ROUTES.freeWaterTest} onFormPage>
   <link slot="head" rel="preconnect" href={FORM_ORIGIN} />
 
-  <section class="relative overflow-hidden bg-foam">
-    <div aria-hidden="true" class="absolute -left-32 top-0 h-96 w-96 rounded-full bg-violet/10 blur-3xl"></div>
-    <div aria-hidden="true" class="absolute -right-32 top-40 h-96 w-96 rounded-full bg-aqua/15 blur-3xl"></div>
+  <section class="bg-mist pb-24 pt-14 sm:pt-20">
+    <div class="container-x max-w-3xl text-center">
+      <p class="eyebrow">{c.eyebrow}</p>
+      <h1 class="mt-3 text-[2.4rem] leading-[1.05] sm:text-6xl">{c.title}</h1>
+      <p class="mx-auto mt-5 max-w-2xl text-lg leading-relaxed text-muted sm:text-xl">{c.intro}</p>
 
-    <div class="container-x relative grid gap-12 py-12 sm:py-16 lg:grid-cols-[1fr_1.15fr] lg:gap-16 lg:py-20">
-      <!-- Contexto -->
-      <div class="lg:sticky lg:top-28 lg:self-start">
-        <p class="eyebrow">{c.eyebrow}</p>
-        <h1 class="mt-4 text-4xl sm:text-5xl">{c.title}</h1>
-        <p class="mt-6 text-lg leading-relaxed text-ink/75">{c.intro}</p>
+      <ul class="mt-10 grid grid-cols-2 gap-3 text-left sm:grid-cols-4">
+        {c.includes.map((item) => (
+          <li class="rounded-3xl bg-white p-5">
+            <Icon name={item.icon} class="h-6 w-6 text-accent" strokeWidth={1.6} />
+            <span class="mt-3 block font-semibold leading-tight">{item.title}</span>
+            <span class="mt-1 block text-sm text-muted">{item.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
 
-        <h2 class="mt-10 font-sans text-sm font-bold uppercase tracking-[0.14em] text-muted">{c.includesTitle}</h2>
-        <ul class="mt-5 grid gap-3 sm:grid-cols-2">
-          {c.includes.map((item) => (
-            <li class="flex gap-3 rounded-2xl bg-white p-4 shadow-soft">
-              <span class="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-aqua-soft text-aqua-deep"><Icon name={item.icon} class="h-5 w-5" /></span>
-              <span><span class="block font-bold">{item.title}</span><span class="block text-sm text-muted">{item.text}</span></span>
+    <div class="container-x mt-10 max-w-2xl">
+      <!-- Los enlaces legales van ANTES del formulario (A2P), visibles sin
+           depender de que el iframe haya cargado. -->
+      <div class="rounded-3xl bg-white p-6">
+        <h2 class="text-base font-semibold tracking-normal">{c.legalHeading}</h2>
+        <p class="mt-1.5 text-sm leading-relaxed text-muted">{c.legalIntro}</p>
+        <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+          {legalLinks.map(({ key, icon }) => (
+            <li>
+              <a href={pathFor(key, lang)} target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm font-medium text-accent hover:underline">
+                <Icon name={icon} class="h-4 w-4" />{c.links[key]}
+              </a>
             </li>
           ))}
         </ul>
-
-        <p class="mt-6 flex gap-3 rounded-2xl border border-ink/10 bg-white/60 p-4 text-sm leading-relaxed text-ink/75">
-          <Icon name="Scale" class="mt-0.5 h-5 w-5 shrink-0 text-violet" />{c.promise}
-        </p>
-
-        <div class="mt-8 hidden lg:block">
-          <p class="font-bold">{c.altTitle}</p>
-          <div class="mt-3 flex flex-wrap gap-3">
-            <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="btn btn-wa !min-h-11 text-sm" data-track="whatsapp" data-location="form-page"><Icon name="MessageCircle" />{c.whatsapp}</a>
-            <a href={`tel:${SUPPORT_PHONE.tel}`} class="btn btn-ghost !min-h-11 text-sm" data-track="call" data-location="form-page"><Icon name="Phone" />{SUPPORT_PHONE.display}</a>
-          </div>
-        </div>
       </div>
 
-      <!-- Formulario -->
-      <div>
-        <!-- Los enlaces legales van ANTES del formulario, visibles sin
-             depender de que el iframe haya cargado. -->
-        <div class="mb-5 rounded-3xl border border-ink/10 bg-white p-5 shadow-soft">
-          <h2 class="font-sans text-base font-bold tracking-normal">{c.legalHeading}</h2>
-          <p class="mt-1.5 text-sm leading-relaxed text-muted">{c.legalIntro}</p>
-          <ul class="mt-3 flex flex-wrap gap-x-5 gap-y-2">
-            {legalLinks.map(({ key, icon }) => (
-              <li>
-                <a href={pathFor(key, lang)} target="_blank" rel="noopener" class="inline-flex items-center gap-1.5 text-sm font-bold text-aqua-deep underline underline-offset-4">
-                  <Icon name={icon} class="h-4 w-4" />{c.links[key]}
-                </a>
-              </li>
-            ))}
-          </ul>
+      <!-- form_embed.js oculta el iframe hasta que el formulario avisa de
+           que cargo; el marcador de detras reserva el espacio mientras. -->
+      <div class="relative mt-4 min-h-[820px] overflow-hidden rounded-[2rem] bg-white">
+        <div class="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted" aria-hidden="true">
+          <span class="h-9 w-9 animate-spin rounded-full border-[3px] border-accent/20 border-t-accent"></span>
+          <span class="text-sm font-medium">{es ? 'Cargando formulario…' : 'Loading form…'}</span>
         </div>
-
-        <!-- form_embed.js oculta el iframe hasta que el formulario avisa de
-             que cargo; el marcador de detras reserva el espacio mientras. -->
-        <div class="relative min-h-[820px] overflow-hidden rounded-[2rem] border border-ink/10 bg-white shadow-lift">
-          <div class="absolute inset-0 flex flex-col items-center justify-center gap-4 text-muted" aria-hidden="true">
-            <span class="h-10 w-10 animate-spin rounded-full border-4 border-aqua/20 border-t-aqua"></span>
-            <span class="text-sm font-semibold">{es ? 'Cargando formulario…' : 'Loading form…'}</span>
-          </div>
           <iframe
             src={FORM_SRC}
             data-src={FORM_SRC}
@@ -178,17 +160,17 @@ const legalLinks = [
             data-height={FALLBACK_HEIGHT}
             data-layout-iframe-id={`inline-${FORM_ID}`}
             data-form-id={FORM_ID}></iframe>
-        </div>
-
-        <div class="mt-6 space-y-1 text-center text-sm text-muted">
-          {SMS_PHONE_NUMBER && <p>{c.smsLabel}: <strong class="text-ink">{SMS_PHONE_NUMBER}</strong></p>}
-          <p>
-            {c.phoneLabel}{' '}
-            <a href={`tel:${SUPPORT_PHONE.tel}`} class="font-bold text-aqua-deep" data-track="call" data-location="form-page">{SUPPORT_PHONE.display}</a>
-          </p>
-          <p>{c.operatedBy}</p>
-        </div>
       </div>
+
+      <p class="mt-8 flex items-start justify-center gap-2 text-center text-sm leading-relaxed text-muted">
+        <Icon name="Scale" class="mt-0.5 h-4 w-4 shrink-0 text-accent" />{c.promise}
+      </p>
+      <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row sm:gap-8">
+        <a href={whatsappUrl(WHATSAPP_MESSAGE[lang])} target="_blank" rel="noopener" class="more" data-track="whatsapp" data-location="form-page">{c.whatsapp}</a>
+        <a href={`tel:${SUPPORT_PHONE.tel}`} class="more" data-track="call" data-location="form-page">{c.phoneLabel} {SUPPORT_PHONE.display}</a>
+      </div>
+      {SMS_PHONE_NUMBER && <p class="mt-3 text-center text-sm text-muted">{c.smsLabel}: <strong class="text-ink">{SMS_PHONE_NUMBER}</strong></p>}
+      <p class="mt-3 text-center text-xs text-muted">{c.operatedBy}</p>
     </div>
   </section>
 
