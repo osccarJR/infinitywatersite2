@@ -268,4 +268,4 @@ docker compose --profile prod up --build web    # http://localhost:8080
 
 ---
 
-Diseñado y desarrollado por [Nivusoftware](https://www.nivusoftware.com/).
+Diseñado y desarrollado por [CIMARU](https://cimaru.com).
