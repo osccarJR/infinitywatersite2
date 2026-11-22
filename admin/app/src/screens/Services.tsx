@@ -3,7 +3,9 @@ import { Download, Wrench } from 'lucide-react';
 import { normalize } from '../../../shared/domain.ts';
 import { useData } from '../lib/store.tsx';
 import { Link } from '../lib/router.tsx';
-import { download } from '../lib/api.ts';
+import { useAccess } from '../lib/access.ts';
+import { exportServices } from '../lib/exports.ts';
+import { useFeedback } from '../ui/sheet.tsx';
 import { money, plural } from '../lib/format.ts';
 import { serviceTotals } from '../lib/stats.ts';
 import { AddButton, Chips, Empty, Group, Page, SearchBox } from '../ui/kit.tsx';
@@ -13,6 +15,8 @@ type Filter = 'open' | 'closed' | 'all';
 
 export function Services({ initialFilter }: { initialFilter: string | null }) {
   const data = useData();
+  const a = useAccess();
+  const { toast } = useFeedback();
   const openCount = data.services.filter((s) => s.status === 'open').length;
   const [filter, setFilter] = useState<Filter>(
     initialFilter === 'closed' || initialFilter === 'all' ? initialFilter : openCount ? 'open' : 'all'
@@ -36,9 +40,7 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
     <Page
       title="Servicio técnico"
       subtitle={openCount ? plural(openCount, 'servicio abierto', 'servicios abiertos') : 'Todo resuelto'}
-      headerAction={
-        <AddButton to="/servicio/nuevo" label="Servicio" />
-      }
+      headerAction={a.canEdit('services') ? <AddButton to="/servicio/nuevo" label="Servicio" /> : undefined}
     >
       <div className="toolbar">
         <SearchBox value={query} onChange={setQuery} placeholder="Cliente, problema o técnico" />
@@ -58,7 +60,7 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
           icon={<Wrench size={40} />}
           title="Sin servicios todavía"
           text="Cuando un cliente reporte un problema, anótalo aquí: qué pasó, quién fue, si fue garantía o se cobró."
-          action={<Link to="/servicio/nuevo" className="btn">Registrar servicio</Link>}
+          action={a.canEdit('services') ? <Link to="/servicio/nuevo" className="btn">Registrar servicio</Link> : undefined}
         />
       ) : list.length === 0 ? (
         <Empty title={filter === 'open' ? 'Ningún servicio abierto' : 'Sin resultados'} />
@@ -67,12 +69,25 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
           <div className="totals">
             <span><b>{plural(t.count, 'servicio', 'servicios')}</b></span>
             <span>Garantía <b>{t.warranty}</b></span>
-            <span>Cobrado <b>{money(t.chargedAmount)}</b></span>
-            {t.technician > 0 && <span>Técnicos <b>{money(t.technician)}</b></span>}
-            <span>Ganancia <b>{money(t.profit)}</b></span>
-            <button type="button" className="link-btn" style={{ marginLeft: 'auto', padding: 0, fontSize: 14 }} onClick={() => download('/export/services')}>
-              <Download size={14} style={{ verticalAlign: -2 }} /> Excel
-            </button>
+            {a.prices && <span>Cobrado <b>{money(t.chargedAmount)}</b></span>}
+            {a.costs && t.technician > 0 && <span>Técnicos <b>{money(t.technician)}</b></span>}
+            {a.costs && <span>Ganancia <b>{money(t.profit)}</b></span>}
+            {a.export && (
+              <button
+                type="button"
+                className="link-btn"
+                style={{ marginLeft: 'auto', padding: 0, fontSize: 14 }}
+                onClick={() => {
+                  try {
+                    exportServices(list, data, a);
+                  } catch (err: any) {
+                    toast(err.message, 'error');
+                  }
+                }}
+              >
+                <Download size={14} style={{ verticalAlign: -2 }} /> Excel
+              </button>
+            )}
           </div>
           <Group>
             {list.map((service) => (

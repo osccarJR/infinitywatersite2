@@ -137,7 +137,7 @@ export const SaleInput = z.object({
   .refine((s) => s.price == null || s.fundedAmount == null || s.fundedAmount <= s.price, { message: 'Lo que pagó la financiera no puede ser mayor que el valor de la venta', path: ['fundedAmount'] });
 export type SaleInput = z.infer<typeof SaleInput>;
 
-export const ServiceInput = z.object({
+const ServiceBase = z.object({
   client: ClientRef,
   saleId: optionalId,
   reportedDate: date,
@@ -158,9 +158,14 @@ export const ServiceInput = z.object({
   /** Si viene, se guarda como proximo mantenimiento de la venta enlazada. */
   nextServiceDate: optionalDate.optional(),
   expectedUpdatedAt: z.string().max(40).optional(),
-})
-  .refine((v) => v.status !== 'closed' || !v.closedDate || v.closedDate >= v.reportedDate, { message: 'El cierre no puede ser antes del reporte', path: ['closedDate'] })
+});
+const closedAfterReport = (v: { status: string; closedDate: string | null; reportedDate: string }) =>
+  v.status !== 'closed' || !v.closedDate || v.closedDate >= v.reportedDate;
+export const ServiceInput = ServiceBase
+  .refine(closedAfterReport, { message: 'El cierre no puede ser antes del reporte', path: ['closedDate'] })
   .refine((v) => v.billing !== 'charged' || v.amount != null, { message: 'Pon cuánto se le cobró (o marca garantía)', path: ['amount'] });
+/** Para quien no ve montos: puede marcar "se cobró" sin poner cuánto (lo completa el administrador). */
+export const ServiceInputNoAmount = ServiceBase.refine(closedAfterReport, { message: 'El cierre no puede ser antes del reporte', path: ['closedDate'] });
 export type ServiceInput = z.infer<typeof ServiceInput>;
 
 export const PersonInput = z
@@ -209,6 +214,25 @@ const newPassword = z.string().min(10, 'La contraseña debe tener al menos 10 ca
 
 export const PasswordInput = z.object({ current: z.string().min(1).max(200), next: newPassword });
 
+const level = z.enum(['none', 'view', 'edit']);
+
+/** Permisos tal como llegan de la app; se completan y corrigen con normalizePermissions. */
+export const PermissionsInput = z.object({
+  scope: z.enum(['all', 'own']),
+  personId: id.nullable(),
+  clients: z.enum(['view', 'edit']),
+  sales: level,
+  services: level,
+  money: z.enum(['none', 'prices', 'all']),
+  payments: level,
+  payables: level,
+  inventory: level,
+  reports: z.boolean(),
+  export: z.boolean(),
+  delete: z.boolean(),
+  catalogs: z.boolean(),
+});
+
 export const UserCreateInput = z.object({
   username: z
     .string()
@@ -217,13 +241,87 @@ export const UserCreateInput = z.object({
     .regex(/^[a-z0-9._-]{3,40}$/, 'Usuario: de 3 a 40 letras, números, punto o guion'),
   name: requiredText('Escribe el nombre', 80),
   password: newPassword,
+  role: z.enum(['admin', 'member']).default('member'),
+  permissions: PermissionsInput.optional(),
 });
 
 export const UserUpdateInput = z.object({
   name: requiredText('Escribe el nombre', 80).optional(),
   active: z.boolean().optional(),
   password: newPassword.optional(),
+  role: z.enum(['admin', 'member']).optional(),
+  permissions: PermissionsInput.optional(),
 });
+
+/* ------------------------- cuentas por pagar ------------------------- */
+
+export const PayableAccountInput = z.object({
+  name: requiredText('Escribe el nombre de la cuenta', 80),
+  kind: z.enum(['card', 'supplier', 'loan', 'person', 'other']),
+  last4: text(4).refine((v) => v == null || /^\d{4}$/.test(v), 'Los últimos 4 dígitos son 4 números'),
+  dueDay: z.number().int().min(1, 'Día del 1 al 31').max(31, 'Día del 1 al 31').nullish().transform((v) => v ?? null),
+  creditLimit: money,
+  notes: text(1000),
+  active: z.boolean().default(true),
+});
+export type PayableAccountInput = z.infer<typeof PayableAccountInput>;
+
+const expenseCategory = z.enum(['equipment', 'materials', 'fuel', 'vehicle', 'marketing', 'office', 'payroll', 'other']);
+
+export const PayableInput = z
+  .object({
+    accountId: id,
+    date,
+    description: requiredText('Escribe qué se compró o se debe', 200),
+    category: expenseCategory.nullish().transform((v) => v ?? null),
+    amount: z.number({ error: 'Pon el monto' }).int('Monto no válido').min(1, 'Pon el monto').max(1_000_000_000, 'Monto demasiado alto'),
+    dueDate: optionalDate,
+    notes: text(2000),
+    expectedUpdatedAt: z.string().max(40).optional(),
+  })
+  .refine((v) => !v.dueDate || v.dueDate >= v.date, { message: 'El vencimiento no puede ser antes de la fecha del cargo', path: ['dueDate'] });
+export type PayableInput = z.infer<typeof PayableInput>;
+
+export const PayablePaymentInput = z.object({
+  accountId: id,
+  payableId: id.nullish().transform((v) => v ?? null),
+  date,
+  amount: z.number({ error: 'Pon el monto' }).int('Monto no válido').min(1, 'Pon el monto').max(1_000_000_000, 'Monto demasiado alto'),
+  method: z.enum(['zelle', 'transfer', 'card', 'cash', 'check']).nullish().transform((v) => v ?? null),
+  notes: text(1000),
+});
+export type PayablePaymentInput = z.infer<typeof PayablePaymentInput>;
+
+/* ----------------------------- inventario ----------------------------- */
+
+const quantity = z.number({ error: 'Pon la cantidad' }).int('La cantidad va en unidades enteras');
+
+export const InventoryItemInput = z.object({
+  name: requiredText('Escribe el nombre del producto', 120),
+  category: z.enum(['tank', 'membrane', 'filter', 'media', 'aerator', 'uv', 'part', 'other']),
+  sku: text(60),
+  cost: money,
+  minStock: z.number().int().min(0, 'El mínimo no puede ser negativo').max(100000).default(0),
+  notes: text(1000),
+  active: z.boolean().default(true),
+});
+export type InventoryItemInput = z.infer<typeof InventoryItemInput>;
+
+export const InventoryMovementInput = z
+  .object({
+    itemId: id,
+    date,
+    kind: z.enum(['in', 'out', 'adjust']),
+    quantity: quantity.min(-100000).max(100000),
+    unitCost: money,
+    supplierId: id.nullish().transform((v) => v ?? null),
+    saleId: id.nullish().transform((v) => v ?? null),
+    serviceId: id.nullish().transform((v) => v ?? null),
+    notes: text(1000),
+  })
+  .refine((v) => v.kind === 'adjust' || v.quantity > 0, { message: 'La cantidad debe ser mayor que cero', path: ['quantity'] })
+  .refine((v) => v.kind !== 'adjust' || v.quantity !== 0, { message: 'El ajuste no puede ser cero', path: ['quantity'] });
+export type InventoryMovementInput = z.infer<typeof InventoryMovementInput>;
 
 /** Mensaje legible y campo del primer error de validacion. */
 export function firstIssue(error: z.ZodError): { message: string; field?: string } {

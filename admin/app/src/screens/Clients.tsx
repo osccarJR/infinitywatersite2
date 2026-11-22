@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Users } from 'lucide-react';
 import { equipmentSummary, normalize } from '../../../shared/domain.ts';
 import { useData } from '../lib/store.tsx';
+import { useAccess } from '../lib/access.ts';
 import { Link } from '../lib/router.tsx';
 import { AddButton, Avatar, Badge, Chips, ContactRow, Empty, Group, Page, SearchBox } from '../ui/kit.tsx';
 
@@ -9,6 +10,7 @@ type Filter = 'all' | 'open' | 'no_sale';
 
 export function Clients() {
   const data = useData();
+  const a = useAccess();
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
 
@@ -36,9 +38,7 @@ export function Clients() {
     <Page
       title="Clientes"
       subtitle={`${data.clients.length} en total`}
-      headerAction={
-        <AddButton to="/clientes/nuevo" label="Cliente" />
-      }
+      headerAction={a.canEdit('clients') ? <AddButton to="/clientes/nuevo" label="Cliente" /> : undefined}
     >
       <div className="toolbar">
         <SearchBox value={query} onChange={setQuery} placeholder="Nombre, teléfono o calle" />
@@ -48,7 +48,7 @@ export function Clients() {
           options={[
             { key: 'all', label: 'Todos' },
             { key: 'open', label: 'Con servicio abierto', count: openByClient.size },
-            { key: 'no_sale', label: 'Sin venta registrada', count: noSale },
+            ...(a.canSee('sales') ? [{ key: 'no_sale' as const, label: 'Sin venta registrada', count: noSale }] : []),
           ]}
         />
       </div>
@@ -58,7 +58,7 @@ export function Clients() {
           icon={<Users size={40} />}
           title="Aún no hay clientes"
           text="Se crean solos al registrar una venta o un servicio. También puedes agregar uno suelto."
-          action={<Link to="/clientes/nuevo" className="btn">Agregar cliente</Link>}
+          action={a.canEdit('clients') ? <Link to="/clientes/nuevo" className="btn">Agregar cliente</Link> : undefined}
         />
       ) : list.length === 0 ? (
         <Empty title="Sin resultados" text="Prueba con otra parte del nombre, el teléfono o la calle." />
@@ -77,7 +77,7 @@ export function Clients() {
                 subtitle={
                   <>
                     <span style={{ display: 'block', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                      {[client.city, latest ? equipmentSummary(latest.equipment) : 'Sin venta registrada'].filter(Boolean).join(' · ')}
+                      {[client.city, latest ? equipmentSummary(latest.equipment) : a.canSee('sales') ? 'Sin venta registrada' : null].filter(Boolean).join(' · ') || client.phone || '—'}
                     </span>
                     {openByClient.has(client.id) && (
                       <span className="badges">

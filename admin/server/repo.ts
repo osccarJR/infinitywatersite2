@@ -60,7 +60,7 @@ export function catalogUsage(db: DB, kind: 'people' | CatalogTable, id: number):
     people: `SELECT (SELECT COUNT(*) FROM sales WHERE seller_id = @id OR installer_id = @id)
                   + (SELECT COUNT(*) FROM services WHERE technician_id = @id) AS n`,
     financiers: 'SELECT COUNT(*) AS n FROM sales WHERE financier_id = @id',
-    suppliers: 'SELECT COUNT(*) AS n FROM sale_suppliers WHERE supplier_id = @id',
+    suppliers: 'SELECT (SELECT COUNT(*) FROM sale_suppliers WHERE supplier_id = @id) + (SELECT COUNT(*) FROM inventory_movements WHERE supplier_id = @id) AS n',
     brands: 'SELECT COUNT(*) AS n FROM sales WHERE brand_id = @id',
   };
   return (db.prepare(queries[kind]).get({ id }) as { n: number }).n;

@@ -12,6 +12,7 @@ import { createHash, randomBytes, scrypt as scryptCb, timingSafeEqual } from 'no
 import { promisify } from 'node:util';
 import type { DB } from './db.ts';
 import type { User } from '../shared/domain.ts';
+import { normalizePermissions } from '../shared/domain.ts';
 
 const scrypt = promisify(scryptCb) as (pw: string, salt: Buffer, len: number, opts: object) => Promise<Buffer>;
 const SCRYPT = { N: 16384, r: 8, p: 1 };
@@ -48,20 +49,34 @@ type UserRow = {
   id: number;
   username: string;
   name: string;
-  role: 'admin';
+  role: 'admin' | 'member';
   active: number;
   last_login_at: string | null;
   password_hash: string;
+  permissions: string | null;
 };
+
+function readPermissions(json: string | null) {
+  try {
+    return json ? JSON.parse(json) : null;
+  } catch {
+    return null;
+  }
+}
 
 export const toUser = (row: UserRow): User => ({
   id: row.id,
   username: row.username,
   name: row.name,
-  role: row.role,
+  role: row.role === 'admin' ? 'admin' : 'member',
   active: Boolean(row.active),
   lastLoginAt: row.last_login_at,
+  permissions: normalizePermissions(readPermissions(row.permissions), row.role === 'admin'),
 });
+
+export function findUserById(db: DB, id: number): UserRow | undefined {
+  return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as UserRow | undefined;
+}
 
 export function findUserByUsername(db: DB, username: string): UserRow | undefined {
   return db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim()) as UserRow | undefined;

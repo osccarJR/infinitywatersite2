@@ -2,9 +2,11 @@
  * Estructura de la app: acceso, navegacion (barra lateral en escritorio,
  * pestanas abajo en el telefono), boton "+" y rutas.
  */
-import { useState, type ReactNode } from 'react';
-import { ChevronRight, HandCoins, History, House, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
+import { Suspense, lazy, useState, type ReactNode } from 'react';
+import { BarChart3, Boxes, ChevronRight, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
 import { StoreProvider, useData, useStore } from './lib/store.tsx';
+import { accessOf, type Access } from './lib/access.ts';
+import { permissionsSummary } from '../../shared/domain.ts';
 import { Link, matchRoute, navigate, useLocation } from './lib/router.tsx';
 import { FeedbackProvider, Sheet } from './ui/sheet.tsx';
 import { Avatar, IconBox, PrivacyToggle, Spinner } from './ui/kit.tsx';
@@ -19,8 +21,17 @@ import { SaleDetail } from './screens/SaleDetail.tsx';
 import { SaleForm } from './screens/SaleForm.tsx';
 import { Services } from './screens/Services.tsx';
 import { ServiceForm } from './screens/ServiceForm.tsx';
-import { Settings as SettingsScreen, CatalogScreen, PeopleScreen, UsersScreen, AccountScreen } from './screens/Settings.tsx';
+import { Settings as SettingsScreen, CatalogScreen, PeopleScreen, AccountScreen } from './screens/Settings.tsx';
 import { Payments } from './screens/Payments.tsx';
+
+// Secciones que no se usan a diario: se descargan al abrirlas (la app inicial pesa menos).
+const UsersScreen = lazy(() => import('./screens/Users.tsx').then((m) => ({ default: m.UsersScreen })));
+const UserScreen = lazy(() => import('./screens/Users.tsx').then((m) => ({ default: m.UserScreen })));
+const Payables = lazy(() => import('./screens/Payables.tsx').then((m) => ({ default: m.Payables })));
+const PayableAccountScreen = lazy(() => import('./screens/Payables.tsx').then((m) => ({ default: m.PayableAccountScreen })));
+const Inventory = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.Inventory })));
+const InventoryItemScreen = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.InventoryItemScreen })));
+const Reports = lazy(() => import('./screens/Reports.tsx').then((m) => ({ default: m.Reports })));
 
 export function App() {
   return (
@@ -74,16 +85,39 @@ const ROUTES: [string, (p: Record<string, string>, q: URLSearchParams) => ReactN
   ['/servicio/nuevo', (_, q) => <ServiceForm clientId={Number(q.get('cliente')) || null} saleId={Number(q.get('venta')) || null} />],
   ['/servicio/:id', (p) => <ServiceForm id={Number(p.id)} />],
   ['/pagos', (_, q) => <Payments initialTab={q.get('tab')} />],
+  ['/pagar', (_, q) => <Payables action={q.get('nuevo')} />],
+  ['/pagar/:id', (p) => <PayableAccountScreen id={Number(p.id)} />],
+  ['/inventario', (_, q) => <Inventory action={q.get('nuevo')} />],
+  ['/inventario/:id', (p) => <InventoryItemScreen id={Number(p.id)} />],
+  ['/reportes', (_, q) => <Reports initial={q.get('r')} />],
   ['/ajustes', () => <SettingsScreen />],
   ['/ajustes/equipo', () => <PeopleScreen />],
   ['/ajustes/financieras', () => <CatalogScreen table="financiers" />],
   ['/ajustes/proveedores', () => <CatalogScreen table="suppliers" />],
   ['/ajustes/marcas', () => <CatalogScreen table="brands" />],
   ['/ajustes/usuarios', () => <UsersScreen />],
+  ['/ajustes/usuarios/:id', (p) => <UserScreen id={Number(p.id)} />],
   ['/ajustes/cuenta', () => <AccountScreen />],
 ];
 
-function resolve(path: string, query: URLSearchParams) {
+/** Que permiso pide cada parte de la app (el servidor exige lo mismo). */
+const ROUTE_ACCESS: [RegExp, (a: Access) => boolean][] = [
+  [/^\/ventas\/(nueva|\d+\/editar)$/, (a) => a.canEdit('sales')],
+  [/^\/ventas/, (a) => a.canSee('sales')],
+  [/^\/servicio\/nuevo$/, (a) => a.canEdit('services')],
+  [/^\/servicio/, (a) => a.canSee('services')],
+  [/^\/clientes\/(nuevo|\d+\/editar)$/, (a) => a.canEdit('clients')],
+  [/^\/pagos/, (a) => a.canSee('payments')],
+  [/^\/pagar/, (a) => a.canSee('payables')],
+  [/^\/inventario/, (a) => a.canSee('inventory')],
+  [/^\/reportes/, (a) => a.reports],
+  [/^\/ajustes\/usuarios/, (a) => a.admin],
+  [/^\/ajustes\/(equipo|financieras|proveedores|marcas)/, (a) => a.catalogs],
+];
+
+function resolve(path: string, query: URLSearchParams, access: Access) {
+  const rule = ROUTE_ACCESS.find(([pattern]) => pattern.test(path));
+  if (rule && !rule[1](access)) return { key: 'denied', node: <NoAccess /> };
   for (const [pattern, render] of ROUTES) {
     const params = matchRoute(pattern, path);
     // Los :id son numericos; "nuevo"/"nueva" son rutas fijas declaradas antes.
@@ -92,6 +126,19 @@ function resolve(path: string, query: URLSearchParams) {
     }
   }
   return { key: '404', node: <NotFound /> };
+}
+
+function NoAccess() {
+  return (
+    <div className="page">
+      <div className="empty" style={{ paddingTop: 120 }}>
+        <span className="empty-icon"><Lock size={40} /></span>
+        <div className="empty-title">No tienes acceso a esta sección</div>
+        <p className="muted" style={{ maxWidth: 320, margin: '0 auto' }}>Si la necesitas, pídele al administrador que te dé permiso.</p>
+        <Link to="/" className="btn small secondary">Ir al inicio</Link>
+      </div>
+    </div>
+  );
 }
 
 function NotFound() {
@@ -109,13 +156,18 @@ function NotFound() {
 /* Navegacion                                                           */
 /* ------------------------------------------------------------------ */
 
-const NAV = [
-  { to: '/', label: 'Inicio', icon: House },
-  { to: '/clientes', label: 'Clientes', icon: Users },
-  { to: '/ventas', label: 'Ventas', icon: Receipt },
-  { to: '/servicio', label: 'Servicio técnico', short: 'Servicio', icon: Wrench },
-  { to: '/pagos', label: 'Pagos', icon: HandCoins },
-  { to: '/ajustes', label: 'Ajustes', icon: Settings },
+type NavItem = { to: string; label: string; short?: string; icon: typeof House; color: string; show: (a: Access) => boolean };
+
+const NAV: NavItem[] = [
+  { to: '/', label: 'Inicio', icon: House, color: '#0a72c2', show: () => true },
+  { to: '/clientes', label: 'Clientes', icon: Users, color: '#0a72c2', show: () => true },
+  { to: '/ventas', label: 'Ventas', icon: Receipt, color: '#0a72c2', show: (a) => a.canSee('sales') },
+  { to: '/servicio', label: 'Servicio técnico', short: 'Servicio', icon: Wrench, color: '#ff9500', show: (a) => a.canSee('services') },
+  { to: '/pagos', label: 'Pagos', icon: HandCoins, color: '#1d9a46', show: (a) => a.canSee('payments') },
+  { to: '/pagar', label: 'Cuentas por pagar', short: 'Por pagar', icon: CreditCard, color: '#e5484d', show: (a) => a.canSee('payables') },
+  { to: '/inventario', label: 'Inventario', icon: Boxes, color: '#6a3fdc', show: (a) => a.canSee('inventory') },
+  { to: '/reportes', label: 'Reportes', icon: BarChart3, color: '#16a3c4', show: (a) => a.reports },
+  { to: '/ajustes', label: 'Ajustes', icon: Settings, color: '#8e8e93', show: () => true },
 ];
 
 const isActive = (to: string, path: string) => (to === '/' ? path === '/' : path === to || path.startsWith(to + '/'));
@@ -123,24 +175,34 @@ const isActive = (to: string, path: string) => (to === '/' ? path === '/' : path
 function Shell() {
   const { path, query } = useLocation();
   const data = useData();
+  const access = accessOf(data.me.permissions);
   // Al tapar o destapar los montos se vuelve a pintar todo con el formato nuevo.
   useAmountsHidden();
   const [plusOpen, setPlusOpen] = useState(false);
-  const route = resolve(path, query);
+  const [moreOpen, setMoreOpen] = useState(false);
+  const route = resolve(path, query, access);
   const openServices = data.services.filter((s) => s.status === 'open').length;
   // En los formularios del telefono se oculta la barra de pestanas: queda solo
   // la barra de Guardar, sin dos barras apiladas.
   const isForm = /^\/(ventas\/(nueva|\d+\/editar)|servicio\/(nuevo|\d+)|clientes\/(nuevo|\d+\/editar))$/.test(path);
 
-  const pendingPayments = data.sales.filter((s) => s.status === 'active' && (((s.commission ?? 0) > 0 && !s.commissionPaid) || (s.paymentMethod === 'financed' && !s.fundedPaid))).length;
+  const pendingPayments = access.canSee('payments')
+    ? data.sales.filter((s) => s.status === 'active' && (((s.commission ?? 0) > 0 && !s.commissionPaid) || (s.paymentMethod === 'financed' && !s.fundedPaid))).length
+    : 0;
   const counts: Record<string, number | undefined> = {
     '/clientes': data.clients.length || undefined,
     '/servicio': openServices || undefined,
     '/pagos': pendingPayments || undefined,
   };
 
+  const nav = NAV.filter((item) => item.show(access));
+  // Telefono: Inicio + dos secciones principales + "Mas" con el resto.
+  const primary = nav.filter((item) => ['/clientes', '/ventas', '/servicio'].includes(item.to)).slice(0, 2);
+  const more = nav.filter((item) => item.to !== '/' && !primary.includes(item));
+
   return (
-    <div className={`app${isForm ? ' no-tabbar' : ''}`}>
+    <div className={`app${isForm ? ' no-tabbar' : ''}${data.viewer ? ' previewing' : ''}`}>
+      {data.viewer && <PreviewBar />}
       <aside className="sidebar">
         <Link to="/" className="brand brand-duo" aria-label="Inicio · Infinity Water y Magic Water">
           <span className="brand-logos">
@@ -149,18 +211,22 @@ function Shell() {
           </span>
           <span className="brand-sub">Gestión del negocio</span>
         </Link>
-        {NAV.map(({ to, label, icon: Icon }) => (
-          <Link key={to} to={to} className={`nav-item${isActive(to, path) ? ' active' : ''}`} aria-current={isActive(to, path) ? 'page' : undefined}>
-            <Icon size={19} strokeWidth={2} />
-            {label}
-            {counts[to] != null && <span className="count">{counts[to]}</span>}
-          </Link>
-        ))}
-        <button type="button" className="btn" onClick={() => setPlusOpen(true)}>
-          <Plus size={20} strokeWidth={2.5} />
-          Registrar
-        </button>
-        <PrivacyToggle />
+        <nav className="sidebar-nav" aria-label="Secciones">
+          {nav.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to} className={`nav-item${isActive(to, path) ? ' active' : ''}`} aria-current={isActive(to, path) ? 'page' : undefined}>
+              <Icon size={19} strokeWidth={2} />
+              {label}
+              {counts[to] != null && <span className="count">{counts[to]}</span>}
+            </Link>
+          ))}
+        </nav>
+        {access.canRegister && (
+          <button type="button" className="btn" onClick={() => setPlusOpen(true)}>
+            <Plus size={20} strokeWidth={2.5} />
+            Registrar
+          </button>
+        )}
+        {access.prices && <PrivacyToggle />}
         <div className="sidebar-foot">
           <Link to="/ajustes/cuenta" className={`account-card${path === '/ajustes/cuenta' ? ' active' : ''}`} aria-label={`Mi cuenta: ${data.me.name}`}>
             <Avatar name={data.me.name} />
@@ -174,29 +240,88 @@ function Shell() {
       </aside>
 
       <main className="main" key={route.key + path}>
-        {route.node}
+        <Suspense fallback={<div className="splash inline"><Spinner /></div>}>{route.node}</Suspense>
       </main>
 
       <nav className="tabbar" aria-label="Secciones">
-        {NAV.slice(0, 2).map((item) => (
-          <TabLink key={item.to} {...item} active={isActive(item.to, path)} />
-        ))}
-        <button type="button" className="tab" onClick={() => setPlusOpen(true)} aria-label="Registrar">
-          <span className="tab-plus">
-            <Plus size={26} strokeWidth={2.6} />
-          </span>
+        <TabLink {...NAV[0]} active={isActive('/', path)} />
+        {primary[0] && <TabLink {...primary[0]} active={isActive(primary[0].to, path)} />}
+        {access.canRegister && (
+          <button type="button" className="tab" onClick={() => setPlusOpen(true)} aria-label="Registrar">
+            <span className="tab-plus">
+              <Plus size={26} strokeWidth={2.6} />
+            </span>
+          </button>
+        )}
+        {primary[1] && <TabLink {...primary[1]} active={isActive(primary[1].to, path)} />}
+        <button type="button" className={`tab${more.some((item) => isActive(item.to, path)) ? ' active' : ''}`} onClick={() => setMoreOpen(true)} aria-label="Más secciones">
+          <LayoutGrid size={24} strokeWidth={1.9} />
+          Más
         </button>
-        {NAV.slice(2, 4).map((item) => (
-          <TabLink key={item.to} {...item} active={isActive(item.to, path)} />
-        ))}
       </nav>
 
-      <PlusSheet open={plusOpen} onClose={() => setPlusOpen(false)} />
+      <PlusSheet open={plusOpen} onClose={() => setPlusOpen(false)} access={access} />
+      <MoreSheet open={moreOpen} onClose={() => setMoreOpen(false)} items={more} counts={counts} />
     </div>
   );
 }
 
-function TabLink({ to, label, short, icon: Icon, active }: { to: string; label: string; short?: string; icon: typeof House; active: boolean }) {
+/** Vista previa: aviso fijo arriba con salida en un toque. */
+function PreviewBar() {
+  const data = useData();
+  const { setPreview } = useStore();
+  const id = data.me.id;
+  const exit = async () => {
+    await setPreview(null);
+    navigate(`/ajustes/usuarios/${id}`, { replace: true, force: true });
+  };
+  return (
+    <div className="preview-bar" role="status">
+      <Eye size={18} />
+      <span className="preview-text">
+        <b>Así ve el sistema {data.me.name}</b>
+        <span>{permissionsSummary(data.me.permissions)} · vista previa, no se guarda nada</span>
+      </span>
+      <button type="button" className="preview-exit" onClick={exit}>
+        Salir
+      </button>
+    </div>
+  );
+}
+
+/** "Mas" en el telefono: el resto de secciones como cuadricula de apps. */
+function MoreSheet({ open, onClose, items, counts }: { open: boolean; onClose: () => void; items: NavItem[]; counts: Record<string, number | undefined> }) {
+  const data = useData();
+  const go = (to: string) => {
+    onClose();
+    navigate(to);
+  };
+  return (
+    <Sheet open={open} onClose={onClose} title="Más">
+      <div className="app-grid">
+        {items.map(({ to, label, short, icon: Icon, color }) => (
+          <button key={to} type="button" className="app-tile" onClick={() => go(to)}>
+            <span className="app-tile-icon" style={{ background: color }}>
+              <Icon size={24} strokeWidth={2} />
+              {counts[to] != null && <span className="app-tile-badge">{counts[to]}</span>}
+            </span>
+            <span className="app-tile-label">{short ?? label}</span>
+          </button>
+        ))}
+      </div>
+      <button type="button" className="account-card more-account" onClick={() => go('/ajustes/cuenta')}>
+        <Avatar name={data.me.name} />
+        <span className="account-text">
+          <span className="account-name">{data.me.name}</span>
+          <span className="account-sub">Mi cuenta · {data.me.username}</span>
+        </span>
+        <ChevronRight size={18} color="var(--text-3)" />
+      </button>
+    </Sheet>
+  );
+}
+
+function TabLink({ to, label, short, icon: Icon, active }: { to: string; label: string; short?: string; icon: typeof House; active: boolean; [key: string]: unknown }) {
   return (
     <Link to={to} className={`tab${active ? ' active' : ''}`} aria-current={active ? 'page' : undefined}>
       <Icon size={24} strokeWidth={active ? 2.3 : 1.9} />
@@ -205,15 +330,16 @@ function TabLink({ to, label, short, icon: Icon, active }: { to: string; label: 
   );
 }
 
-/** El boton "+": las cuatro formas de registrar algo. */
-function PlusSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
+/** El boton "+": las formas de registrar algo, segun los permisos. */
+function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => void; access: Access }) {
   const go = (to: string) => {
     onClose();
     navigate(to);
   };
-  const actions = [
+  const all = [
     {
       to: '/ventas/nueva',
+      show: access.canEdit('sales'),
       icon: <Receipt size={22} />,
       color: 'var(--accent)',
       title: 'Venta nueva',
@@ -221,6 +347,7 @@ function PlusSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     },
     {
       to: '/ventas/nueva?anterior=1',
+      show: access.canEdit('sales'),
       icon: <History size={22} />,
       color: '#6a3fdc',
       title: 'Cliente anterior',
@@ -228,6 +355,7 @@ function PlusSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     },
     {
       to: '/servicio/nuevo',
+      show: access.canEdit('services'),
       icon: <Wrench size={22} />,
       color: '#ff9500',
       title: 'Servicio técnico',
@@ -235,12 +363,30 @@ function PlusSheet({ open, onClose }: { open: boolean; onClose: () => void }) {
     },
     {
       to: '/clientes/nuevo',
+      show: access.canEdit('clients'),
       icon: <UserPlus size={22} />,
       color: '#34c759',
       title: 'Solo el cliente',
       text: 'Sus datos de contacto, sin venta todavía.',
     },
+    {
+      to: '/pagar?nuevo=cargo',
+      show: access.canEdit('payables'),
+      icon: <CreditCard size={22} />,
+      color: '#e5484d',
+      title: 'Gasto o cuenta por pagar',
+      text: 'Una compra con tarjeta, una factura de proveedor, una cuota.',
+    },
+    {
+      to: '/inventario?nuevo=movimiento',
+      show: access.canEdit('inventory'),
+      icon: <PackagePlus size={22} />,
+      color: '#6a3fdc',
+      title: 'Inventario',
+      text: 'Entra mercancía o sale para una instalación.',
+    },
   ];
+  const actions = all.filter((a) => a.show);
   return (
     <Sheet open={open} onClose={onClose} title="Registrar">
       <div className="action-list">

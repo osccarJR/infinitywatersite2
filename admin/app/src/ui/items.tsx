@@ -4,6 +4,7 @@ import { SALE_STATUS_LABEL, SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipment
 import type { Data } from '../lib/store.tsx';
 import { date, daysBetween, money, moneyRound } from '../lib/format.ts';
 import { Avatar, Badge, Row } from './kit.tsx';
+import { useAccess, visibleMissing } from '../lib/access.ts';
 
 export function SaleBadges({ sale, data, hideMissing }: { sale: Sale; data: Data; hideMissing?: boolean }) {
   if (!isActiveSale(sale)) {
@@ -13,22 +14,25 @@ export function SaleBadges({ sale, data, hideMissing }: { sale: Sale; data: Data
       </span>
     );
   }
+  const a = useAccess();
   const m = saleMoney(sale);
   const state = installState(sale, data.today);
-  const missing = saleMissing(sale);
+  const missing = visibleMissing(saleMissing(sale), a);
   return (
     <span className="badges">
       {state === 'pending' && <Badge tone="orange">Por instalar</Badge>}
       {state === 'scheduled' && <Badge tone="blue">Instala {date(sale.installDate, data.today)}</Badge>}
-      {m.pendingFinancier > 0 && <Badge tone="orange">Financiera por pagar</Badge>}
-      {m.pendingClient > 0 && <Badge tone="orange">Cliente debe {money(m.pendingClient)}</Badge>}
-      {(sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Comisión pendiente</Badge>}
+      {a.costs && m.pendingFinancier > 0 && <Badge tone="orange">Financiera por pagar</Badge>}
+      {a.prices && m.pendingClient > 0 && <Badge tone="orange">Cliente debe {money(m.pendingClient)}</Badge>}
+      {a.costs && (sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Comisión pendiente</Badge>}
+      {!a.costs && a.scope === 'own' && sale.sellerId === a.personId && (sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Tu comisión pendiente</Badge>}
       {!hideMissing && missing.length > 0 && <Badge>Faltan {missing.length} {missing.length === 1 ? 'dato' : 'datos'}</Badge>}
     </span>
   );
 }
 
 export function SaleRow({ sale, data, showClient = true, collect }: { sale: Sale; data: Data; showClient?: boolean; collect?: boolean }) {
+  const a = useAccess();
   const client = data.clientById.get(sale.clientId);
   const m = saleMoney(sale);
   if (collect) {
@@ -68,11 +72,12 @@ export function SaleRow({ sale, data, showClient = true, collect }: { sale: Sale
         </>
       }
       value={
+        !a.prices ? undefined : (
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
           <span style={{ color: isActiveSale(sale) ? 'var(--text)' : 'var(--text-3)', fontWeight: 600, textDecoration: isActiveSale(sale) ? undefined : 'line-through' }}>
             {sale.price == null ? '—' : moneyRound(sale.price)}
           </span>
-          {sale.price != null && isActiveSale(sale) && (
+          {a.costs && sale.price != null && isActiveSale(sale) && (
             // Ganancia estimada (faltan costos) en gris: no se presenta como real.
             <span style={{ fontSize: 13, color: m.estimate ? 'var(--text-2)' : m.profit >= 0 ? 'var(--green)' : 'var(--red)' }}>
               {m.estimate ? '≈ ' : ''}
@@ -80,20 +85,23 @@ export function SaleRow({ sale, data, showClient = true, collect }: { sale: Sale
             </span>
           )}
         </span>
+        )
       }
     />
   );
 }
 
 export function ServiceBadge({ service }: { service: Service }) {
+  const a = useAccess();
   if (service.billing === 'warranty') return <Badge tone="blue">Garantía</Badge>;
   if (service.billing === 'charged') {
+    const amount = a.prices && service.amount != null ? ` ${money(service.amount)}` : '';
     return service.paymentMethod ? (
       <Badge tone="green">
-        Cobrado {money(service.amount)} · {SERVICE_PAYMENT_LABEL[service.paymentMethod]}
+        Cobrado{amount} · {SERVICE_PAYMENT_LABEL[service.paymentMethod]}
       </Badge>
     ) : (
-      <Badge tone="orange">Por cobrar {money(service.amount)}</Badge>
+      <Badge tone="orange">Por cobrar{amount}</Badge>
     );
   }
   return null;

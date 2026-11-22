@@ -28,9 +28,151 @@ export interface User {
   id: number;
   username: string;
   name: string;
-  role: 'admin';
+  /** admin: todo (incluidos usuarios y respaldo). member: lo que digan sus permisos. */
+  role: 'admin' | 'member';
   active: boolean;
   lastLoginAt: string | null;
+  /** Ya resueltos: para un administrador, todo permitido. */
+  permissions: Permissions;
+}
+
+/* ------------------------------------------------------------------ */
+/* Permisos                                                             */
+/* ------------------------------------------------------------------ */
+
+/** none: no ve la seccion. view: la ve sin poder cambiar nada. edit: ve y registra/edita. */
+export type AccessLevel = 'none' | 'view' | 'edit';
+/**
+ * Que montos ve:
+ *  - none: ningun dinero.
+ *  - prices: lo que paga el cliente (valor de la venta, abono, cobro de servicio).
+ *  - all: todo, incluidas ganancias, costos, comisiones y lo que pago la financiera.
+ */
+export type MoneyAccess = 'none' | 'prices' | 'all';
+
+export interface Permissions {
+  admin: boolean;
+  /**
+   * all: todo el negocio. own: solo lo suyo (las ventas que vendio o instalo,
+   * los servicios que atendio y lo que el mismo registro), segun `personId`.
+   */
+  scope: 'all' | 'own';
+  /** Persona del equipo que es este usuario (para "solo lo suyo"). */
+  personId: number | null;
+  clients: 'view' | 'edit';
+  sales: AccessLevel;
+  services: AccessLevel;
+  money: MoneyAccess;
+  /** Pagos: comisiones, tecnicos, financieras. Requiere ver todos los montos. */
+  payments: AccessLevel;
+  /** Cuentas por pagar (tarjetas, proveedores, prestamos). Requiere ver todos los montos. */
+  payables: AccessLevel;
+  /** Inventario de equipos y repuestos. Los costos solo con todos los montos. */
+  inventory: AccessLevel;
+  /** Pantalla de reportes (siempre con lo que el usuario puede ver). */
+  reports: boolean;
+  /** Descargar a Excel lo que puede ver. */
+  export: boolean;
+  /** Borrar clientes, ventas y servicios. */
+  delete: boolean;
+  /** Editar equipo, financieras, proveedores y marcas en Ajustes. */
+  catalogs: boolean;
+}
+
+export const ADMIN_PERMISSIONS: Permissions = {
+  admin: true,
+  scope: 'all',
+  personId: null,
+  clients: 'edit',
+  sales: 'edit',
+  services: 'edit',
+  money: 'all',
+  payments: 'edit',
+  payables: 'edit',
+  inventory: 'edit',
+  reports: true,
+  export: true,
+  delete: true,
+  catalogs: true,
+};
+
+/** Perfiles listos para elegir; despues se ajusta lo que haga falta. */
+export const PERMISSION_PRESETS = [
+  {
+    key: 'seller',
+    label: 'Vendedor',
+    text: 'Solo sus clientes y sus ventas, con el precio y su comisión. No ve ganancias ni lo de los demás.',
+    permissions: { admin: false, scope: 'own', clients: 'edit', sales: 'edit', services: 'view', money: 'prices', payments: 'none', payables: 'none', inventory: 'none', reports: false, export: false, delete: false, catalogs: false },
+  },
+  {
+    key: 'technician',
+    label: 'Técnico',
+    text: 'Sus instalaciones y sus servicios, con la dirección y el equipo, y el inventario. Sin dinero.',
+    permissions: { admin: false, scope: 'own', clients: 'view', sales: 'view', services: 'edit', money: 'none', payments: 'none', payables: 'none', inventory: 'edit', reports: false, export: false, delete: false, catalogs: false },
+  },
+  {
+    key: 'office',
+    label: 'Oficina',
+    text: 'Registra clientes, ventas y servicios de todos, con precios. No ve ganancias, costos ni pagos.',
+    permissions: { admin: false, scope: 'all', clients: 'edit', sales: 'edit', services: 'edit', money: 'prices', payments: 'none', payables: 'none', inventory: 'edit', reports: true, export: false, delete: false, catalogs: true },
+  },
+  {
+    key: 'accountant',
+    label: 'Contador',
+    text: 'Ve todo el negocio con todos los montos, reportes y Excel. No puede cambiar nada.',
+    permissions: { admin: false, scope: 'all', clients: 'view', sales: 'view', services: 'view', money: 'all', payments: 'view', payables: 'view', inventory: 'view', reports: true, export: true, delete: false, catalogs: false },
+  },
+] as const satisfies readonly { key: string; label: string; text: string; permissions: Omit<Permissions, 'personId'> }[];
+
+const LEVELS = ['none', 'view', 'edit'] as const;
+const pick = <T extends string>(value: unknown, options: readonly T[], fallback: T): T => (options.includes(value as T) ? (value as T) : fallback);
+
+/**
+ * Permisos coherentes a partir de lo guardado (o de lo que llega de la app).
+ * Lo que no tiene sentido se corrige aqui, en un solo lugar, para el
+ * servidor y la app por igual: pagos sin ver todos los montos, etc.
+ */
+export function normalizePermissions(raw: Partial<Permissions> | null | undefined, admin: boolean): Permissions {
+  if (admin) return ADMIN_PERMISSIONS;
+  const r = raw ?? {};
+  const money = pick(r.money, ['none', 'prices', 'all'] as const, 'none');
+  const sales = pick(r.sales, LEVELS, 'view');
+  const services = pick(r.services, LEVELS, 'view');
+  const personId = typeof r.personId === 'number' && Number.isInteger(r.personId) && r.personId > 0 ? r.personId : null;
+  return {
+    admin: false,
+    scope: pick(r.scope, ['all', 'own'] as const, 'own'),
+    personId,
+    clients: pick(r.clients, ['view', 'edit'] as const, 'view'),
+    sales,
+    services,
+    money,
+    payments: money === 'all' ? pick(r.payments, LEVELS, 'none') : 'none',
+    payables: money === 'all' ? pick(r.payables, LEVELS, 'none') : 'none',
+    inventory: pick(r.inventory, LEVELS, 'none'),
+    reports: Boolean(r.reports),
+    export: Boolean(r.export),
+    delete: Boolean(r.delete) && (sales === 'edit' || services === 'edit' || r.clients === 'edit'),
+    catalogs: Boolean(r.catalogs),
+  };
+}
+
+/** Perfil que coincide con estos permisos (o null si es personalizado). */
+export function presetOf(p: Permissions): string | null {
+  if (p.admin) return 'admin';
+  const found = PERMISSION_PRESETS.find((preset) =>
+    (Object.keys(preset.permissions) as (keyof typeof preset.permissions)[]).every((key) => preset.permissions[key] === p[key])
+  );
+  return found?.key ?? null;
+}
+
+/** Resumen corto para la lista de usuarios ("Vendedor · solo lo suyo"). */
+export function permissionsSummary(p: Permissions): string {
+  if (p.admin) return 'Administrador · todo';
+  const preset = PERMISSION_PRESETS.find((x) => x.key === presetOf(p));
+  const scope = p.scope === 'own' ? 'solo lo suyo' : 'todo el negocio';
+  const money = p.money === 'all' ? 'todos los montos' : p.money === 'prices' ? 'solo precios' : 'sin montos';
+  return `${preset?.label ?? 'Personalizado'} · ${scope} · ${money}`;
 }
 
 /** Persona del equipo: puede vender, instalar o ambas cosas. */
@@ -161,9 +303,135 @@ export interface Service {
   updatedBy: string | null;
 }
 
+/* ------------------------------------------------------------------ */
+/* Cuentas por pagar                                                    */
+/* ------------------------------------------------------------------ */
+
+export type PayableAccountKind = 'card' | 'supplier' | 'loan' | 'person' | 'other';
+
+/** A quien se le debe: una tarjeta (Visa, Mastercard, la personal de alguien), un proveedor, un prestamo... */
+export interface PayableAccount {
+  id: number;
+  name: string;
+  kind: PayableAccountKind;
+  /** Ultimos 4 digitos de la tarjeta (opcional). */
+  last4: string | null;
+  /** Dia del mes en que vence el pago (tarjetas y prestamos). */
+  dueDay: number | null;
+  /** Cupo de la tarjeta o monto del prestamo. */
+  creditLimit: number | null;
+  notes: string | null;
+  active: boolean;
+}
+
+export type ExpenseCategory = 'equipment' | 'materials' | 'fuel' | 'vehicle' | 'marketing' | 'office' | 'payroll' | 'other';
+
+/** Un cargo o factura: lo que se debe. */
+export interface Payable {
+  id: number;
+  accountId: number;
+  date: string;
+  description: string;
+  category: ExpenseCategory | null;
+  amount: number;
+  /** Fecha limite para pagar este cargo (opcional). */
+  dueDate: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  createdBy: string | null;
+}
+
+/** Un pago o abono a una cuenta. Si va a un cargo concreto, `payableId`. */
+export interface PayablePayment {
+  id: number;
+  accountId: number;
+  payableId: number | null;
+  date: string;
+  amount: number;
+  method: ServicePayment | null;
+  notes: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export const PAYABLE_KIND_LABEL: Record<PayableAccountKind, string> = {
+  card: 'Tarjeta de crédito',
+  supplier: 'Proveedor',
+  loan: 'Préstamo',
+  person: 'Persona',
+  other: 'Otro',
+};
+
+export const EXPENSE_CATEGORY_LABEL: Record<ExpenseCategory, string> = {
+  equipment: 'Equipos',
+  materials: 'Materiales y repuestos',
+  fuel: 'Gasolina',
+  vehicle: 'Vehículo',
+  marketing: 'Publicidad',
+  office: 'Oficina',
+  payroll: 'Sueldos',
+  other: 'Otro',
+};
+
+/* ------------------------------------------------------------------ */
+/* Inventario                                                           */
+/* ------------------------------------------------------------------ */
+
+export type InventoryCategory = 'tank' | 'membrane' | 'filter' | 'media' | 'aerator' | 'uv' | 'part' | 'other';
+
+export interface InventoryItem {
+  id: number;
+  name: string;
+  category: InventoryCategory;
+  /** Codigo o referencia del proveedor (opcional). */
+  sku: string | null;
+  /** Costo por unidad (null si no se sabe o el usuario no ve costos). */
+  cost: number | null;
+  /** Con esta cantidad o menos, avisa que hay que comprar. */
+  minStock: number;
+  notes: string | null;
+  active: boolean;
+}
+
+/** in: entra (compra). out: sale (instalacion, servicio). adjust: conteo fisico (+/-). */
+export type MovementKind = 'in' | 'out' | 'adjust';
+
+export interface InventoryMovement {
+  id: number;
+  itemId: number;
+  date: string;
+  kind: MovementKind;
+  /** Siempre positivo en in/out; con signo en adjust. */
+  quantity: number;
+  unitCost: number | null;
+  supplierId: number | null;
+  saleId: number | null;
+  serviceId: number | null;
+  notes: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+export const INVENTORY_CATEGORY_LABEL: Record<InventoryCategory, string> = {
+  tank: 'Tanques',
+  membrane: 'Membranas',
+  filter: 'Filtros y cartuchos',
+  media: 'Medios (resina, carbón)',
+  aerator: 'Aireadores',
+  uv: 'Luces UV',
+  part: 'Repuestos y accesorios',
+  other: 'Otro',
+};
+
+/** Efecto de un movimiento en la existencia. */
+export const movementDelta = (m: Pick<InventoryMovement, 'kind' | 'quantity'>) => (m.kind === 'out' ? -m.quantity : m.quantity);
+
 /** Todo lo que la app necesita, en una sola respuesta. */
 export interface Bootstrap {
   me: User;
+  /** Vista previa: el administrador que esta viendo el sistema como `me`. */
+  viewer: User | null;
   /** Funciones que dependen de la configuracion del servidor. */
   features: { places: boolean };
   clients: Client[];
@@ -173,6 +441,11 @@ export interface Bootstrap {
   financiers: CatalogItem[];
   suppliers: CatalogItem[];
   brands: CatalogItem[];
+  payableAccounts: PayableAccount[];
+  payables: Payable[];
+  payablePayments: PayablePayment[];
+  inventoryItems: InventoryItem[];
+  inventoryMovements: InventoryMovement[];
 }
 
 /* ------------------------------------------------------------------ */

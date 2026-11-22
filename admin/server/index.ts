@@ -22,7 +22,8 @@ import { fileURLToPath } from 'node:url';
 import { backupDatabase, openDatabase } from './db.ts';
 import { buildApi } from './api.ts';
 import { HttpError, clientIp, parseCookies, readJson, sendJson, sessionCookie, type Ctx } from './http.ts';
-import { SESSION_COOKIE, SESSION_DAYS, purgeExpiredSessions, userFromSession } from './auth.ts';
+import { SESSION_COOKIE, SESSION_DAYS, findUserById, purgeExpiredSessions, toUser, userFromSession } from './auth.ts';
+import type { User } from '../shared/domain.ts';
 import { bumpVersion } from './version.ts';
 
 const PORT = Number(process.env.PORT ?? 3042);
@@ -146,6 +147,22 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     res.setHeader('Set-Cookie', sessionCookie(SESSION_COOKIE, token, SESSION_DAYS * 86400, secure));
   }
 
+  // Vista previa ("Ver como"): un administrador ve el sistema exactamente
+  // como lo ve otro usuario, con sus permisos. Solo lectura: nada se guarda.
+  let user = session?.user ?? null;
+  let viewer: User | null = null;
+  const viewAs = req.headers['x-iw-view-as'];
+  if (user && typeof viewAs === 'string' && viewAs) {
+    if (!user.permissions.admin) throw new HttpError(403, 'Solo un administrador puede usar la vista previa.');
+    const target = /^\d{1,9}$/.test(viewAs) ? findUserById(db, Number(viewAs)) : undefined;
+    if (!target) throw new HttpError(404, 'Ese usuario ya no existe. Sal de la vista previa.');
+    if (req.method !== 'GET' && req.method !== 'HEAD') {
+      throw new HttpError(403, `Estás viendo el sistema como ${target.name}: en la vista previa no se guarda nada.`);
+    }
+    viewer = user;
+    user = toUser(target);
+  }
+
   const ctx: Ctx = {
     req,
     res,
@@ -153,7 +170,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     query: url.searchParams,
     body: req.method === 'GET' || req.method === 'HEAD' ? {} : await readJson(req),
     ip: clientIp(req),
-    user: session?.user ?? null,
+    user,
+    viewer,
     token,
     secure,
   };

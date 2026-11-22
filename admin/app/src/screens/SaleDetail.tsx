@@ -2,6 +2,7 @@
  * Detalle de una venta: que se instalo, donde, el dinero completo y las
  * acciones rapidas (marcar que pago la financiera o la comision).
  */
+import type { Sale } from '../../../shared/domain.ts';
 import { AlertCircle, CircleCheck, MessageCircle, Phone, Wrench } from 'lucide-react';
 import {
   RO_TYPE_LABEL,
@@ -15,6 +16,7 @@ import {
   saleMoney,
 } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
+import { useAccess, visibleMissing } from '../lib/access.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
 import { dateWithYear, mapsHref, money, percentText, relativeDay, telHref, whatsappHref } from '../lib/format.ts';
@@ -26,6 +28,7 @@ export function SaleDetail({ id }: { id: number }) {
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
+  const a = useAccess();
   const sale = data.sales.find((s) => s.id === id);
 
   if (!sale) {
@@ -38,7 +41,8 @@ export function SaleDetail({ id }: { id: number }) {
 
   const client = data.clientById.get(sale.clientId);
   const m = saleMoney(sale);
-  const missing = saleMissing(sale);
+  const missing = visibleMissing(saleMissing(sale), a);
+  const canEdit = a.canEdit('sales');
   const state = installState(sale, data.today);
   const services = data.servicesBySale.get(sale.id) ?? [];
   const person = (pid: number | null) => (pid ? data.personById.get(pid)?.name : null);
@@ -87,9 +91,11 @@ export function SaleDetail({ id }: { id: number }) {
       }
       back={{ label: 'Ventas', to: '/ventas' }}
       actions={
-        <Link to={`/ventas/${id}/editar`} className="link-btn strong">
-          Editar
-        </Link>
+        canEdit ? (
+          <Link to={`/ventas/${id}/editar`} className="link-btn strong">
+            Editar
+          </Link>
+        ) : undefined
       }
       narrow
     >
@@ -97,7 +103,7 @@ export function SaleDetail({ id }: { id: number }) {
         <SaleBadges sale={sale} data={data} hideMissing />
       </div>
 
-      {missing.length > 0 && (
+      {canEdit && missing.length > 0 && (
         <Link to={`/ventas/${id}/editar`} className="banner" style={{ display: 'flex' }}>
           <AlertCircle size={20} />
           <div style={{ flex: 1 }}>
@@ -140,7 +146,7 @@ export function SaleDetail({ id }: { id: number }) {
           <AlertCircle size={20} />
           <div>
             <div className="banner-title">Venta {SALE_STATUS_LABEL[sale.status].toLowerCase()}</div>
-            <div className="banner-text">No suma en vendido, ganancia, cobros ni comisiones. Se cambia en Editar → Estado de la venta.</div>
+            <div className="banner-text">No suma en vendido, ganancia, cobros ni comisiones.{canEdit ? ' Se cambia en Editar → Estado de la venta.' : ''}</div>
           </div>
         </div>
       )}
@@ -178,7 +184,9 @@ export function SaleDetail({ id }: { id: number }) {
         <Row title="Lugar" subtitle={address || '—'} href={address ? mapsHref(address) : undefined} chevron={Boolean(address)} />
       </Group>
 
-      <Section title="Dinero">
+      {!a.costs && <PriceCard sale={sale} />}
+
+      {a.costs && <Section title="Dinero">
         <div className="card">
           <div className="money-lines">
             <MoneyLine label="Valor de la venta" value={sale.price} strong />
@@ -224,16 +232,16 @@ export function SaleDetail({ id }: { id: number }) {
             )}
           </div>
         </div>
-      </Section>
+      </Section>}
 
-      {isActiveSale(sale) && (
+      {isActiveSale(sale) && a.canSee('payments') && (
         <Group label="Cobros y pagos">
           {m.financed && (
             <Row
               title="Pago de la financiera"
               subtitle={sale.fundedPaid ? `Recibido el ${dateWithYear(sale.fundedDate)}` : `Pendiente · ${money(m.pendingFinancier)}`}
               trailing={
-                <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
+                a.canEdit('payments') && <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
                   {sale.fundedPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar recibido</>}
                 </button>
               }
@@ -249,7 +257,7 @@ export function SaleDetail({ id }: { id: number }) {
                   : `${money(sale.commission)} por pagar`
             }
             trailing={
-              sale.commission != null && sale.commission > 0 ? (
+              a.canEdit('payments') && sale.commission != null && sale.commission > 0 ? (
                 <button type="button" className={`btn small ${sale.commissionPaid ? 'gray' : 'success'}`} onClick={() => mark('commissionPaid', !sale.commissionPaid)}>
                   {sale.commissionPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar pagada</>}
                 </button>
@@ -275,31 +283,63 @@ export function SaleDetail({ id }: { id: number }) {
         {sale.notes && <div className="row-block" style={{ whiteSpace: 'pre-wrap' }}>{sale.notes}</div>}
       </Group>
 
-      <Section title="Servicio técnico de esta venta">
+      {a.canSee('services') && <Section title="Servicio técnico de esta venta">
         <Group>
           {services.map((service) => (
             <ServiceRow key={service.id} service={service} data={data} showClient={false} />
           ))}
-          <Row
+          {services.length === 0 && !a.canEdit('services') && <Empty inGroup title="Sin servicios" />}
+          {a.canEdit('services') && <Row
             className="action"
             to={`/servicio/nuevo?cliente=${sale.clientId}&venta=${sale.id}`}
             leading={<Wrench size={19} />}
             title="Reportar un problema o mantenimiento"
             chevron={false}
-          />
+          />}
         </Group>
-      </Section>
+      </Section>}
 
-      <div className="group" style={{ marginTop: 34 }}>
-        <button type="button" className="row danger" onClick={remove}>
-          Borrar venta
-        </button>
-      </div>
+      {a.delete && canEdit && (
+        <div className="group" style={{ marginTop: 34 }}>
+          <button type="button" className="row danger" onClick={remove}>
+            Borrar venta
+          </button>
+        </div>
+      )}
       <p className="group-foot" style={{ textAlign: 'center' }}>
         Venta #{sale.id} · registrada por {sale.createdBy ?? '—'}
         {sale.updatedBy && sale.updatedAt !== sale.createdAt ? ` · editada por ${sale.updatedBy}` : ''}
       </p>
     </Page>
+  );
+}
+
+/** Dinero para quien no ve costos: lo que paga el cliente y, si es suyo, lo que le toca. */
+function PriceCard({ sale }: { sale: Sale }) {
+  const data = useData();
+  const a = useAccess();
+  const m = saleMoney(sale);
+  const financier = sale.financierId ? data.financierById.get(sale.financierId)?.name : null;
+  const payment = sale.paymentMethod === 'financed' ? `Financiado${financier ? ` · ${financier}` : ''}` : sale.paymentMethod === 'cash' ? 'Cash' : 'Sin registrar';
+  const mine = a.scope === 'own' && a.personId != null;
+  return (
+    <Group label="Pago del cliente">
+      <Row title="Forma de pago" value={payment} />
+      {a.prices && (
+        <>
+          <Row title="Valor de la venta" value={<b style={{ color: 'var(--text)' }}>{sale.price == null ? '—' : money(sale.price)}</b>} />
+          {sale.paymentMethod === 'financed' && <Row title="Abono en cash" value={money(sale.cashDown ?? 0)} />}
+          {sale.paymentMethod === 'cash' && <Row title="Cobrado" value={sale.cashDown == null ? '—' : money(sale.cashDown)} />}
+          {m.pendingClient > 0 && <Row title="El cliente debe" value={<span className="orange">{money(m.pendingClient)}</span>} />}
+          {mine && sale.sellerId === a.personId && sale.commission != null && (
+            <Row title="Tu comisión" value={<>{money(sale.commission)} {sale.commissionPaid ? <Badge tone="green">Pagada</Badge> : <Badge tone="violet">Pendiente</Badge>}</>} />
+          )}
+          {mine && sale.installerId === a.personId && sale.installerPay != null && (
+            <Row title="Tu pago por instalar" value={<>{money(sale.installerPay)} {sale.installerPaid ? <Badge tone="green">Pagado</Badge> : <Badge tone="orange">Pendiente</Badge>}</>} />
+          )}
+        </>
+      )}
+    </Group>
   );
 }
 

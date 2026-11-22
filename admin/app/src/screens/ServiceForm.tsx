@@ -6,11 +6,13 @@ import { useEffect, useRef, useState, type FormEvent } from 'react';
 import type { Service, ServiceBilling, ServiceKind, ServicePayment, ServiceStatus } from '../../../shared/domain.ts';
 import { SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipmentSummary, serviceMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
+import { useAccess } from '../lib/access.ts';
+import { Eye } from 'lucide-react';
 import { goBack, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
 import { dateWithYear, moneyPlain } from '../lib/format.ts';
-import { Empty, Group, MoneyField, hasInvalidMoney, Page, SegmentedRow, StackField, SwitchRow } from '../ui/kit.tsx';
+import { Empty, Group, MoneyField, hasInvalidMoney, Page, Row, SegmentedRow, StackField, SwitchRow } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
 import { ClientPicker, PersonPicker, PickerRow, clientRef, type ClientChoice } from '../ui/pickers.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
@@ -40,6 +42,8 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
+  const a = useAccess();
+  const readOnly = !a.canEdit('services');
   const existing = id ? data.services.find((s) => s.id === id) : undefined;
 
   const [form, setForm] = useState<FormState>(() => {
@@ -121,7 +125,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
     if (!form.client) return fail('Elige el cliente o créalo.', 'client');
     if (form.client.mode === 'new' && !form.client.draft.name.trim()) return fail('Escribe el nombre del cliente nuevo.', 'client.create.name');
     if (!form.problem.trim()) return fail('Describe el problema o el motivo de la visita.', 'problem');
-    if (form.billing === 'charged' && form.amount == null) return fail('Pon cuánto se le cobró (o marca garantía).', 'amount');
+    if (a.prices && form.billing === 'charged' && form.amount == null) return fail('Pon cuánto se le cobró (o marca garantía).', 'amount');
     if (hasInvalidMoney(formRef.current)) {
       setError('Hay un monto mal escrito (en rojo). Corrígelo para guardar.');
       return void focusInvalid(formRef.current);
@@ -192,7 +196,17 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
 
   return (
     <Page title={id ? 'Servicio técnico' : 'Nuevo servicio'} back={back} narrow>
+      {readOnly && (
+        <div className="banner blue">
+          <Eye size={20} />
+          <div>
+            <div className="banner-title">Solo lectura</div>
+            <div className="banner-text">Puedes ver este servicio, pero no cambiarlo.</div>
+          </div>
+        </div>
+      )}
       <form onSubmit={submit} noValidate ref={formRef}>
+        <fieldset className="plain-fieldset" disabled={readOnly}>
         <ClientPicker value={form.client} onChange={chooseClient} />
 
         {clientSales.length > 0 && (
@@ -255,7 +269,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           />
           {form.billing === 'charged' && (
             <>
-              <MoneyField field="amount" label="Cuánto se cobró" value={form.amount} onChange={(v) => set('amount', v)} />
+              {a.prices && <MoneyField field="amount" label="Cuánto se cobró" value={form.amount} onChange={(v) => set('amount', v)} />}
               <div className="row-block" data-field="paymentMethod">
                 <div className="row-title" style={{ marginBottom: 10 }}>
                   ¿Cómo pagó? <span className="muted" style={{ fontSize: 14 }}>· déjalo sin marcar si aún no paga</span>
@@ -278,7 +292,13 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           )}
         </Group>
 
-        <Group
+        {!a.costs && a.scope === 'own' && existing && existing.technicianId === a.personId && existing.technicianPay != null && (
+          <Group label="Tu pago por este servicio">
+            <Row title="Te toca" value={<>{moneyPlain(existing.technicianPay)} {existing.technicianPaid ? '· pagado' : '· pendiente'}</>} />
+          </Group>
+        )}
+
+        {a.costs && <Group
           label="Pago al técnico"
           footer={
             form.billing === 'charged' || form.technicianPay
@@ -287,17 +307,17 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           }
         >
           <MoneyField field="technicianPay" label="Se le paga al técnico" value={form.technicianPay} onChange={(v) => set('technicianPay', v)} placeholder="Opcional" />
-          {(form.technicianPay ?? 0) > 0 && (
+          {a.canEdit('payments') && (form.technicianPay ?? 0) > 0 && (
             <SwitchRow
               label="Ya se le pagó"
               checked={form.technicianPaid}
               onChange={(v) => setForm((f) => ({ ...f, technicianPaid: v, technicianPaidDate: v && !f.technicianPaidDate ? data.today : f.technicianPaidDate }))}
             />
           )}
-          {form.technicianPaid && (form.technicianPay ?? 0) > 0 && (
+          {a.canEdit('payments') && form.technicianPaid && (form.technicianPay ?? 0) > 0 && (
             <DateField field="technicianPaidDate" label="Fecha del pago" value={form.technicianPaidDate} onChange={(v) => set('technicianPaidDate', v)} />
           )}
-        </Group>
+        </Group>}
 
         <Group label="Estado">
           <SegmentedRow
@@ -310,7 +330,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
             onChange={(status) => setForm((f) => ({ ...f, status, closedDate: status === 'closed' && !f.closedDate ? data.today : f.closedDate }))}
           />
           {form.status === 'closed' && <DateField field="closedDate" label="Fecha de cierre" value={form.closedDate} onChange={(v) => set('closedDate', v)} />}
-          {linkedSale && (
+          {linkedSale && a.canEdit('sales') && (
             <>
               <DateField field="nextServiceDate" label="Próximo mantenimiento" value={form.nextServiceDate} onChange={(v) => set('nextServiceDate', v)} quick="maintenance" />
             </>
@@ -321,7 +341,9 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           <StackField label="Notas internas" value={form.notes} onChange={(v) => set('notes', v)} placeholder="Opcional" multiline />
         </Group>
 
-        <div className="form-actions">
+        </fieldset>
+
+        {!readOnly && <div className="form-actions">
           {error && <p className="form-error" role="alert">{error}</p>}
           <button type="button" className="btn gray" onClick={cancel}>
             Cancelar
@@ -329,15 +351,17 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           <button type="submit" className="btn" disabled={busy}>
             {busy ? 'Guardando…' : id ? 'Guardar cambios' : 'Registrar servicio'}
           </button>
-        </div>
+        </div>}
 
         {id && (
           <>
-            <div className="group" style={{ marginTop: 20 }}>
-              <button type="button" className="row danger" onClick={remove}>
-                Borrar servicio
-              </button>
-            </div>
+            {a.delete && !readOnly && (
+              <div className="group" style={{ marginTop: 20 }}>
+                <button type="button" className="row danger" onClick={remove}>
+                  Borrar servicio
+                </button>
+              </div>
+            )}
             <p className="group-foot" style={{ textAlign: 'center' }}>
               Registrado por {existing?.createdBy ?? '—'}
               {existing?.updatedBy && existing.updatedAt !== existing.createdAt ? ` · editado por ${existing.updatedBy}` : ''}

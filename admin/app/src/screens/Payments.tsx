@@ -12,6 +12,7 @@ import { api } from '../lib/api.ts';
 import { date, daysBetween, money, plural } from '../lib/format.ts';
 import { technicianDebts } from '../lib/stats.ts';
 import { Avatar, Badge, Empty, Group, IconBox, Page, Row, Segmented } from '../ui/kit.tsx';
+import { useAccess } from '../lib/access.ts';
 import { DateField } from '../ui/date.tsx';
 import { useFeedback } from '../ui/sheet.tsx';
 
@@ -21,6 +22,7 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
   const data = useData();
   const [tab, setTab] = useState<Tab>(initialTab === 'financieras' || initialTab === 'clientes' || initialTab === 'tecnicos' ? initialTab : 'comisiones');
   const [payDate, setPayDate] = useState(data.today);
+  const canPay = useAccess().canEdit('payments');
 
   const commissionGroups = useMemo(() => {
     const map = new Map<number | null, Sale[]>();
@@ -77,7 +79,7 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
         />
       </div>
 
-      {tab !== 'clientes' && (
+      {tab !== 'clientes' && canPay && (
         <Group footer="Se usa al marcar como pagado.">
           <DateField label="Fecha del pago" value={payDate} onChange={(v) => setPayDate(v || data.today)} max={data.today} />
         </Group>
@@ -161,6 +163,7 @@ function TechGroup({ personId, debt, payDate }: { personId: number; debt: { sale
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
+  const canPay = useAccess().canEdit('payments');
   const name = data.personById.get(personId)?.name ?? 'Técnico';
   const items = [
     ...debt.sales.map((s) => ({ key: `s${s.id}`, kind: 'Instalación', clientId: s.clientId, day: s.installDate ?? s.saleDate, amount: s.installerPay ?? 0, saleId: s.id })),
@@ -237,7 +240,7 @@ function TechGroup({ personId, debt, payDate }: { personId: number; debt: { sale
           );
         })}
       </div>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12 }} hidden={!canPay}>
         <button type="button" className="btn block" disabled={!chosen.length || busy} onClick={submit}>
           {busy ? 'Guardando…' : chosen.length ? `Pagarle a ${name.split(' ')[0]} · ${money(total)}` : 'Elige al menos uno'}
         </button>
@@ -271,6 +274,7 @@ function PayGroup({
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
+  const canPay = useAccess().canEdit('payments');
   const [selected, setSelected] = useState<Set<number>>(() => new Set(sales.map((s) => s.id)));
   const [busy, setBusy] = useState(false);
   const chosen = sales.filter((s) => selected.has(s.id));
@@ -342,7 +346,7 @@ function PayGroup({
           );
         })}
       </div>
-      <div style={{ marginTop: 12 }}>
+      <div style={{ marginTop: 12 }} hidden={!canPay}>
         <button type="button" className="btn block" disabled={!chosen.length || busy} onClick={submit}>
           {busy ? 'Guardando…' : chosen.length ? `${action} · ${money(total)}` : 'Elige al menos una'}
         </button>

@@ -23,7 +23,10 @@ export interface Ctx {
   query: URLSearchParams;
   body: unknown;
   ip: string;
+  /** Usuario efectivo. En vista previa, el usuario que se esta viendo. */
   user: User | null;
+  /** Vista previa: el administrador que mira el sistema como `user`. */
+  viewer: User | null;
   token: string | undefined;
   secure: boolean;
 }

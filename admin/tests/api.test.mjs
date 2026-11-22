@@ -17,11 +17,12 @@ const PASSWORD = 'prueba-segura-123';
 let server;
 let cookie = '';
 
-async function call(method, url, body, { csrf = true, auth = true, ip } = {}) {
+async function call(method, url, body, { csrf = true, auth = true, ip, as, viewAs } = {}) {
   const headers = {};
   if (ip) headers['X-Real-IP'] = ip;
   if (csrf) headers['X-IW-Admin'] = '1';
-  if (auth && cookie) headers.Cookie = cookie;
+  if (auth && (as ?? cookie)) headers.Cookie = as ?? cookie;
+  if (viewAs) headers['X-IW-View-As'] = String(viewAs);
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   const res = await fetch(BASE + '/admin/api' + url, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
   const setCookie = res.headers.get('set-cookie');
@@ -334,6 +335,191 @@ test('marca, estado y pago unificado al tecnico (instalaciones + servicios)', as
   assert.equal((await call('GET', '/bootstrap')).data.services.find((v) => v.id === svc.data.service.id).technicianPaidDate, '2026-11-20');
   assert.equal((await call('POST', '/brands', { name: 'magic water' })).status, 409);
   assert.equal((await call('POST', '/brands', { name: 'AquaPro' })).status, 200);
+});
+
+
+/* ---------------------------- permisos ---------------------------- */
+
+const EQ = { outdoorTanks: 0, aerator: false, wholeHouseRo: 0, ro: true, roType: 'box', roUv: false, other: null };
+const SELLER_PERMS = { scope: 'own', personId: null, clients: 'edit', sales: 'edit', services: 'view', money: 'prices', payments: 'none', payables: 'none', inventory: 'none', reports: false, export: false, delete: false, catalogs: false };
+let sellerCookie = '';
+let sellerUserId;
+let techCookie = '';
+let adminId;
+
+async function loginAs(username, password) {
+  const r = await call('POST', '/auth/login', { username, password }, { auth: false, ip: '192.0.2.50' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  return r.setCookie.split(';')[0];
+}
+
+test('permisos: crear un vendedor que solo ve lo suyo, con precios pero sin costos', async () => {
+  const other = await call('POST', '/sales', { client: { create: { name: 'Cliente de otro' } }, saleDate: '2026-11-18', equipment: EQ, price: 500_000, commission: 50_000 });
+  assert.equal(other.status, 200, JSON.stringify(other.data));
+  const created = await call('POST', '/users', { username: 'angie', name: 'Angie', password: 'clave-angie-123', role: 'member', permissions: { ...SELLER_PERMS, personId: sellerId } });
+  assert.equal(created.status, 200, JSON.stringify(created.data));
+  sellerUserId = created.data.id;
+  const angie = created.data.users.find((u) => u.username === 'angie');
+  assert.equal(angie.role, 'member');
+  assert.equal(angie.permissions.payments, 'none');
+  adminId = created.data.users.find((u) => u.username === 'papa').id;
+  sellerCookie = await loginAs('angie', 'clave-angie-123');
+
+  const boot = (await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data;
+  assert.ok(boot.sales.length > 0);
+  assert.ok(boot.sales.every((s) => s.sellerId === sellerId), 'solo sus ventas');
+  assert.ok(!boot.clients.some((c) => c.name === 'Cliente de otro'), 'no ve clientes ajenos');
+  const mine = boot.sales.find((s) => s.id === saleId);
+  assert.equal(mine.price, 1_200_000, 've el precio');
+  assert.equal(mine.fundedAmount, null, 'no ve lo que pago la financiera');
+  assert.deepEqual(mine.suppliers, [], 'no ve costos de proveedores');
+  assert.equal(mine.commission, 120_000, 've su propia comision');
+  assert.equal(boot.me.permissions.admin, false);
+  assert.deepEqual(boot.payables, []);
+});
+
+test('permisos: el servidor rechaza lo que no le toca al vendedor', async () => {
+  const as = sellerCookie;
+  assert.equal((await call('GET', '/users', undefined, { as })).status, 403);
+  assert.equal((await call('GET', '/backup', undefined, { as })).status, 403);
+  assert.equal((await call('GET', '/export/sales', undefined, { as })).status, 403);
+  assert.equal((await call('POST', `/sales/${saleId}/mark`, { field: 'commissionPaid', paid: true, date: null }, { as })).status, 403);
+  assert.equal((await call('DELETE', `/sales/${saleId}`, undefined, { as })).status, 403);
+  assert.equal((await call('POST', '/payable-accounts', { name: 'Visa', kind: 'card' }, { as })).status, 403);
+  assert.equal((await call('PUT', `/users/${adminId}`, { role: 'member' }, { as })).status, 403);
+  // Una venta ajena no se puede editar ni usar su cliente.
+  const boot = (await call('GET', '/bootstrap')).data;
+  const foreign = boot.sales.find((s) => s.sellerId !== sellerId);
+  assert.equal((await call('PUT', `/sales/${foreign.id}`, { client: { id: foreign.clientId }, saleDate: foreign.saleDate }, { as })).status, 403);
+  assert.equal((await call('POST', '/sales', { client: { id: foreign.clientId }, saleDate: '2026-11-20', equipment: EQ }, { as })).status, 403);
+});
+
+test('permisos: al editar, el vendedor no borra ni cambia montos que no ve', async () => {
+  const boot = (await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data;
+  const sale = boot.sales.find((s) => s.id === saleId);
+  const paidBefore = (await call('GET', '/bootstrap')).data.sales.find((s) => s.id === saleId).commissionPaid;
+  const r = await call('PUT', `/sales/${saleId}`, { ...sale, client: { id: sale.clientId }, price: 1_250_000, commission: 999_999, fundedAmount: null, suppliers: [], commissionPaid: !paidBefore, notes: 'Editada por Angie', expectedUpdatedAt: sale.updatedAt }, { as: sellerCookie });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const full = (await call('GET', '/bootstrap')).data.sales.find((s) => s.id === saleId);
+  assert.equal(full.price, 1_250_000, 'el precio si lo puede cambiar');
+  assert.equal(full.commission, 120_000, 'la comision queda como estaba');
+  assert.equal(full.fundedAmount, 1_000_000, 'lo de la financiera queda');
+  assert.deepEqual(full.suppliers, [{ supplierId, cost: 350_000 }], 'los costos quedan');
+  assert.equal(full.commissionPaid, paidBefore, 'el pago de comision no lo cambia el vendedor');
+  assert.equal(full.notes, 'Editada por Angie');
+  // Venta nueva del vendedor: queda visible para el aunque no ponga vendedor, sin montos de costo.
+  const created = await call('POST', '/sales', { client: { create: { name: 'Cliente de Angie' } }, saleDate: '2026-11-21', equipment: EQ, price: 300_000, commission: 77_700, fundedAmount: 1 }, { as: sellerCookie });
+  assert.equal(created.status, 200, JSON.stringify(created.data));
+  const raw = (await call('GET', '/bootstrap')).data.sales.find((s) => s.id === created.data.sale.id);
+  assert.equal(raw.commission, null);
+  assert.equal(raw.fundedAmount, null);
+  assert.ok((await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data.sales.some((s) => s.id === created.data.sale.id));
+});
+
+test('permisos: tecnico sin montos marca "se cobro" sin monto y no borra el monto existente', async () => {
+  const techPerson = (await call('GET', '/bootstrap')).data.people.find((p) => p.name === 'Carlos');
+  const r = await call('POST', '/users', {
+    username: 'carlos', name: 'Carlos', password: 'clave-carlos-123', role: 'member',
+    permissions: { ...SELLER_PERMS, personId: techPerson.id, clients: 'view', sales: 'view', services: 'edit', money: 'none', inventory: 'edit' },
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  techCookie = await loginAs('carlos', 'clave-carlos-123');
+  const boot = (await call('GET', '/bootstrap', undefined, { as: techCookie })).data;
+  assert.ok(boot.sales.every((s) => s.price === null && s.cashDown === null && s.commission === null), 'sin montos');
+  assert.ok(boot.sales.some((s) => s.id === saleId), 've la venta que instalo');
+  const installed = boot.sales.find((s) => s.id === saleId);
+  const svc = await call('POST', '/services', { client: { id: installed.clientId }, saleId, reportedDate: '2026-11-21', problem: 'Gotea', technicianId: techPerson.id, billing: 'charged', amount: 5_000 }, { as: techCookie });
+  assert.equal(svc.status, 200, JSON.stringify(svc.data));
+  assert.equal(svc.data.service.amount, null);
+  // El administrador pone el monto; luego el tecnico edita y el monto se conserva.
+  const admin = (await call('GET', '/bootstrap')).data.services.find((s) => s.id === svc.data.service.id);
+  await call('PUT', `/services/${admin.id}`, { ...admin, client: { id: admin.clientId }, amount: 12_000 });
+  const mine = (await call('GET', '/bootstrap', undefined, { as: techCookie })).data.services.find((s) => s.id === admin.id);
+  const edited = await call('PUT', `/services/${mine.id}`, { ...mine, client: { id: mine.clientId }, solution: 'Se cambio el o-ring', status: 'closed', closedDate: '2026-11-21' }, { as: techCookie });
+  assert.equal(edited.status, 200, JSON.stringify(edited.data));
+  assert.equal((await call('GET', '/bootstrap')).data.services.find((s) => s.id === mine.id).amount, 12_000);
+  // No puede vender ni pagar.
+  assert.equal((await call('POST', '/sales', { client: { id: clientId }, saleDate: '2026-11-21', equipment: EQ }, { as: techCookie })).status, 403);
+});
+
+test('vista previa: el administrador ve exactamente lo del usuario y no puede guardar', async () => {
+  const seen = await call('GET', '/bootstrap', undefined, { viewAs: sellerUserId });
+  assert.equal(seen.status, 200);
+  assert.equal(seen.data.me.username, 'angie');
+  assert.equal(seen.data.viewer.username, 'papa');
+  const direct = (await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data;
+  assert.deepEqual(seen.data.sales.map((s) => s.id).sort(), direct.sales.map((s) => s.id).sort());
+  assert.deepEqual(seen.data.sales.map((s) => s.fundedAmount), direct.sales.map((s) => s.fundedAmount));
+  const write = await call('POST', '/clients', { name: 'No debe guardarse' }, { viewAs: sellerUserId });
+  assert.equal(write.status, 403);
+  assert.match(write.data.error, /vista previa/);
+  // Un usuario que no es administrador no puede usar la vista previa.
+  assert.equal((await call('GET', '/bootstrap', undefined, { as: sellerCookie, viewAs: adminId })).status, 403);
+  assert.equal((await call('GET', '/bootstrap', undefined, { viewAs: 99999 })).status, 404);
+});
+
+test('usuarios: no te quitas tu propio acceso y siempre queda un administrador', async () => {
+  assert.equal((await call('PUT', `/users/${adminId}`, { role: 'member', permissions: SELLER_PERMS })).status, 400);
+  assert.equal((await call('PUT', `/users/${adminId}`, { active: false })).status, 400);
+  // Cambiar permisos aplica al instante a la sesion abierta del usuario.
+  await call('PUT', `/users/${sellerUserId}`, { permissions: { ...SELLER_PERMS, personId: sellerId, money: 'none' } });
+  const boot = (await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data;
+  assert.ok(boot.sales.every((s) => s.price === null));
+  // Pagos sin ver todos los montos se corrige solo.
+  await call('PUT', `/users/${sellerUserId}`, { permissions: { ...SELLER_PERMS, personId: sellerId, money: 'prices', payments: 'edit', payables: 'edit' } });
+  const angie = (await call('GET', '/users')).data.users.find((u) => u.username === 'angie');
+  assert.equal(angie.permissions.payments, 'none');
+  assert.equal(angie.permissions.payables, 'none');
+});
+
+/* ------------------------- cuentas por pagar ------------------------- */
+
+test('cuentas por pagar: cuenta, gasto, pago parcial y validaciones', async () => {
+  const visa = (await call('POST', '/payable-accounts', { name: 'Visa', kind: 'card', last4: '4242', dueDay: 15, creditLimit: 1_000_000 })).data.account;
+  const master = (await call('POST', '/payable-accounts', { name: 'Mastercard', kind: 'card' })).data.account;
+  assert.equal(visa.last4, '4242');
+  assert.equal((await call('POST', '/payable-accounts', { name: 'visa', kind: 'card' })).status, 409, 'nombre repetido');
+  assert.equal((await call('POST', '/payable-accounts', { name: 'X', kind: 'card', last4: '12a4' })).status, 400);
+  const charge = await call('POST', '/payables', { accountId: visa.id, date: '2026-11-10', description: 'Membranas', category: 'equipment', amount: 80_000, dueDate: '2026-11-25' });
+  assert.equal(charge.status, 200, JSON.stringify(charge.data));
+  assert.equal((await call('POST', '/payables', { accountId: visa.id, date: '2026-11-10', description: 'Mal', amount: 1000, dueDate: '2026-11-01' })).status, 400, 'vence antes de la fecha');
+  assert.equal((await call('POST', '/payables', { accountId: visa.id, date: '2026-11-10', description: 'Cero', amount: 0 })).status, 400);
+  const pay = await call('POST', '/payable-payments', { accountId: visa.id, payableId: charge.data.payable.id, date: '2026-11-12', amount: 30_000, method: 'zelle' });
+  assert.equal(pay.status, 200);
+  assert.equal((await call('POST', '/payable-payments', { accountId: master.id, payableId: charge.data.payable.id, date: '2026-11-12', amount: 1 })).status, 400, 'pago a un gasto de otra cuenta');
+  assert.match((await call('DELETE', `/payable-accounts/${visa.id}`)).data.error, /Desactívala/);
+  const boot = (await call('GET', '/bootstrap')).data;
+  assert.equal(boot.payables.length, 1);
+  assert.equal(boot.payablePayments[0].amount, 30_000);
+  // Al borrar el gasto, el pago queda como abono a la cuenta.
+  await call('DELETE', `/payables/${charge.data.payable.id}`);
+  const after = (await call('GET', '/bootstrap')).data;
+  assert.equal(after.payablePayments[0].payableId, null);
+});
+
+/* ----------------------------- inventario ----------------------------- */
+
+test('inventario: entradas, salidas sin quedar en negativo y costos protegidos', async () => {
+  const item = (await call('POST', '/inventory-items', { name: 'Membrana 75 GPD', category: 'membrane', minStock: 2, cost: 2_500 })).data.item;
+  const entry = await call('POST', '/inventory-movements', { itemId: item.id, date: '2026-11-15', kind: 'in', quantity: 10, unitCost: 2_800 });
+  assert.equal(entry.status, 200, JSON.stringify(entry.data));
+  const items = (await call('GET', '/bootstrap')).data.inventoryItems;
+  assert.equal(items.find((i) => i.id === item.id).cost, 2_800, 'la compra actualiza el costo');
+  const out = await call('POST', '/inventory-movements', { itemId: item.id, date: '2026-11-16', kind: 'out', quantity: 3, saleId }, { as: techCookie });
+  assert.equal(out.status, 200, JSON.stringify(out.data));
+  assert.equal(out.data.movement.unitCost, null, 'el tecnico no ve costos');
+  const tooMany = await call('POST', '/inventory-movements', { itemId: item.id, date: '2026-11-16', kind: 'out', quantity: 20 });
+  assert.equal(tooMany.status, 400);
+  assert.match(tooMany.data.error, /Solo hay 7/);
+  assert.equal((await call('POST', '/inventory-movements', { itemId: item.id, date: '2026-11-16', kind: 'adjust', quantity: 0 })).status, 400);
+  // Borrar la entrada dejaria la existencia en -3.
+  assert.equal((await call('DELETE', `/inventory-movements/${entry.data.movement.id}`)).status, 409);
+  const techBoot = (await call('GET', '/bootstrap', undefined, { as: techCookie })).data;
+  assert.equal(techBoot.inventoryItems.find((i) => i.id === item.id).cost, null);
+  // El tecnico edita el producto: el costo se conserva.
+  await call('PUT', `/inventory-items/${item.id}`, { name: 'Membrana 75 GPD', category: 'membrane', minStock: 3, cost: 1 }, { as: techCookie });
+  assert.equal((await call('GET', '/bootstrap')).data.inventoryItems.find((i) => i.id === item.id).cost, 2_800);
+  assert.equal((await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data.inventoryItems.length, 0, 'el vendedor no ve inventario');
 });
 
 test('bootstrap: 304 si nada cambio, 200 despues de guardar algo', async () => {

@@ -1,6 +1,7 @@
 import { MapPin, MessageCircle, Phone, Plus, Wrench } from 'lucide-react';
 import { SOURCE_LABEL, formatAddress, isActiveSale, saleMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
+import { useAccess } from '../lib/access.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
 import { dateWithYear, localDate, mapsHref, money, plural, telHref, whatsappHref } from '../lib/format.ts';
@@ -12,6 +13,7 @@ export function ClientDetail({ id }: { id: number }) {
   const data = useData();
   const { reload } = useStore();
   const { confirm, toast } = useFeedback();
+  const a = useAccess();
   const client = data.clientById.get(id);
 
   if (!client) {
@@ -57,9 +59,11 @@ export function ClientDetail({ id }: { id: number }) {
       hideTitle
       back={{ label: 'Clientes', to: '/clientes' }}
       actions={
-        <Link to={`/clientes/${id}/editar`} className="link-btn strong">
-          Editar
-        </Link>
+        a.canEdit('clients') ? (
+          <Link to={`/clientes/${id}/editar`} className="link-btn strong">
+            Editar
+          </Link>
+        ) : undefined
       }
       narrow
     >
@@ -67,7 +71,7 @@ export function ClientDetail({ id }: { id: number }) {
         <Avatar name={client.name} size="lg" />
         <h1 className="large-title">{client.name}</h1>
         <p className="muted">
-          {[client.city, sales.length ? plural(sales.length, 'venta', 'ventas') : 'Sin venta registrada'].filter(Boolean).join(' · ')}
+          {[client.city, a.canSee('sales') ? (sales.length ? plural(sales.length, 'venta', 'ventas') : 'Sin venta registrada') : null].filter(Boolean).join(' · ')}
         </p>
       </div>
 
@@ -84,10 +88,17 @@ export function ClientDetail({ id }: { id: number }) {
           <MapPin size={22} />
           Mapa
         </a>
-        <Link className="quick-action" to={`/ventas/nueva?cliente=${id}`}>
-          <Plus size={22} />
-          Venta
-        </Link>
+        {a.canEdit('sales') ? (
+          <Link className="quick-action" to={`/ventas/nueva?cliente=${id}`}>
+            <Plus size={22} />
+            Venta
+          </Link>
+        ) : a.canEdit('services') ? (
+          <Link className="quick-action" to={`/servicio/nuevo?cliente=${id}`}>
+            <Wrench size={22} />
+            Servicio
+          </Link>
+        ) : null}
       </div>
 
       <Group>
@@ -105,41 +116,45 @@ export function ClientDetail({ id }: { id: number }) {
         </Group>
       )}
 
-      <Section title="Equipos y ventas">
-        <Group footer={sales.length > 0 ? `Total vendido ${money(lifetime)} · ganancia ${estimated ? '≈ ' : ''}${money(profit)}` : undefined}>
+      {a.canSee('sales') && <Section title="Equipos y ventas">
+        <Group footer={sales.length > 0 && a.prices ? `Total vendido ${money(lifetime)}${a.costs ? ` · ganancia ${estimated ? '≈ ' : ''}${money(profit)}` : ''}` : undefined}>
           {sales.map((sale) => (
             <SaleRow key={sale.id} sale={sale} data={data} showClient={false} />
           ))}
-          <Row
+          {sales.length === 0 && !a.canEdit('sales') && <Empty inGroup title="Sin ventas" />}
+          {a.canEdit('sales') && <Row
             className="action"
             to={`/ventas/nueva?cliente=${id}`}
             leading={<Plus size={20} />}
             title={sales.length ? 'Otra venta para este cliente' : 'Registrar su venta'}
             chevron={false}
-          />
+          />}
         </Group>
-      </Section>
+      </Section>}
 
-      <Section title="Servicio técnico">
+      {a.canSee('services') && <Section title="Servicio técnico">
         <Group>
           {services.map((service) => (
             <ServiceRow key={service.id} service={service} data={data} showClient={false} />
           ))}
-          <Row
+          {services.length === 0 && !a.canEdit('services') && <Empty inGroup title="Sin servicios" />}
+          {a.canEdit('services') && <Row
             className="action"
             to={`/servicio/nuevo?cliente=${id}`}
             leading={<Wrench size={19} />}
             title="Reportar un problema o mantenimiento"
             chevron={false}
-          />
+          />}
         </Group>
-      </Section>
+      </Section>}
 
-      <div className="group" style={{ marginTop: 34 }}>
-        <button type="button" className="row danger" onClick={remove}>
-          Borrar cliente
-        </button>
-      </div>
+      {a.delete && a.canEdit('clients') && a.scope === 'all' && (
+        <div className="group" style={{ marginTop: 34 }}>
+          <button type="button" className="row danger" onClick={remove}>
+            Borrar cliente
+          </button>
+        </div>
+      )}
       <p className="group-foot" style={{ textAlign: 'center' }}>Registrado el {dateWithYear(localDate(client.createdAt))}</p>
     </Page>
   );

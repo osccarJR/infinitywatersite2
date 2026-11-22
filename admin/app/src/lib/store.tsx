@@ -7,6 +7,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Bootstrap, CatalogItem, Client, Person, Sale, Service, User } from '../../../shared/domain.ts';
 import { todayISO } from '../../../shared/domain.ts';
 import { api, ApiError, setUnauthorizedHandler } from './api.ts';
+import { previewTarget, setPreviewTarget, type PreviewTarget } from './preview.ts';
 
 export interface Data extends Bootstrap {
   today: string;
@@ -28,6 +29,8 @@ interface Store {
   reload: () => Promise<void>;
   signedIn: (user: User) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Entra o sale de la vista previa ("Ver como"). */
+  setPreview: (target: PreviewTarget | null) => Promise<void>;
 }
 
 const StoreContext = createContext<Store | null>(null);
@@ -66,7 +69,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const statusRef = useRef(status);
   statusRef.current = status;
 
-  const load = useCallback(() => {
+  const load = useCallback((): Promise<void> => {
     loading.current ??= api<Bootstrap>('/bootstrap')
       .then((data) => {
         setRaw(data);
@@ -74,6 +77,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         setError(null);
       })
       .catch((err: ApiError) => {
+        // El usuario de la vista previa ya no existe (o ya no es administrador): se sale de ella.
+        if (previewTarget() && (err.status === 403 || err.status === 404)) {
+          setPreviewTarget(null);
+          loading.current = null;
+          return load();
+        }
         if (err.status === 401) setStatus('login');
         else {
           setError(err.message);
@@ -117,9 +126,20 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         await load();
       },
       signOut: async () => {
+        // En la vista previa, "Cerrar sesion" solo sale de la vista previa.
+        if (previewTarget()) {
+          setPreviewTarget(null);
+          await load();
+          return;
+        }
         await api('/auth/logout', { method: 'POST' }).catch(() => {});
         setRaw(null);
         setStatus('login');
+      },
+      setPreview: async (target) => {
+        setPreviewTarget(target);
+        if (loading.current) await loading.current.catch(() => {});
+        await load();
       },
     }),
     [status, error, data, load]

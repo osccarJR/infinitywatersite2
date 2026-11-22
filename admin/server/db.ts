@@ -187,6 +187,79 @@ const MIGRATIONS: string[] = [
   ALTER TABLE sales ADD COLUMN installer_paid INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE sales ADD COLUMN installer_paid_date TEXT;
   `,
+  /* 6: permisos por usuario, cuentas por pagar e inventario. Los usuarios que
+        ya existian siguen siendo administradores (veian todo). */ `
+  ALTER TABLE users ADD COLUMN permissions TEXT;
+
+  CREATE TABLE payable_accounts (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    kind TEXT NOT NULL DEFAULT 'card',
+    last4 TEXT,
+    due_day INTEGER,
+    credit_limit INTEGER,
+    notes TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE payables (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES payable_accounts(id),
+    date TEXT NOT NULL,
+    description TEXT NOT NULL,
+    category TEXT,
+    amount INTEGER NOT NULL,
+    due_date TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+  );
+  CREATE INDEX payables_account ON payables(account_id);
+
+  CREATE TABLE payable_payments (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES payable_accounts(id),
+    payable_id INTEGER REFERENCES payables(id) ON DELETE SET NULL,
+    date TEXT NOT NULL,
+    amount INTEGER NOT NULL,
+    method TEXT,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+  );
+  CREATE INDEX payable_payments_account ON payable_payments(account_id);
+
+  CREATE TABLE inventory_items (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    category TEXT NOT NULL DEFAULT 'other',
+    sku TEXT,
+    cost INTEGER,
+    min_stock INTEGER NOT NULL DEFAULT 0,
+    notes TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE TABLE inventory_movements (
+    id INTEGER PRIMARY KEY,
+    item_id INTEGER NOT NULL REFERENCES inventory_items(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    kind TEXT NOT NULL,
+    quantity INTEGER NOT NULL,
+    unit_cost INTEGER,
+    supplier_id INTEGER REFERENCES suppliers(id),
+    sale_id INTEGER REFERENCES sales(id) ON DELETE SET NULL,
+    service_id INTEGER REFERENCES services(id) ON DELETE SET NULL,
+    notes TEXT,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL
+  );
+  CREATE INDEX inventory_movements_item ON inventory_movements(item_id);
+  `,
 ];
 
 export type DB = Database.Database;

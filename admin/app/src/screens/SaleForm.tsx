@@ -11,6 +11,7 @@ import { ChevronDown, ChevronRight, Info, Plus, X } from 'lucide-react';
 import type { Equipment, PaymentMethod, Sale, SaleStatus, WaterSource } from '../../../shared/domain.ts';
 import { EMPTY_EQUIPMENT, SALE_STATUS_LABEL, equipmentSummary, hasEquipment, saleMissing, saleMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
+import { useAccess, visibleMissing } from '../lib/access.ts';
 import { goBack, navigate, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
@@ -209,11 +210,18 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
+  const a = useAccess();
   const existing = id ? data.sales.find((s) => s.id === id) : undefined;
+  // "Solo lo suyo": la venta nueva sale a su nombre (si vende).
+  const me = a.scope === 'own' && a.personId ? data.personById.get(a.personId) : undefined;
+  const mySellerId = me?.isSeller ? me.id : null;
 
   const [form, setForm] = useState<FormState>(() =>
-    existing ? fromSale(existing, data.clientById.get(existing.clientId)) : blank(data.today, clientId, legacy, defaultBrand(data.brands))
+    existing
+      ? fromSale(existing, data.clientById.get(existing.clientId))
+      : { ...blank(data.today, clientId, legacy, defaultBrand(data.brands)), sellerId: mySellerId }
   );
+  const payEdit = a.canEdit('payments');
   const initial = useRef(JSON.stringify(form));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -245,7 +253,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
         : undefined;
   const body = useMemo(() => toSaleBody(form, clientAddress), [form, clientAddress]);
   const m = saleMoney(body);
-  const missing = saleMissing({ ...(body as any), suppliers: body.suppliers, equipment: body.equipment });
+  const missing = visibleMissing(saleMissing({ ...(body as any), suppliers: body.suppliers, equipment: body.equipment }), a);
 
   if (id && !existing) {
     return (
@@ -323,7 +331,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
     if (again) {
       // "Guardar y otro": formulario limpio para el siguiente cliente anterior,
       // conservando el mes y el ano (suelen cargarse varios del mismo periodo).
-      const fresh = { ...blank(data.today, null, true, form.brandId), saleDate: form.saleDate };
+      const fresh = { ...blank(data.today, null, true, form.brandId), saleDate: form.saleDate, sellerId: mySellerId };
       setForm(fresh);
       initial.current = JSON.stringify(fresh);
       savedId.current = null;
@@ -426,8 +434,8 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
             </Group>
 
             {/* ---------------------------- dinero ---------------------------- */}
-            <Group label="Venta y cobro">
-              <MoneyField
+            <Group label={a.prices ? 'Venta y cobro' : 'Forma de pago'}>
+              {a.prices && <MoneyField
                 field="price"
                 label="Valor de la venta"
                 value={form.price}
@@ -439,7 +447,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                     cashDown: f.paymentMethod === 'cash' && (f.cashDown == null || f.cashDown === f.price) ? price : f.cashDown,
                   }))
                 }
-              />
+              />}
               <SegmentedRow
                 field="paymentMethod"
                 title="Forma de pago"
@@ -460,10 +468,10 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
               {financed && (
                 <>
                   <FinancierPicker value={form.financierId} onChange={(v) => set('financierId', v)} />
-                  <SwitchRow label="El cliente abonó cash" checked={form.cashDownOn} onChange={(v) => set('cashDownOn', v)} />
-                  {form.cashDownOn && <MoneyField field="cashDown" label="Abono en cash" value={form.cashDown} onChange={(v) => set('cashDown', v)} />}
-                  <Row title="Se financió" value={form.price == null ? '—' : money(m.financedAmount)} />
-                  <MoneyField
+                  {a.prices && <SwitchRow label="El cliente abonó cash" checked={form.cashDownOn} onChange={(v) => set('cashDownOn', v)} />}
+                  {a.prices && form.cashDownOn && <MoneyField field="cashDown" label="Abono en cash" value={form.cashDown} onChange={(v) => set('cashDown', v)} />}
+                  {a.prices && <Row title="Se financió" value={form.price == null ? '—' : money(m.financedAmount)} />}
+                  {a.costs && <MoneyField
                     field="fundedAmount"
                     label="Lo que pagó la financiera"
                     value={form.fundedAmount}
@@ -473,16 +481,16 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                         ? `La financiera se quedó ${money(m.financierFee)} (${percent(m.financierFee, m.financedAmount)}%).`
                         : undefined
                     }
-                  />
-                  <SwitchRow
+                  />}
+                  {payEdit && <SwitchRow
                     label="La financiera ya pagó"
                     checked={form.fundedPaid}
                     onChange={(v) => setForm((f) => ({ ...f, fundedPaid: v, fundedDate: v && !f.fundedDate ? data.today : f.fundedDate }))}
-                  />
-                  {form.fundedPaid && <DateField field="fundedDate" label="Fecha del pago" value={form.fundedDate} onChange={(v) => set('fundedDate', v)} />}
+                  />}
+                  {payEdit && form.fundedPaid && <DateField field="fundedDate" label="Fecha del pago" value={form.fundedDate} onChange={(v) => set('fundedDate', v)} />}
                 </>
               )}
-              {form.paymentMethod === 'cash' && (
+              {form.paymentMethod === 'cash' && a.prices && (
                 <>
                   <MoneyField field="cashDown" label="Cobrado al cliente" value={form.cashDown} onChange={(v) => set('cashDown', v)} />
                   {m.pendingClient > 0 && <Row title="Saldo pendiente" value={<span className="orange">{money(m.pendingClient)}</span>} />}
@@ -493,19 +501,19 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
             {/* ------------------------ vendedor y comision ------------------------ */}
             <Group label="Quién vendió">
               <PersonPicker field="sellerId" role="seller" label="Vendedor" value={form.sellerId} onChange={(v) => set('sellerId', v)} />
-              <MoneyField
+              {a.costs && <MoneyField
                 field="commission"
                 label="Comisión"
                 value={form.commission}
                 onChange={(v) => set('commission', v)}
                 hint={form.commission != null && form.price ? `${percent(form.commission, form.price)}% del valor de la venta` : undefined}
-              />
-              <SwitchRow
+              />}
+              {payEdit && <SwitchRow
                 label="Comisión pagada"
                 checked={form.commissionPaid}
                 onChange={(v) => setForm((f) => ({ ...f, commissionPaid: v, commissionPaidDate: v && !f.commissionPaidDate ? data.today : f.commissionPaidDate }))}
-              />
-              {form.commissionPaid && <DateField field="commissionPaidDate" label="Fecha de pago" value={form.commissionPaidDate} onChange={(v) => set('commissionPaidDate', v)} />}
+              />}
+              {payEdit && form.commissionPaid && <DateField field="commissionPaidDate" label="Fecha de pago" value={form.commissionPaidDate} onChange={(v) => set('commissionPaidDate', v)} />}
             </Group>
 
             {/* ---------------------------- mas detalles ---------------------------- */}
@@ -513,7 +521,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
               <button type="button" className="more-toggle" onClick={() => setMore(true)}>
                 <span>
                   <b>Más detalles</b>
-                  <span className="muted">Fecha de instalación, técnico, dirección, proveedores y mantenimiento</span>
+                  <span className="muted">Fecha de instalación, técnico, dirección{a.costs ? ', proveedores' : ''} y mantenimiento</span>
                 </span>
                 <ChevronDown size={20} />
               </button>
@@ -565,7 +573,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
             </Group>
 
             {/* ---------------------------- proveedores ---------------------------- */}
-            <Group field="suppliers" label="Proveedores y costos" footer="Lo que pagaste por equipos y materiales de esta venta. Con eso se calcula la ganancia real.">
+            {a.costs && <Group field="suppliers" label="Proveedores y costos" footer="Lo que pagaste por equipos y materiales de esta venta. Con eso se calcula la ganancia real.">
               {form.suppliers.map((line) => (
                 <SupplierLineRow
                   key={line.key}
@@ -584,14 +592,14 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                 <span className="row-label">Agregar proveedor</span>
               </button>
               <MoneyField field="installerPay" label="Pago al técnico" value={form.installerPay} onChange={(v) => set('installerPay', v)} placeholder="Opcional" />
-              {(form.installerPay ?? 0) > 0 && (
+              {payEdit && (form.installerPay ?? 0) > 0 && (
                 <SwitchRow
                   label="Ya se le pagó al técnico"
                   checked={form.installerPaid}
                   onChange={(v) => setForm((f) => ({ ...f, installerPaid: v, installerPaidDate: v && !f.installerPaidDate ? data.today : f.installerPaidDate }))}
                 />
               )}
-            </Group>
+            </Group>}
 
             {/* ---------------------------- seguimiento ---------------------------- */}
             <Group label="Seguimiento">
@@ -613,7 +621,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
           </div>
 
           {/* ------------------------------ resumen ------------------------------ */}
-          <aside className="form-aside">
+          {a.costs && <aside className="form-aside">
             <div className="summary-card">
               <div className="label">Ganancia{m.estimate ? ' estimada' : ''}</div>
               <div className="profit" style={{ color: m.profit < 0 ? 'var(--red)' : undefined }}>
@@ -636,12 +644,12 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                 </p>
               )}
             </div>
-          </aside>
+          </aside>}
         </div>
 
         <div className="form-actions">
           {error && <p className="form-error" role="alert">{error}</p>}
-          {form.price != null && (
+          {a.costs && form.price != null && (
             <p className="form-total">
               Te queda <b>{m.estimate ? '≈ ' : ''}{money(m.profit)}</b>
               {m.noCosts && <span className="muted"> · faltan costos</span>}

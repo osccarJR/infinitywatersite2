@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import { Download, Receipt } from 'lucide-react';
-import { equipmentSummary, normalize, saleMoney } from '../../../shared/domain.ts';
+import { equipmentSummary, isActiveSale, normalize, saleMissing, saleMoney } from '../../../shared/domain.ts';
 import { useData } from '../lib/store.tsx';
 import { Link } from '../lib/router.tsx';
-import { download } from '../lib/api.ts';
+import { useAccess, visibleMissing } from '../lib/access.ts';
+import { exportSales } from '../lib/exports.ts';
+import { useFeedback } from '../ui/sheet.tsx';
 import { moneyRound, plural } from '../lib/format.ts';
 import { PERIODS, SALE_FILTERS, inRange, periodRange, saleMatches, totals, type PeriodKey, type SaleFilter } from '../lib/stats.ts';
 import { AddButton, Chips, Empty, Group, Page, SearchBox, Segmented } from '../ui/kit.tsx';
@@ -11,22 +13,26 @@ import { SaleRow } from '../ui/items.tsx';
 
 export function Sales({ initialFilter }: { initialFilter: string | null }) {
   const data = useData();
+  const a = useAccess();
+  const { toast } = useFeedback();
+  // Filtros de dinero solo para quien ve esos montos.
+  const filters = SALE_FILTERS.filter((f) => (f.key === 'to_collect' || f.key === 'commission' ? a.costs : true));
   const [query, setQuery] = useState('');
-  const [filter, setFilter] = useState<SaleFilter>(SALE_FILTERS.some((f) => f.key === initialFilter) ? (initialFilter as SaleFilter) : 'all');
+  const [filter, setFilter] = useState<SaleFilter>(filters.some((f) => f.key === initialFilter) ? (initialFilter as SaleFilter) : 'all');
   const [period, setPeriod] = useState<PeriodKey>('all');
   const range = periodRange(period, data.today);
 
   const inPeriod = useMemo(() => data.sales.filter((s) => inRange(s.saleDate, range)), [data.sales, range.from, range.to]);
 
   const counts = useMemo(
-    () => Object.fromEntries(SALE_FILTERS.map((f) => [f.key, inPeriod.filter((s) => saleMatches(s, f.key, data.today)).length])),
-    [inPeriod, data.today]
+    () => Object.fromEntries(filters.map((f) => [f.key, inPeriod.filter((s) => (f.key === 'incomplete' ? isActiveSale(s) && visibleMissing(saleMissing(s), a).length > 0 : saleMatches(s, f.key, data.today))).length])),
+    [inPeriod, data.today, a.money]
   );
 
   const list = useMemo(() => {
     const q = normalize(query.trim());
     return inPeriod.filter((sale) => {
-      if (!saleMatches(sale, filter, data.today)) return false;
+      if (filter === 'incomplete' ? !(isActiveSale(sale) && visibleMissing(saleMissing(sale), a).length > 0) : !saleMatches(sale, filter, data.today)) return false;
       if (!q) return true;
       const client = data.clientById.get(sale.clientId);
       const people = [sale.sellerId, sale.installerId].map((id) => (id ? data.personById.get(id)?.name : '')).join(' ');
@@ -50,9 +56,7 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
     <Page
       title="Ventas"
       subtitle={plural(data.sales.length, 'venta registrada', 'ventas registradas')}
-      headerAction={
-        <AddButton to="/ventas/nueva" label="Venta" />
-      }
+      headerAction={a.canEdit('sales') ? <AddButton to="/ventas/nueva" label="Venta" /> : undefined}
     >
       <div className="toolbar">
         <div className="toolbar inline" style={{ marginBottom: 0 }}>
@@ -61,16 +65,16 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
             <Segmented options={PERIODS.map((p) => ({ value: p.key, label: p.label }))} value={period} onChange={setPeriod} label="Periodo" />
           </div>
         </div>
-        <Chips<SaleFilter> value={filter} onChange={setFilter} options={SALE_FILTERS.map((f) => ({ ...f, count: f.key === 'all' ? undefined : counts[f.key] }))} />
+        <Chips<SaleFilter> value={filter} onChange={setFilter} options={filters.map((f) => ({ ...f, count: f.key === 'all' ? undefined : counts[f.key] }))} />
       </div>
 
       {data.sales.length === 0 ? (
         <Empty
           icon={<Receipt size={40} />}
           title="Aún no hay ventas"
-          text="Registra la venta de hoy o ponte al día con tus clientes anteriores."
+          text={a.canEdit('sales') ? 'Registra la venta de hoy o ponte al día con tus clientes anteriores.' : a.scope === 'own' ? 'Aquí verás tus ventas e instalaciones.' : undefined}
           action={
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            !a.canEdit('sales') ? undefined : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               <Link to="/ventas/nueva" className="btn">Venta nueva</Link>
               <Link to="/ventas/nueva?anterior=1" className="btn gray">Cliente anterior</Link>
             </div>
@@ -83,18 +87,31 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
           <div className="totals">
             {filter === 'inactive' ? (
               <span>
-                <b>{plural(list.length, 'venta', 'ventas')}</b> que no siguieron · <b>{moneyRound(list.reduce((n, s) => n + (s.price ?? 0), 0))}</b> (no suman)
+                <b>{plural(list.length, 'venta', 'ventas')}</b> que no siguieron{a.prices && <> · <b>{moneyRound(list.reduce((n, s) => n + (s.price ?? 0), 0))}</b> (no suman)</>}
               </span>
             ) : (
               <span><b>{plural(t.count, 'venta', 'ventas')}</b></span>
             )}
             {collect && <span>Te deben <b style={{ color: 'var(--orange)' }}>{moneyRound(owed)}</b></span>}
-            {!collect && filter !== 'inactive' && <span>Vendido <b>{moneyRound(t.sold)}</b></span>}
-            {!collect && filter !== 'inactive' && <span>Ganancia <b>{t.estimates ? '≈ ' : ''}{moneyRound(t.profit)}</b></span>}
-            {!collect && filter !== 'inactive' && t.commission > 0 && <span>Comisiones <b>{moneyRound(t.commission)}</b></span>}
-            <button type="button" className="link-btn" style={{ marginLeft: 'auto', padding: 0, fontSize: 14 }} onClick={() => download('/export/sales')}>
-              <Download size={14} style={{ verticalAlign: -2 }} /> Excel
-            </button>
+            {a.prices && !collect && filter !== 'inactive' && <span>Vendido <b>{moneyRound(t.sold)}</b></span>}
+            {a.costs && !collect && filter !== 'inactive' && <span>Ganancia <b>{t.estimates ? '≈ ' : ''}{moneyRound(t.profit)}</b></span>}
+            {a.costs && !collect && filter !== 'inactive' && t.commission > 0 && <span>Comisiones <b>{moneyRound(t.commission)}</b></span>}
+            {a.export && (
+              <button
+                type="button"
+                className="link-btn"
+                style={{ marginLeft: 'auto', padding: 0, fontSize: 14 }}
+                onClick={() => {
+                  try {
+                    exportSales(shown, data, a);
+                  } catch (err: any) {
+                    toast(err.message, 'error');
+                  }
+                }}
+              >
+                <Download size={14} style={{ verticalAlign: -2 }} /> Excel
+              </button>
+            )}
           </div>
           <Group>
             {shown.map((sale) => (

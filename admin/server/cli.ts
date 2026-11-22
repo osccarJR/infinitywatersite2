@@ -55,7 +55,7 @@ async function main() {
     const count = (table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     const before = { clientes: count('clients'), ventas: count('sales'), servicios: count('services') };
     db.transaction(() => {
-      for (const table of ['services', 'sale_suppliers', 'sales', 'clients', 'people', 'financiers', 'suppliers', 'audit']) {
+      for (const table of ['inventory_movements', 'inventory_items', 'payable_payments', 'payables', 'payable_accounts', 'services', 'sale_suppliers', 'sales', 'clients', 'people', 'financiers', 'suppliers', 'audit']) {
         db.prepare(`DELETE FROM ${table}`).run();
       }
     })();

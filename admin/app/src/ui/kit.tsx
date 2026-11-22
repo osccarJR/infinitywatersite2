@@ -5,6 +5,7 @@ import { useEffect, useId, useState, type ReactNode } from 'react';
 import { ChevronLeft, ChevronRight, Eye, EyeOff, MessageCircle, Phone, Plus, Search as SearchIcon, X } from 'lucide-react';
 import { toggleAmounts, useAmountsHidden } from '../lib/privacy.ts';
 import { Link, goBack } from '../lib/router.tsx';
+import { useStore } from '../lib/store.tsx';
 import { avatarStyle, centsToInput, initials, parseMoney } from '../lib/format.ts';
 
 /* ------------------------------------------------------------------ */
@@ -28,6 +29,8 @@ interface PageProps {
 
 export function Page({ title, subtitle, back, actions, headerAction, narrow, hideTitle, children }: PageProps) {
   const [scrolled, setScrolled] = useState(false);
+  // El ojito de montos solo tiene sentido para quien ve dinero.
+  const seesMoney = (useStore().data?.me.permissions.money ?? 'none') !== 'none';
   useEffect(() => {
     document.title = `${title} · Gestión`;
     const onScroll = () => setScrolled(window.scrollY > (hideTitle ? 90 : 44));
@@ -47,7 +50,7 @@ export function Page({ title, subtitle, back, actions, headerAction, narrow, hid
         )}
         <span className="topbar-title">{title}</span>
         <div className="topbar-actions">
-          <PrivacyToggle compact />
+          {seesMoney && <PrivacyToggle compact />}
           {actions}
         </div>
       </div>
