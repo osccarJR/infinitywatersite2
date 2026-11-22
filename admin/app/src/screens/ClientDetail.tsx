@@ -1,5 +1,5 @@
 import { MapPin, MessageCircle, Phone, Plus, Wrench } from 'lucide-react';
-import { SOURCE_LABEL, formatAddress, saleMoney } from '../../../shared/domain.ts';
+import { SOURCE_LABEL, formatAddress, isActiveSale, saleMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
@@ -25,9 +25,10 @@ export function ClientDetail({ id }: { id: number }) {
   const sales = data.salesByClient.get(id) ?? [];
   const services = data.servicesByClient.get(id) ?? [];
   const fullAddress = formatAddress(client);
-  const lifetime = sales.reduce((sum, s) => sum + (s.price ?? 0), 0);
-  const profit = sales.reduce((sum, s) => sum + saleMoney(s).profit, 0);
-  const estimated = sales.some((s) => saleMoney(s).estimate);
+  const counted = sales.filter(isActiveSale);
+  const lifetime = counted.reduce((sum, s) => sum + (s.price ?? 0), 0);
+  const profit = counted.reduce((sum, s) => sum + saleMoney(s).profit, 0);
+  const estimated = counted.some((s) => saleMoney(s).estimate);
 
   const remove = async () => {
     const ok = await confirm({

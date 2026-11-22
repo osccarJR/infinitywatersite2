@@ -21,6 +21,10 @@ público y no se indexa (`X-Robots-Tag: noindex`).
 | Servicio técnico: fecha del reporte, problema, garantía o cobrado y cuánto | *Servicio técnico* |
 | Empezar desde hoy | **+ → Venta nueva** |
 | Irse igualando con clientes anteriores | **+ → Cliente anterior** (solo cliente y fecha son obligatorios; el inicio muestra qué falta) y **+ → Servicio técnico** (crea el cliente ahí mismo) |
+| Marca con la que se instala (Infinity Water, Magic Water, 4Elements; se pueden crear más) | Venta → *Lo que instalaste → Marca*; *Ajustes → Marcas* |
+| Ventas canceladas, declinadas o desinstaladas | Venta → *Editar → Estado de la venta*. Quedan en el historial pero **no suman** en nada |
+| Servicio técnico como rubro aparte: medio de pago (Zelle, transferencia, tarjeta Stripe, cash, cheque) y pago al técnico | Servicio → *Cobro* y *Pago al técnico*; *Inicio → Servicio técnico* |
+| Pagarle al técnico lo de instalaciones y servicios junto | *Pagos → Técnicos* |
 | Saber cuánto ganamos y cómo está la vuelta | *Inicio*: agenda de la semana, vendido, ganancia, cobrado, lo pendiente (te deben, comisiones, por instalar, servicio), mantenimientos, por vendedor y por financiera |
 | Pagar comisiones y registrar pagos de financieras | *Pagos*: por vendedor o por financiera, marcando varias ventas a la vez |
 
@@ -54,9 +58,19 @@ cd admin
 npm install
 DATA_DIR=data PASSWORD=una-clave-de-prueba node --experimental-strip-types server/cli.ts crear demo "Demo"
 npm run dev        # API en :3042 + Vite en http://localhost:5173/admin/
-npm test           # compila y corre las 32 pruebas
+npm test           # compila y corre las 35 pruebas
 npm run typecheck
 ```
+
+## Historial importado
+
+El 2026-11-21 se importó el Excel "BASE TOTAL" del dueño (2022–2026): 846
+clientes y 881 ventas, cuadradas al centavo con el Excel. Reglas usadas:
+estados del Excel → estado de la venta; COMPAÑÍA → marca; "RO" solo según el
+precio (menos de $5,000 = ósmosis de cocina; más = de toda la casa);
+"RO 1/2 MEMB" = toda la casa con esas membranas; INST = pago al instalador;
+oficina y sucursal en las notas; clientes unidos por teléfono (o por nombre
+idéntico si no hay teléfono). Todas quedaron como "Cliente anterior".
 
 ## Reglas de datos que conviene conocer
 

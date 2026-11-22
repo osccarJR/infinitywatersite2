@@ -39,7 +39,7 @@ export function updatePerson(db: DB, id: number, p: PersonInput) {
     .run(p.name, p.phone, b(p.isSeller), b(p.isInstaller), b(p.active), id).changes;
 }
 
-export type CatalogTable = 'financiers' | 'suppliers';
+export type CatalogTable = 'financiers' | 'suppliers' | 'brands';
 
 export const listCatalog = (db: DB, table: CatalogTable): CatalogItem[] =>
   (db.prepare(`SELECT * FROM ${table} ORDER BY active DESC, name COLLATE NOCASE`).all() as any[]).map((r) => ({
@@ -61,6 +61,7 @@ export function catalogUsage(db: DB, kind: 'people' | CatalogTable, id: number):
                   + (SELECT COUNT(*) FROM services WHERE technician_id = @id) AS n`,
     financiers: 'SELECT COUNT(*) AS n FROM sales WHERE financier_id = @id',
     suppliers: 'SELECT COUNT(*) AS n FROM sale_suppliers WHERE supplier_id = @id',
+    brands: 'SELECT COUNT(*) AS n FROM sales WHERE brand_id = @id',
   };
   return (db.prepare(queries[kind]).get({ id }) as { n: number }).n;
 }
@@ -142,6 +143,8 @@ export const deleteClient = (db: DB, id: number) => db.prepare('DELETE FROM clie
 const toSale = (r: any, suppliers: Sale['suppliers']): Sale => ({
   id: r.id,
   clientId: r.client_id,
+  brandId: r.brand_id,
+  status: r.status ?? 'active',
   saleDate: r.sale_date,
   installDate: r.install_date,
   installerId: r.installer_id,
@@ -171,6 +174,8 @@ const toSale = (r: any, suppliers: Sale['suppliers']): Sale => ({
   commissionPaid: Boolean(r.commission_paid),
   commissionPaidDate: r.commission_paid_date,
   installerPay: r.installer_pay,
+  installerPaid: Boolean(r.installer_paid),
+  installerPaidDate: r.installer_paid_date,
   nextServiceDate: r.next_service_date,
   notes: r.notes,
   isLegacy: Boolean(r.is_legacy),
@@ -210,6 +215,8 @@ const saleParams = (s: SaleInput, clientId: number) => {
   const financed = s.paymentMethod === 'financed';
   return {
     client_id: clientId,
+    brand_id: s.brandId,
+    status: s.status,
     sale_date: s.saleDate,
     install_date: s.installDate,
     installer_id: s.installerId,
@@ -238,6 +245,8 @@ const saleParams = (s: SaleInput, clientId: number) => {
     commission_paid: b(s.commissionPaid),
     commission_paid_date: s.commissionPaid ? s.commissionPaidDate : null,
     installer_pay: s.installerPay,
+    installer_paid: b(s.installerPaid && (s.installerPay ?? 0) > 0),
+    installer_paid_date: s.installerPaid ? s.installerPaidDate : null,
     next_service_date: s.nextServiceDate,
     notes: s.notes,
     is_legacy: b(s.isLegacy),
@@ -320,6 +329,10 @@ const toService = (r: any): Service => ({
   closedDate: r.closed_date,
   billing: r.billing,
   amount: r.amount,
+  paymentMethod: r.payment_method,
+  technicianPay: r.technician_pay,
+  technicianPaid: Boolean(r.technician_paid),
+  technicianPaidDate: r.technician_paid_date,
   notes: r.notes,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -352,6 +365,10 @@ const serviceParams = (v: ServiceInput, clientId: number) => ({
   closed_date: v.status === 'closed' ? v.closedDate : null,
   billing: v.billing,
   amount: v.billing === 'charged' ? v.amount : null,
+  payment_method: v.billing === 'charged' ? v.paymentMethod : null,
+  technician_pay: v.technicianPay,
+  technician_paid: b(v.technicianPaid && (v.technicianPay ?? 0) > 0),
+  technician_paid_date: v.technicianPaid ? v.technicianPaidDate : null,
   notes: v.notes,
 });
 
@@ -384,6 +401,17 @@ export const deleteService = (db: DB, id: number) => db.prepare('DELETE FROM ser
 /** Al cerrar un mantenimiento se puede dejar fijado el siguiente en la venta. */
 export const setNextServiceDate = (db: DB, saleId: number, date: string | null) =>
   db.prepare('UPDATE sales SET next_service_date = ? WHERE id = ?').run(date, saleId).changes;
+
+/** Pagarle a un tecnico: marca instalaciones y servicios como pagados. Devuelve cuantos cambio. */
+export function payTechnician(db: DB, saleIds: number[], serviceIds: number[], date: string | null, userId: number) {
+  let changed = 0;
+  const now = `strftime('%Y-%m-%d %H:%M:%f', 'now')`;
+  const sale = db.prepare(`UPDATE sales SET installer_paid = 1, installer_paid_date = ?, updated_at = ${now}, updated_by = ? WHERE id = ? AND COALESCE(installer_pay, 0) > 0 AND installer_paid = 0`);
+  const service = db.prepare(`UPDATE services SET technician_paid = 1, technician_paid_date = ?, updated_at = ${now}, updated_by = ? WHERE id = ? AND COALESCE(technician_pay, 0) > 0 AND technician_paid = 0`);
+  for (const id of saleIds) changed += sale.run(date, userId, id).changes;
+  for (const id of serviceIds) changed += service.run(date, userId, id).changes;
+  return changed;
+}
 
 /** updatedAt actual de un registro, para detectar ediciones simultaneas. */
 export function currentVersion(db: DB, table: 'clients' | 'sales' | 'services', id: number): string | null {

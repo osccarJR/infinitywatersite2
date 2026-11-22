@@ -15,6 +15,9 @@ export type RoType = 'five_stage' | 'box';
 export type ServiceKind = 'problem' | 'maintenance' | 'filters' | 'other';
 export type ServiceStatus = 'open' | 'closed';
 export type ServiceBilling = 'warranty' | 'charged';
+/** Como pago el cliente un servicio tecnico. */
+export type ServicePayment = 'zelle' | 'transfer' | 'card' | 'cash' | 'check';
+export type SaleStatus = 'active' | 'cancelled' | 'declined' | 'uninstalled';
 export type ClientSource = 'referral' | 'door' | 'google' | 'social' | 'event' | 'website' | 'other';
 
 /* ------------------------------------------------------------------ */
@@ -88,6 +91,10 @@ export interface SaleSupplier {
 export interface Sale {
   id: number;
   clientId: number;
+  /** Marca con la que se instalo (Infinity Water, Magic Water...). */
+  brandId: number | null;
+  /** Solo las activas suman en totales, cobros y comisiones. */
+  status: SaleStatus;
   saleDate: string;
   installDate: string | null;
   installerId: number | null;
@@ -112,6 +119,9 @@ export interface Sale {
   commissionPaid: boolean;
   commissionPaidDate: string | null;
   installerPay: number | null;
+  /** Ya se le pago al tecnico por esta instalacion. */
+  installerPaid: boolean;
+  installerPaidDate: string | null;
   nextServiceDate: string | null;
   notes: string | null;
   /** Registrada al ponerse al dia (venta anterior al sistema). */
@@ -138,6 +148,12 @@ export interface Service {
   billing: ServiceBilling | null;
   /** Lo que se le cobro al cliente (si no fue garantia). */
   amount: number | null;
+  /** Como pago el cliente; null = todavia no paga. */
+  paymentMethod: ServicePayment | null;
+  /** Lo que se le paga al tecnico por este servicio. */
+  technicianPay: number | null;
+  technicianPaid: boolean;
+  technicianPaidDate: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -156,11 +172,43 @@ export interface Bootstrap {
   people: Person[];
   financiers: CatalogItem[];
   suppliers: CatalogItem[];
+  brands: CatalogItem[];
 }
 
 /* ------------------------------------------------------------------ */
 /* Etiquetas                                                            */
 /* ------------------------------------------------------------------ */
+
+export const SERVICE_PAYMENT_LABEL: Record<ServicePayment, string> = {
+  zelle: 'Zelle',
+  transfer: 'Transferencia',
+  card: 'Tarjeta (Stripe)',
+  cash: 'Cash',
+  check: 'Cheque',
+};
+
+/** Numeros de un servicio: lo cobrado, lo del tecnico y lo que queda. */
+export function serviceMoney(v: Pick<Service, 'billing' | 'amount' | 'technicianPay' | 'paymentMethod'>) {
+  const charged = v.billing === 'charged' ? v.amount ?? 0 : 0;
+  const technician = v.technicianPay ?? 0;
+  return {
+    charged,
+    technician,
+    profit: charged - technician,
+    /** Se cobro pero el cliente aun no paga (sin medio de pago). */
+    pendingClient: v.billing === 'charged' && !v.paymentMethod ? charged : 0,
+  };
+}
+
+export const SALE_STATUS_LABEL: Record<SaleStatus, string> = {
+  active: 'Activa',
+  cancelled: 'Cancelada',
+  declined: 'Declinada',
+  uninstalled: 'Desinstalada',
+};
+
+/** Una venta cancelada, declinada o desinstalada no suma en nada. */
+export const isActiveSale = (s: Pick<Sale, 'status'>) => (s.status ?? 'active') === 'active';
 
 export const WATER_LABEL: Record<WaterSource, string> = { city: 'Ciudad', well: 'Pozo' };
 export const RO_TYPE_LABEL: Record<RoType, string> = { five_stage: '5 pasos', box: 'En caja' };
@@ -303,7 +351,8 @@ export function saleMoney(s: SaleMoneyInput): SaleMoney {
 
 export type InstallState = 'pending' | 'scheduled' | 'done';
 
-export function installState(sale: Pick<Sale, 'installDate' | 'isLegacy'>, today: string): InstallState {
+export function installState(sale: Pick<Sale, 'installDate' | 'isLegacy'> & { status?: SaleStatus }, today: string): InstallState {
+  if (sale.status && sale.status !== 'active') return 'done';
   // Una venta anterior al sistema ya esta instalada aunque no se sepa la fecha.
   if (!sale.installDate) return sale.isLegacy ? 'done' : 'pending';
   return sale.installDate > today ? 'scheduled' : 'done';
@@ -312,6 +361,7 @@ export function installState(sale: Pick<Sale, 'installDate' | 'isLegacy'>, today
 /** Datos que faltan para que la venta este completa. */
 export function saleMissing(s: Sale): string[] {
   const missing: string[] = [];
+  if (!isActiveSale(s)) return missing; // no se piden datos de una venta que no siguio
   if (!hasEquipment(s.equipment)) missing.push('Equipo instalado');
   if (!s.waterSource) missing.push('Ciudad o pozo');
   if (s.price == null) missing.push('Valor de la venta');

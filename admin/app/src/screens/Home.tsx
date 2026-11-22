@@ -3,13 +3,13 @@
  * debajo, lo que esta pendiente hoy (no depende del periodo).
  */
 import { useMemo, useState } from 'react';
-import { CalendarClock, HandCoins, History, Landmark, Receipt, TrendingUp, Truck, Wallet, Wrench } from 'lucide-react';
-import { addDaysISO, equipmentSummary, saleMissing } from '../../../shared/domain.ts';
+import { CalendarClock, HandCoins, HardHat, History, Landmark, Receipt, TrendingUp, Truck, Wallet, Wrench } from 'lucide-react';
+import { addDaysISO, equipmentSummary, isActiveSale, saleMissing } from '../../../shared/domain.ts';
 import { useData } from '../lib/store.tsx';
 import { useAmountsHidden } from '../lib/privacy.ts';
 import { Link, navigate } from '../lib/router.tsx';
-import { date, daysBetween, longDate, money, moneyRound, monthAbbr, percent, percentText, plural, relativeDay } from '../lib/format.ts';
-import { PERIODS, byFinancier, bySeller, inRange, monthly, pending, periodRange, totals, type PeriodKey } from '../lib/stats.ts';
+import { date, daysBetween, longDate, money, moneyFit, moneyRound, monthAbbr, percent, percentText, plural, relativeDay } from '../lib/format.ts';
+import { PERIODS, byFinancier, bySeller, inRange, monthly, pending, periodRange, serviceTotals, technicianDebts, totals, type PeriodKey } from '../lib/stats.ts';
 import { Avatar, Badge, ContactRow, Empty, Group, IconBox, Page, Row, Section, Segmented, Stat } from '../ui/kit.tsx';
 
 export function Home() {
@@ -20,6 +20,10 @@ export function Home() {
   const periodSales = useMemo(() => data.sales.filter((s) => inRange(s.saleDate, range)), [data.sales, range.from, range.to]);
   const t = totals(periodSales);
   const p = useMemo(() => pending(data.sales, data.services, data.today), [data]);
+  const periodServices = useMemo(() => data.services.filter((s) => inRange(s.reportedDate, range)), [data.services, range.from, range.to]);
+  const svc = serviceTotals(periodServices);
+  const allSvc = useMemo(() => serviceTotals(data.services), [data.services]);
+  const techOwed = useMemo(() => [...technicianDebts(data.sales, data.services).values()].reduce((n, e) => n + e.total, 0), [data]);
   const months = useMemo(() => monthly(data.sales, data.today), [data]);
   const sellers = bySeller(periodSales);
   const financiers = byFinancier(periodSales);
@@ -58,7 +62,7 @@ export function Home() {
               label="Vendido"
               icon={<Receipt size={15} />}
               spark={hidden ? undefined : months.map((x) => x.sold)}
-              value={moneyRound(t.sold)}
+              value={moneyFit(t.sold)}
               note={t.count ? `${plural(t.count, 'venta', 'ventas')} · ${moneyRound(t.count ? t.sold / t.count : 0)} en promedio` : 'Sin ventas en este periodo'}
               privacy
             />
@@ -66,7 +70,7 @@ export function Home() {
               label="Ganancia"
               icon={<TrendingUp size={15} />}
               iconColor="#1d9a46"
-              value={(t.estimates ? '≈ ' : '') + moneyRound(t.profit)}
+              value={(t.estimates ? '≈ ' : '') + moneyFit(t.profit)}
               tone={t.profit < 0 ? 'red' : undefined}
               note={t.estimates ? `${plural(t.estimates, 'venta estimada', 'ventas estimadas')} (faltan costos)` : t.income ? `Margen ${percentText(t.profit, t.income)}` : '—'}
             />
@@ -74,8 +78,41 @@ export function Home() {
               label="Ya cobrado"
               icon={<Wallet size={15} />}
               iconColor="#16a3c4"
-              value={moneyRound(t.received)}
+              value={moneyFit(t.received)}
               note={`de ${moneyRound(t.knownIncome)} esperado${t.unknownPayment ? ` · ${t.unknownPayment} sin forma de pago` : ''}`}
+            />
+          </div>
+
+          <div className="stats-head">
+            <h2 className="stats-title">Servicio técnico</h2>
+            <span className="muted" style={{ fontSize: 13.5 }}>{PERIODS.find((x) => x.key === period)?.label}</span>
+          </div>
+          <div className="stats">
+            <Stat
+              label="Cobrado"
+              icon={<Wrench size={15} />}
+              iconColor="#e5484d"
+              value={moneyFit(svc.chargedAmount)}
+              note={svc.count ? `${plural(svc.charged, 'cobrado', 'cobrados')} · ${svc.warranty} de garantía` : 'Sin servicios en el periodo'}
+              to="/servicio"
+            />
+            <Stat label="Pagado a técnicos" icon={<HardHat size={15} />} iconColor="#8e8e93" value={moneyFit(svc.technician)} note="De los servicios del periodo" />
+            <Stat
+              label="Ganancia de servicio"
+              icon={<TrendingUp size={15} />}
+              iconColor="#1d9a46"
+              value={moneyFit(svc.profit)}
+              tone={svc.profit < 0 ? 'red' : undefined}
+              note="Cobrado menos técnicos"
+            />
+            <Stat
+              label="Servicios por cobrar"
+              icon={<HandCoins size={15} />}
+              iconColor="#f08c00"
+              value={moneyFit(allSvc.pendingClient)}
+              tone={allSvc.pendingClient ? 'orange' : undefined}
+              note={allSvc.pendingClient ? 'Cobrados sin medio de pago' : 'Todo pagado'}
+              to="/servicio"
             />
           </div>
 
@@ -88,7 +125,7 @@ export function Home() {
               label="Te deben"
               icon={<HandCoins size={15} />}
               iconColor="#f08c00"
-              value={moneyRound(p.fromFinanciers + p.fromClients)}
+              value={moneyFit(p.fromFinanciers + p.fromClients)}
               tone={p.fromFinanciers + p.fromClients > 0 ? 'orange' : undefined}
               note={p.toCollect.length ? `Financieras ${moneyRound(p.fromFinanciers)}${p.fromClients ? ` · Clientes ${moneyRound(p.fromClients)}` : ''}` : 'Todo cobrado'}
               to="/pagos?tab=financieras"
@@ -97,9 +134,17 @@ export function Home() {
               label="Comisiones"
               icon={<Landmark size={15} />}
               iconColor="#6a3fdc"
-              value={moneyRound(p.commissionsOwed)}
+              value={moneyFit(p.commissionsOwed)}
               note={p.commissionSales.length ? `Por pagar · ${plural(p.commissionSales.length, 'venta', 'ventas')}` : 'Todas pagadas'}
               to="/pagos?tab=comisiones"
+            />
+            <Stat
+              label="Técnicos"
+              icon={<HardHat size={15} />}
+              iconColor="#8e8e93"
+              value={moneyFit(techOwed)}
+              note={techOwed ? 'Por pagar: instalaciones y servicios' : 'Todo pagado'}
+              to="/pagos?tab=tecnicos"
             />
             <Stat
               label="Por instalar"
@@ -109,15 +154,6 @@ export function Home() {
               tone={p.toInstall.length ? 'orange' : undefined}
               note={p.toInstall[0]?.installDate ? `Próxima: ${date(p.toInstall[0].installDate, data.today)}` : p.toInstall.length ? 'Sin fecha asignada' : 'Nada pendiente'}
               to="/ventas?filtro=to_install"
-            />
-            <Stat
-              label="Servicio técnico"
-              icon={<Wrench size={15} />}
-              iconColor="#e5484d"
-              value={p.openServices.length}
-              tone={p.openServices.length ? 'orange' : undefined}
-              note={p.openServices.length ? (p.openServices.length === 1 ? 'Abierto' : 'Abiertos') : 'Todo resuelto'}
-              to="/servicio"
             />
           </div>
 
@@ -310,6 +346,7 @@ function Agenda() {
   const end = addDaysISO(data.today, 6);
   const items: AgendaItem[] = [];
   for (const sale of data.sales) {
+    if (!isActiveSale(sale)) continue;
     if (sale.installDate && sale.installDate >= data.today && sale.installDate <= end) {
       items.push({ key: `i${sale.id}`, day: sale.installDate, kind: 'install', clientId: sale.clientId, to: `/ventas/${sale.id}`, detail: equipmentSummary(sale.equipment) });
     }

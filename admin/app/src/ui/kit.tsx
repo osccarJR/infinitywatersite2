@@ -29,7 +29,7 @@ interface PageProps {
 export function Page({ title, subtitle, back, actions, headerAction, narrow, hideTitle, children }: PageProps) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
-    document.title = `${title} · Infinity Water`;
+    document.title = `${title} · Gestión`;
     const onScroll = () => setScrolled(window.scrollY > (hideTitle ? 90 : 44));
     onScroll();
     window.addEventListener('scroll', onScroll, { passive: true });

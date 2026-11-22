@@ -18,6 +18,7 @@ import {
   firstIssue,
   LoginInput,
   MarkBatchInput,
+  TechPayInput,
   MarkInput,
   PasswordInput,
   PersonInput,
@@ -166,6 +167,7 @@ export function buildApi(db: DB, dataDir: string) {
     people: repo.listPeople(db),
     financiers: repo.listCatalog(db, 'financiers'),
     suppliers: repo.listCatalog(db, 'suppliers'),
+    brands: repo.listCatalog(db, 'brands'),
   }));
 
   /* ------------------------ autocompletado de direcciones ------------------------ */
@@ -300,6 +302,20 @@ export function buildApi(db: DB, dataDir: string) {
     return { updated: unique.length };
   });
 
+  api.add('POST', '/tech-payments', (ctx) => {
+    const user = me(ctx);
+    const { saleIds, serviceIds, date } = parse(TechPayInput, ctx.body);
+    const total = new Set(saleIds).size + new Set(serviceIds).size;
+    friendly(() =>
+      db.transaction(() => {
+        const changed = repo.payTechnician(db, [...new Set(saleIds)], [...new Set(serviceIds)], date, user.id);
+        if (changed !== total) throw new HttpError(409, 'Uno de los trabajos cambió o ya no aplica. Recarga e intenta de nuevo.');
+        repo.audit(db, user.id, 'tech-payment', 'technician', null, { saleIds, serviceIds, date });
+      })()
+    );
+    return { updated: total };
+  });
+
   api.add('DELETE', '/sales/:id', (ctx) => {
     const user = me(ctx);
     notFound(repo.deleteSale(db, num(ctx)), 'La venta');
@@ -357,7 +373,7 @@ export function buildApi(db: DB, dataDir: string) {
     return { person: repo.listPeople(db).find((p) => p.id === num(ctx)) };
   });
 
-  for (const table of ['financiers', 'suppliers'] as const) {
+  for (const table of ['financiers', 'suppliers', 'brands'] as const) {
     api.add('POST', `/${table}`, (ctx) => {
       me(ctx);
       const { name } = parse(CatalogInput, ctx.body);
@@ -375,7 +391,7 @@ export function buildApi(db: DB, dataDir: string) {
     });
   }
 
-  for (const kind of ['people', 'financiers', 'suppliers'] as const) {
+  for (const kind of ['people', 'financiers', 'suppliers', 'brands'] as const) {
     api.add('DELETE', `/${kind}/:id`, (ctx) => {
       me(ctx);
       const used = repo.catalogUsage(db, kind, num(ctx));

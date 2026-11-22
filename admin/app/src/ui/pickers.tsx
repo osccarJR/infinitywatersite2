@@ -87,7 +87,7 @@ export function PersonPicker({
 /* Financieras y proveedores                                            */
 /* ------------------------------------------------------------------ */
 
-export function useCatalogCreate(table: 'financiers' | 'suppliers') {
+export function useCatalogCreate(table: 'financiers' | 'suppliers' | 'brands') {
   const { reload } = useStore();
   return async (name: string) => {
     const { item } = await api<{ item: { id: number } }>(`/${table}`, { method: 'POST', body: { name, active: true } });
@@ -112,6 +112,28 @@ export function FinancierPicker({ value, onChange }: { value: number | null; onC
         onSelect={onChange}
         onCreate={create}
         createLabel="Agregar financiera"
+      />
+    </>
+  );
+}
+
+export function BrandPicker({ value, onChange }: { value: number | null; onChange: (id: number | null) => void }) {
+  const data = useData();
+  const [open, setOpen] = useState(false);
+  const create = useCatalogCreate('brands');
+  return (
+    <>
+      <PickerRow label="Marca" value={value ? data.brands.find((b) => b.id === value)?.name : null} onOpen={() => setOpen(true)} field="brandId" />
+      <Picker
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Marca con la que se instala"
+        options={data.brands.map((b) => ({ id: b.id, label: b.name, inactive: !b.active }))}
+        value={value}
+        onSelect={onChange}
+        onCreate={create}
+        createLabel="Crear marca"
+        allowNone="Sin marca"
       />
     </>
   );

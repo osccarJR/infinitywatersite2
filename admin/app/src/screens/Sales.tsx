@@ -81,11 +81,17 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
       ) : (
         <>
           <div className="totals">
-            <span><b>{plural(t.count, 'venta', 'ventas')}</b></span>
+            {filter === 'inactive' ? (
+              <span>
+                <b>{plural(list.length, 'venta', 'ventas')}</b> que no siguieron · <b>{moneyRound(list.reduce((n, s) => n + (s.price ?? 0), 0))}</b> (no suman)
+              </span>
+            ) : (
+              <span><b>{plural(t.count, 'venta', 'ventas')}</b></span>
+            )}
             {collect && <span>Te deben <b style={{ color: 'var(--orange)' }}>{moneyRound(owed)}</b></span>}
-            {!collect && <span>Vendido <b>{moneyRound(t.sold)}</b></span>}
-            {!collect && <span>Ganancia <b>{t.estimates ? '≈ ' : ''}{moneyRound(t.profit)}</b></span>}
-            {!collect && t.commission > 0 && <span>Comisiones <b>{moneyRound(t.commission)}</b></span>}
+            {!collect && filter !== 'inactive' && <span>Vendido <b>{moneyRound(t.sold)}</b></span>}
+            {!collect && filter !== 'inactive' && <span>Ganancia <b>{t.estimates ? '≈ ' : ''}{moneyRound(t.profit)}</b></span>}
+            {!collect && filter !== 'inactive' && t.commission > 0 && <span>Comisiones <b>{moneyRound(t.commission)}</b></span>}
             <button type="button" className="link-btn" style={{ marginLeft: 'auto', padding: 0, fontSize: 14 }} onClick={() => download('/export/sales')}>
               <Download size={14} style={{ verticalAlign: -2 }} /> Excel
             </button>

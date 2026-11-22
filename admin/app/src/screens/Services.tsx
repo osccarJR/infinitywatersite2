@@ -67,7 +67,9 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
           <div className="totals">
             <span><b>{plural(t.count, 'servicio', 'servicios')}</b></span>
             <span>Garantía <b>{t.warranty}</b></span>
-            <span>Cobrados <b>{t.charged}</b> · <b>{money(t.chargedAmount)}</b></span>
+            <span>Cobrado <b>{money(t.chargedAmount)}</b></span>
+            {t.technician > 0 && <span>Técnicos <b>{money(t.technician)}</b></span>}
+            <span>Ganancia <b>{money(t.profit)}</b></span>
             <button type="button" className="link-btn" style={{ marginLeft: 'auto', padding: 0, fontSize: 14 }} onClick={() => download('/export/services')}>
               <Download size={14} style={{ verticalAlign: -2 }} /> Excel
             </button>

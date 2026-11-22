@@ -8,8 +8,8 @@
  */
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { ChevronDown, ChevronRight, Info, Plus, X } from 'lucide-react';
-import type { Equipment, PaymentMethod, Sale, WaterSource } from '../../../shared/domain.ts';
-import { EMPTY_EQUIPMENT, equipmentSummary, hasEquipment, saleMissing, saleMoney } from '../../../shared/domain.ts';
+import type { Equipment, PaymentMethod, Sale, SaleStatus, WaterSource } from '../../../shared/domain.ts';
+import { EMPTY_EQUIPMENT, SALE_STATUS_LABEL, equipmentSummary, hasEquipment, saleMissing, saleMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { goBack, navigate, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
@@ -17,7 +17,7 @@ import { api } from '../lib/api.ts';
 import { moneyPlain as money, parseMoney, percent } from '../lib/format.ts';
 import { Empty, Group, MoneyField, hasInvalidMoney, Page, Row, SegmentedRow, StackField, SwitchRow, TextField } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
-import { ClientPicker, FinancierPicker, PersonPicker, StateZipRow, clientRef, useCatalogCreate, type ClientChoice } from '../ui/pickers.tsx';
+import { BrandPicker, ClientPicker, FinancierPicker, PersonPicker, StateZipRow, clientRef, useCatalogCreate, type ClientChoice } from '../ui/pickers.tsx';
 import { AddressField, CityField, lookupZip } from '../ui/address.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
 
@@ -29,6 +29,10 @@ interface SupplierLine {
 
 interface FormState {
   client: ClientChoice;
+  brandId: number | null;
+  status: SaleStatus;
+  installerPaid: boolean;
+  installerPaidDate: string;
   saleDate: string;
   installDate: string;
   installerId: number | null;
@@ -79,6 +83,10 @@ function fromSale(sale: Sale, client: AddressParts | undefined): FormState {
     sameText(sale.installZip, client.zip);
   return {
     client: { mode: 'existing', id: sale.clientId },
+    brandId: sale.brandId,
+    status: sale.status,
+    installerPaid: sale.installerPaid,
+    installerPaidDate: sale.installerPaidDate ?? '',
     saleDate: sale.saleDate,
     installDate: sale.installDate ?? '',
     installerId: sale.installerId,
@@ -109,9 +117,13 @@ function fromSale(sale: Sale, client: AddressParts | undefined): FormState {
   };
 }
 
-function blank(today: string, clientId: number | null, legacy: boolean): FormState {
+function blank(today: string, clientId: number | null, legacy: boolean, brandId: number | null = null): FormState {
   return {
     client: clientId ? { mode: 'existing', id: clientId } : null,
+    brandId,
+    status: 'active',
+    installerPaid: legacy,
+    installerPaidDate: '',
     saleDate: legacy ? '' : today,
     installDate: '',
     installerId: null,
@@ -156,6 +168,10 @@ function toSaleBody(f: FormState, client: AddressParts | undefined) {
     ? { address: clean(client?.address), city: clean(client?.city), state: clean(client?.state)?.toUpperCase() ?? null, zip: clean(client?.zip) }
     : { address: clean(f.installAddress), city: clean(f.installCity), state: clean(f.installStateCode)?.toUpperCase() ?? null, zip: clean(f.installZip) };
   return {
+    brandId: f.brandId,
+    status: f.status,
+    installerPaid: f.installerPaid,
+    installerPaidDate: f.installerPaid ? f.installerPaidDate || null : null,
     saleDate: f.saleDate,
     installDate: f.installDate || null,
     installerId: f.installerId,
@@ -196,7 +212,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   const existing = id ? data.sales.find((s) => s.id === id) : undefined;
 
   const [form, setForm] = useState<FormState>(() =>
-    existing ? fromSale(existing, data.clientById.get(existing.clientId)) : blank(data.today, clientId, legacy)
+    existing ? fromSale(existing, data.clientById.get(existing.clientId)) : blank(data.today, clientId, legacy, defaultBrand(data.brands))
   );
   const initial = useRef(JSON.stringify(form));
   const [busy, setBusy] = useState(false);
@@ -307,7 +323,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
     if (again) {
       // "Guardar y otro": formulario limpio para el siguiente cliente anterior,
       // conservando el mes y el ano (suelen cargarse varios del mismo periodo).
-      const fresh = { ...blank(data.today, null, true), saleDate: form.saleDate };
+      const fresh = { ...blank(data.today, null, true, form.brandId), saleDate: form.saleDate };
       setForm(fresh);
       initial.current = JSON.stringify(fresh);
       savedId.current = null;
@@ -363,6 +379,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
 
             {/* ---------------------------- equipo ---------------------------- */}
             <Group label="Lo que instalaste" footer={hasEquipment(form.equipment) ? equipmentSummary(form.equipment) : 'Elige lo que se instaló.'}>
+              <BrandPicker value={form.brandId} onChange={(v) => set('brandId', v)} />
               <SegmentedRow
                 field="waterSource"
                 title="Agua"
@@ -567,10 +584,26 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                 <span className="row-label">Agregar proveedor</span>
               </button>
               <MoneyField field="installerPay" label="Pago al técnico" value={form.installerPay} onChange={(v) => set('installerPay', v)} placeholder="Opcional" />
+              {(form.installerPay ?? 0) > 0 && (
+                <SwitchRow
+                  label="Ya se le pagó al técnico"
+                  checked={form.installerPaid}
+                  onChange={(v) => setForm((f) => ({ ...f, installerPaid: v, installerPaidDate: v && !f.installerPaidDate ? data.today : f.installerPaidDate }))}
+                />
+              )}
             </Group>
 
             {/* ---------------------------- seguimiento ---------------------------- */}
             <Group label="Seguimiento">
+              {id && (
+                <SegmentedRow
+                  field="status"
+                  title="Estado de la venta"
+                  options={(Object.keys(SALE_STATUS_LABEL) as SaleStatus[]).map((k) => ({ value: k, label: SALE_STATUS_LABEL[k] }))}
+                  value={form.status}
+                  onChange={(v) => set('status', v)}
+                />
+              )}
               <DateField field="nextServiceDate" label="Próximo mantenimiento" value={form.nextServiceDate} onChange={(v) => set('nextServiceDate', v)} quick="maintenance" />
               <StackField field="notes" label="Notas" value={form.notes} onChange={(v) => set('notes', v)} placeholder="Algo que convenga recordar de esta venta" multiline />
             </Group>
@@ -702,6 +735,11 @@ function bumpLegacyCount(today: string) {
     /* almacenamiento bloqueado */
   }
   return next;
+}
+
+/** Marca por defecto de una venta nueva: Infinity Water si existe; si no, la primera activa. */
+function defaultBrand(brands: { id: number; name: string; active: boolean }[]) {
+  return (brands.find((b) => b.active && /infinity/i.test(b.name)) ?? brands.find((b) => b.active))?.id ?? null;
 }
 
 function Line({ label, value }: { label: string; value: number | null }) {

@@ -71,6 +71,12 @@ test('resumen del equipo en palabras', () => {
   );
 });
 
+test('servicio como rubro: cobrado menos tecnico; sin medio de pago queda por cobrar', async () => {
+  const { serviceMoney } = await import('../shared/domain.ts');
+  assert.deepEqual(serviceMoney({ billing: 'charged', amount: 15_000, technicianPay: 5_000, paymentMethod: null }), { charged: 15_000, technician: 5_000, profit: 10_000, pendingClient: 15_000 });
+  assert.equal(serviceMoney({ billing: 'warranty', amount: null, technicianPay: 4_000, paymentMethod: null }).profit, -4_000);
+});
+
 test('sumar meses respeta el fin de mes', () => {
   assert.equal(addMonthsISO('2026-08-31', 6), '2027-02-28');
   assert.equal(addMonthsISO('2026-11-21', 12), '2027-11-21');

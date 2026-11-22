@@ -3,7 +3,7 @@
  * respaldo.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { DatabaseBackup, Download, KeyRound, Landmark, LogOut, Package, Plus, Smartphone, UserCog, Users } from 'lucide-react';
+import { DatabaseBackup, Download, KeyRound, Landmark, LogOut, Package, Plus, Smartphone, Tag, UserCog, Users } from 'lucide-react';
 import type { CatalogItem, Person, User } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { api, download } from '../lib/api.ts';
@@ -35,6 +35,7 @@ export function Settings() {
         <Row to="/ajustes/equipo" leading={<IconBox icon={<Users size={17} />} color="#0a72c2" />} title="Equipo" subtitle="Vendedores y técnicos" value={data.people.length || undefined} />
         <Row to="/ajustes/financieras" leading={<IconBox icon={<Landmark size={17} />} color="#5856d6" />} title="Financieras" value={data.financiers.length || undefined} />
         <Row to="/ajustes/proveedores" leading={<IconBox icon={<Package size={17} />} color="#ff9500" />} title="Proveedores" value={data.suppliers.length || undefined} />
+        <Row to="/ajustes/marcas" leading={<IconBox icon={<Tag size={17} />} color="#6a3fdc" />} title="Marcas" subtitle="Con la que se instala cada equipo" value={data.brands.length || undefined} />
       </Group>
 
       <Group label="Acceso">
@@ -208,17 +209,21 @@ function PersonSheet({ person, onClose }: { person: Person | 'new' | null; onClo
 /* Financieras y proveedores                                            */
 /* ------------------------------------------------------------------ */
 
-export function CatalogScreen({ table }: { table: 'financiers' | 'suppliers' }) {
+export function CatalogScreen({ table }: { table: 'financiers' | 'suppliers' | 'brands' }) {
   const data = useData();
   const [editing, setEditing] = useState<CatalogItem | 'new' | null>(null);
   const isFin = table === 'financiers';
-  const items = isFin ? data.financiers : data.suppliers;
+  const items = table === 'financiers' ? data.financiers : table === 'brands' ? data.brands : data.suppliers;
   const usage = (id: number) =>
-    isFin ? data.sales.filter((s) => s.financierId === id).length : data.sales.filter((s) => s.suppliers.some((x) => x.supplierId === id)).length;
+    table === 'financiers'
+      ? data.sales.filter((s) => s.financierId === id).length
+      : table === 'brands'
+        ? data.sales.filter((s) => s.brandId === id).length
+        : data.sales.filter((s) => s.suppliers.some((x) => x.supplierId === id)).length;
 
   return (
     <Page
-      title={isFin ? 'Financieras' : 'Proveedores'}
+      title={isFin ? 'Financieras' : table === 'brands' ? 'Marcas' : 'Proveedores'}
       back={{ label: 'Ajustes', to: '/ajustes' }}
       actions={
         <button type="button" className="icon-btn" onClick={() => setEditing('new')} aria-label="Agregar">
@@ -229,8 +234,8 @@ export function CatalogScreen({ table }: { table: 'financiers' | 'suppliers' }) 
     >
       {items.length === 0 ? (
         <Empty
-          icon={isFin ? <Landmark size={40} /> : <Package size={40} />}
-          title={isFin ? 'Sin financieras' : 'Sin proveedores'}
+          icon={isFin ? <Landmark size={40} /> : table === 'brands' ? <Tag size={40} /> : <Package size={40} />}
+          title={isFin ? 'Sin financieras' : table === 'brands' ? 'Sin marcas' : 'Sin proveedores'}
           text="Agrégalas aquí o directamente al registrar una venta."
           action={<button type="button" className="btn" onClick={() => setEditing('new')}>Agregar</button>}
         />
@@ -255,7 +260,7 @@ export function CatalogScreen({ table }: { table: 'financiers' | 'suppliers' }) 
   );
 }
 
-function CatalogSheet({ table, item, onClose }: { table: 'financiers' | 'suppliers'; item: CatalogItem | 'new' | null; onClose: () => void }) {
+function CatalogSheet({ table, item, onClose }: { table: 'financiers' | 'suppliers' | 'brands'; item: CatalogItem | 'new' | null; onClose: () => void }) {
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
   const [name, setName] = useState('');

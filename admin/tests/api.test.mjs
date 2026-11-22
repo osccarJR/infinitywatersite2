@@ -305,6 +305,37 @@ test('validaciones: telefono, ZIP, comision y servicio cobrado sin monto', async
   assert.equal(closed.status, 400);
 });
 
+test('marca, estado y pago unificado al tecnico (instalaciones + servicios)', async () => {
+  const boot = (await call('GET', '/bootstrap')).data;
+  assert.deepEqual(boot.brands.map((b) => b.name).sort(), ['4Elements', 'Infinity Water', 'Magic Water']);
+  const magic = boot.brands.find((b) => b.name === 'Magic Water').id;
+  const tech = (await call('POST', '/people', { name: 'Tecnico Uno', phone: null, isSeller: false, isInstaller: true })).data.person.id;
+  const sale = await call('POST', '/sales', {
+    client: { id: clientId }, saleDate: '2026-11-10', brandId: magic, status: 'cancelled',
+    installerId: tech, installerPay: 30_000, installDate: '2026-11-12',
+    equipment: { outdoorTanks: 0, aerator: true, ro: false, roType: null, roUv: false, other: null },
+  });
+  assert.equal(sale.status, 200, JSON.stringify(sale.data));
+  assert.equal(sale.data.sale.brandId, magic);
+  assert.equal(sale.data.sale.status, 'cancelled');
+  const svc = await call('POST', '/services', {
+    client: { id: clientId }, reportedDate: '2026-11-15', problem: 'Cambio de filtros', billing: 'charged', amount: 15_000,
+    paymentMethod: 'zelle', technicianId: tech, technicianPay: 5_000,
+  });
+  assert.equal(svc.status, 200, JSON.stringify(svc.data));
+  assert.equal(svc.data.service.paymentMethod, 'zelle');
+  const pay = await call('POST', '/tech-payments', { saleIds: [sale.data.sale.id], serviceIds: [svc.data.service.id], date: '2026-11-20' });
+  assert.equal(pay.status, 200, JSON.stringify(pay.data));
+  const after = (await call('GET', '/bootstrap')).data;
+  assert.equal(after.sales.find((s) => s.id === sale.data.sale.id).installerPaid, true);
+  assert.equal(after.services.find((v) => v.id === svc.data.service.id).technicianPaidDate, '2026-11-20');
+  // Pagar de nuevo lo ya pagado se rechaza (y no borra la fecha del pago anterior).
+  assert.equal((await call('POST', '/tech-payments', { saleIds: [], serviceIds: [svc.data.service.id], date: null })).status, 409);
+  assert.equal((await call('GET', '/bootstrap')).data.services.find((v) => v.id === svc.data.service.id).technicianPaidDate, '2026-11-20');
+  assert.equal((await call('POST', '/brands', { name: 'magic water' })).status, 409);
+  assert.equal((await call('POST', '/brands', { name: 'AquaPro' })).status, 200);
+});
+
 test('url mal codificada responde 400, no 500', async () => {
   assert.equal((await fetch(BASE + '/admin/%E0%A4%A')).status, 400);
 });

@@ -57,7 +57,7 @@ export function Login() {
   const hello = useRef(greeting()).current;
 
   useEffect(() => {
-    document.title = 'Entrar · Infinity Water';
+    document.title = 'Entrar · Infinity Water y Magic Water';
   }, []);
 
   const submit = async (event: FormEvent) => {
@@ -98,8 +98,11 @@ export function Login() {
         {/* Panel de marca (solo escritorio) */}
         <aside className="login-brand" aria-hidden="true">
           <div className="login-brand-top">
-            <img src="/admin/mark.png" alt="" />
-            <span>Infinity Water</span>
+            <span className="logo-pill">
+              <img src="/admin/logo-infinity.webp" alt="" />
+              <i />
+              <img src="/admin/logo-magic.webp" alt="" />
+            </span>
           </div>
           <h2>
             Todo tu negocio,
@@ -117,17 +120,18 @@ export function Login() {
               <span><Wrench size={20} /></span>Servicio técnico y mantenimientos
             </li>
           </ul>
-          <p className="login-brand-foot">Gestión del negocio · Fort Myers, Florida</p>
+          <p className="login-brand-foot">Infinity Water · Magic Water · Fort Myers, Florida</p>
         </aside>
 
         <main className="login-panel">
           <div className="login-head">
-            <div className="login-mark">
-              <span className="login-halo" />
-              <img src="/admin/mark.png" alt="" />
+            <div className="logo-pill login-logos">
+              <img src="/admin/logo-infinity.webp" alt="Infinity Water" />
+              <i />
+              <img src="/admin/logo-magic.webp" alt="Magic Water" />
             </div>
             <p className="login-eyebrow">{hello}</p>
-            <h1>Infinity Water</h1>
+            <h1>Gestión del negocio</h1>
             <p className="login-sub">Entra para ver cómo va el negocio.</p>
           </div>
 

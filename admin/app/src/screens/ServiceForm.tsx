@@ -3,14 +3,14 @@
  * Sirve tambien para ponerse al dia: el cliente se puede crear aqui mismo.
  */
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import type { Service, ServiceBilling, ServiceKind, ServiceStatus } from '../../../shared/domain.ts';
-import { SERVICE_KIND_LABEL, equipmentSummary } from '../../../shared/domain.ts';
+import type { Service, ServiceBilling, ServiceKind, ServicePayment, ServiceStatus } from '../../../shared/domain.ts';
+import { SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipmentSummary, serviceMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { goBack, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
-import { dateWithYear } from '../lib/format.ts';
-import { Empty, Group, MoneyField, hasInvalidMoney, Page, SegmentedRow, StackField } from '../ui/kit.tsx';
+import { dateWithYear, moneyPlain } from '../lib/format.ts';
+import { Empty, Group, MoneyField, hasInvalidMoney, Page, SegmentedRow, StackField, SwitchRow } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
 import { ClientPicker, PersonPicker, PickerRow, clientRef, type ClientChoice } from '../ui/pickers.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
@@ -28,6 +28,10 @@ interface FormState {
   closedDate: string;
   billing: ServiceBilling | null;
   amount: number | null;
+  paymentMethod: ServicePayment | null;
+  technicianPay: number | null;
+  technicianPaid: boolean;
+  technicianPaidDate: string;
   notes: string;
   nextServiceDate: string;
 }
@@ -54,6 +58,10 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
       closedDate: existing?.closedDate ?? '',
       billing: existing?.billing ?? null,
       amount: existing?.amount ?? null,
+      paymentMethod: existing?.paymentMethod ?? null,
+      technicianPay: existing?.technicianPay ?? null,
+      technicianPaid: existing?.technicianPaid ?? false,
+      technicianPaidDate: existing?.technicianPaidDate ?? '',
       notes: existing?.notes ?? '',
       nextServiceDate: linked?.nextServiceDate ?? '',
     };
@@ -84,6 +92,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
   }
 
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => setForm((f) => ({ ...f, [key]: value }));
+  const money = serviceMoney(form);
   const clientSales = form.client?.mode === 'existing' ? data.salesByClient.get(form.client.id) ?? [] : [];
   const linkedSale = form.saleId ? data.sales.find((s) => s.id === form.saleId) : undefined;
   const back = existing
@@ -139,6 +148,10 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           closedDate: form.status === 'closed' ? form.closedDate || data.today : null,
           billing: form.billing,
           amount: form.billing === 'charged' ? form.amount : null,
+          paymentMethod: form.billing === 'charged' ? form.paymentMethod : null,
+          technicianPay: form.technicianPay,
+          technicianPaid: form.technicianPaid,
+          technicianPaidDate: form.technicianPaid ? form.technicianPaidDate || null : null,
           notes: form.notes || null,
           ...(form.saleId && form.client.mode === 'existing' ? { nextServiceDate: form.nextServiceDate || null } : {}),
         },
@@ -240,7 +253,50 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
             value={form.billing}
             onChange={(v) => set('billing', v)}
           />
-          {form.billing === 'charged' && <MoneyField field="amount" label="Cuánto se cobró" value={form.amount} onChange={(v) => set('amount', v)} />}
+          {form.billing === 'charged' && (
+            <>
+              <MoneyField field="amount" label="Cuánto se cobró" value={form.amount} onChange={(v) => set('amount', v)} />
+              <div className="row-block" data-field="paymentMethod">
+                <div className="row-title" style={{ marginBottom: 10 }}>
+                  ¿Cómo pagó? <span className="muted" style={{ fontSize: 14 }}>· déjalo sin marcar si aún no paga</span>
+                </div>
+                <div className="pay-methods" role="group" aria-label="Medio de pago">
+                  {(Object.keys(SERVICE_PAYMENT_LABEL) as ServicePayment[]).map((k) => (
+                    <button
+                      key={k}
+                      type="button"
+                      className={`pay-method${form.paymentMethod === k ? ' on' : ''}`}
+                      aria-pressed={form.paymentMethod === k}
+                      onClick={() => set('paymentMethod', form.paymentMethod === k ? null : k)}
+                    >
+                      {SERVICE_PAYMENT_LABEL[k]}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
+          )}
+        </Group>
+
+        <Group
+          label="Pago al técnico"
+          footer={
+            form.billing === 'charged' || form.technicianPay
+              ? `Ganancia del servicio: ${moneyPlain(money.profit)}${money.technician ? ` (cobrado ${moneyPlain(money.charged)} − técnico ${moneyPlain(money.technician)})` : ''}`
+              : 'Lo que le pagas al técnico por este trabajo. Se junta con sus instalaciones en Pagos → Técnicos.'
+          }
+        >
+          <MoneyField field="technicianPay" label="Se le paga al técnico" value={form.technicianPay} onChange={(v) => set('technicianPay', v)} placeholder="Opcional" />
+          {(form.technicianPay ?? 0) > 0 && (
+            <SwitchRow
+              label="Ya se le pagó"
+              checked={form.technicianPaid}
+              onChange={(v) => setForm((f) => ({ ...f, technicianPaid: v, technicianPaidDate: v && !f.technicianPaidDate ? data.today : f.technicianPaidDate }))}
+            />
+          )}
+          {form.technicianPaid && (form.technicianPay ?? 0) > 0 && (
+            <DateField field="technicianPaidDate" label="Fecha del pago" value={form.technicianPaidDate} onChange={(v) => set('technicianPaidDate', v)} />
+          )}
         </Group>
 
         <Group label="Estado">

@@ -20,6 +20,9 @@ export function money(cents: number | null | undefined): string {
 /** Centavos -> dolares redondeados ("$36,449"), para numeros grandes de resumen. */
 export const moneyRound = (cents: number) => (amountsHidden() ? MASK : usd0.format(Math.round(cents / 100)));
 
+/** Para tarjetas pequenas: cifra completa hasta $100,000; despues abreviada ("$438k", "$4.4M"). */
+export const moneyFit = (cents: number) => (Math.abs(cents) >= 10_000_000 ? moneyCompact(cents) : moneyRound(cents));
+
 /** Centavos -> "$12.5k" para espacios pequenos. */
 export function moneyCompact(cents: number): string {
   if (amountsHidden()) return MASK;

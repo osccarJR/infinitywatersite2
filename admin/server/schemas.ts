@@ -95,6 +95,8 @@ export const EquipmentInput = z.object({
 
 export const SaleInput = z.object({
   client: ClientRef,
+  brandId: optionalId,
+  status: z.enum(['active', 'cancelled', 'declined', 'uninstalled']).default('active'),
   saleDate: date,
   installDate: optionalDate,
   installerId: optionalId,
@@ -116,6 +118,8 @@ export const SaleInput = z.object({
   commissionPaid: z.boolean().default(false),
   commissionPaidDate: optionalDate,
   installerPay: money,
+  installerPaid: z.boolean().default(false),
+  installerPaidDate: optionalDate,
   nextServiceDate: optionalDate,
   notes: text(4000),
   isLegacy: z.boolean().default(false),
@@ -146,6 +150,10 @@ export const ServiceInput = z.object({
   closedDate: optionalDate,
   billing: z.enum(['warranty', 'charged']).nullish().transform((v) => v ?? null),
   amount: money,
+  paymentMethod: z.enum(['zelle', 'transfer', 'card', 'cash', 'check']).nullish().transform((v) => v ?? null),
+  technicianPay: money,
+  technicianPaid: z.boolean().default(false),
+  technicianPaidDate: optionalDate,
   notes: text(4000),
   /** Si viene, se guarda como proximo mantenimiento de la venta enlazada. */
   nextServiceDate: optionalDate.optional(),
@@ -176,6 +184,13 @@ export const MarkInput = z.object({
   paid: z.boolean(),
   date: optionalDate,
 });
+
+/** Pagarle a un tecnico: instalaciones y servicios juntos. */
+export const TechPayInput = z.object({
+  saleIds: z.array(z.number().int().positive()).max(500).default([]),
+  serviceIds: z.array(z.number().int().positive()).max(500).default([]),
+  date: optionalDate,
+}).refine((v) => v.saleIds.length + v.serviceIds.length > 0, { message: 'Elige al menos un trabajo', path: ['saleIds'] });
 
 /** Marcar varias ventas de una vez (pago de comisiones o de una financiera). */
 export const MarkBatchInput = z.object({

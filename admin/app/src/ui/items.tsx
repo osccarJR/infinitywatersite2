@@ -1,11 +1,18 @@
 /** Filas de lista y etiquetas de estado para ventas y servicios. */
 import type { Sale, Service } from '../../../shared/domain.ts';
-import { SERVICE_KIND_LABEL, equipmentSummary, installState, saleMissing, saleMoney } from '../../../shared/domain.ts';
+import { SALE_STATUS_LABEL, SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipmentSummary, installState, isActiveSale, saleMissing, saleMoney } from '../../../shared/domain.ts';
 import type { Data } from '../lib/store.tsx';
 import { date, daysBetween, money, moneyRound } from '../lib/format.ts';
 import { Avatar, Badge, Row } from './kit.tsx';
 
 export function SaleBadges({ sale, data, hideMissing }: { sale: Sale; data: Data; hideMissing?: boolean }) {
+  if (!isActiveSale(sale)) {
+    return (
+      <span className="badges">
+        <Badge tone="red">{SALE_STATUS_LABEL[sale.status]}</Badge>
+      </span>
+    );
+  }
   const m = saleMoney(sale);
   const state = installState(sale, data.today);
   const missing = saleMissing(sale);
@@ -62,8 +69,10 @@ export function SaleRow({ sale, data, showClient = true, collect }: { sale: Sale
       }
       value={
         <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
-          <span style={{ color: 'var(--text)', fontWeight: 600 }}>{sale.price == null ? '—' : moneyRound(sale.price)}</span>
-          {sale.price != null && (
+          <span style={{ color: isActiveSale(sale) ? 'var(--text)' : 'var(--text-3)', fontWeight: 600, textDecoration: isActiveSale(sale) ? undefined : 'line-through' }}>
+            {sale.price == null ? '—' : moneyRound(sale.price)}
+          </span>
+          {sale.price != null && isActiveSale(sale) && (
             // Ganancia estimada (faltan costos) en gris: no se presenta como real.
             <span style={{ fontSize: 13, color: m.estimate ? 'var(--text-2)' : m.profit >= 0 ? 'var(--green)' : 'var(--red)' }}>
               {m.estimate ? '≈ ' : ''}
@@ -78,7 +87,15 @@ export function SaleRow({ sale, data, showClient = true, collect }: { sale: Sale
 
 export function ServiceBadge({ service }: { service: Service }) {
   if (service.billing === 'warranty') return <Badge tone="blue">Garantía</Badge>;
-  if (service.billing === 'charged') return <Badge tone="green">Cobrado {money(service.amount)}</Badge>;
+  if (service.billing === 'charged') {
+    return service.paymentMethod ? (
+      <Badge tone="green">
+        Cobrado {money(service.amount)} · {SERVICE_PAYMENT_LABEL[service.paymentMethod]}
+      </Badge>
+    ) : (
+      <Badge tone="orange">Por cobrar {money(service.amount)}</Badge>
+    );
+  }
   return null;
 }
 

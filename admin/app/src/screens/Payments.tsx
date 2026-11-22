@@ -5,25 +5,26 @@
  */
 import { useMemo, useState, type ReactNode } from 'react';
 import { CircleCheck, HandCoins, Landmark } from 'lucide-react';
-import type { Sale } from '../../../shared/domain.ts';
-import { saleMoney } from '../../../shared/domain.ts';
+import type { Sale, Service } from '../../../shared/domain.ts';
+import { isActiveSale, saleMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { api } from '../lib/api.ts';
 import { date, daysBetween, money, plural } from '../lib/format.ts';
+import { technicianDebts } from '../lib/stats.ts';
 import { Avatar, Badge, Empty, Group, IconBox, Page, Row, Segmented } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
 import { useFeedback } from '../ui/sheet.tsx';
 
-type Tab = 'comisiones' | 'financieras' | 'clientes';
+type Tab = 'comisiones' | 'tecnicos' | 'financieras' | 'clientes';
 
 export function Payments({ initialTab }: { initialTab: string | null }) {
   const data = useData();
-  const [tab, setTab] = useState<Tab>(initialTab === 'financieras' || initialTab === 'clientes' ? initialTab : 'comisiones');
+  const [tab, setTab] = useState<Tab>(initialTab === 'financieras' || initialTab === 'clientes' || initialTab === 'tecnicos' ? initialTab : 'comisiones');
   const [payDate, setPayDate] = useState(data.today);
 
   const commissionGroups = useMemo(() => {
     const map = new Map<number | null, Sale[]>();
-    for (const sale of data.sales) {
+    for (const sale of data.sales.filter(isActiveSale)) {
       if ((sale.commission ?? 0) > 0 && !sale.commissionPaid) {
         const list = map.get(sale.sellerId) ?? [];
         list.push(sale);
@@ -35,7 +36,7 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
 
   const financierGroups = useMemo(() => {
     const map = new Map<number | null, Sale[]>();
-    for (const sale of data.sales) {
+    for (const sale of data.sales.filter(isActiveSale)) {
       if (saleMoney(sale).pendingFinancier > 0) {
         const list = map.get(sale.financierId) ?? [];
         list.push(sale);
@@ -47,11 +48,14 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
   }, [data.sales]);
 
   const clientDebts = useMemo(
-    () => data.sales.filter((s) => saleMoney(s).pendingClient > 0).sort((a, b) => a.saleDate.localeCompare(b.saleDate)),
+    () => data.sales.filter((s) => isActiveSale(s) && saleMoney(s).pendingClient > 0).sort((a, b) => a.saleDate.localeCompare(b.saleDate)),
     [data.sales]
   );
 
+  const techGroups = useMemo(() => [...technicianDebts(data.sales, data.services).entries()].sort((a, b) => b[1].total - a[1].total), [data]);
+
   const counts = {
+    tecnicos: techGroups.reduce((n, [, e]) => n + e.sales.length + e.services.length, 0),
     comisiones: commissionGroups.reduce((n, [, list]) => n + list.length, 0),
     financieras: financierGroups.reduce((n, [, list]) => n + list.length, 0),
     clientes: clientDebts.length,
@@ -63,6 +67,7 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
         <Segmented<Tab>
           options={[
             { value: 'comisiones', label: `Comisiones${counts.comisiones ? ` · ${counts.comisiones}` : ''}` },
+            { value: 'tecnicos', label: `Técnicos${counts.tecnicos ? ` · ${counts.tecnicos}` : ''}` },
             { value: 'financieras', label: `Financieras${counts.financieras ? ` · ${counts.financieras}` : ''}` },
             { value: 'clientes', label: `Clientes${counts.clientes ? ` · ${counts.clientes}` : ''}` },
           ]}
@@ -95,6 +100,13 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
               payDate={payDate}
             />
           ))
+        ))}
+
+      {tab === 'tecnicos' &&
+        (techGroups.length === 0 ? (
+          <Empty icon={<CircleCheck size={40} />} title="No se le debe nada a los técnicos" text="Aquí aparece lo que se les paga por instalaciones y servicios." />
+        ) : (
+          techGroups.map(([personId, debt]) => <TechGroup key={personId} personId={personId} debt={debt} payDate={payDate} />)
         ))}
 
       {tab === 'financieras' &&
@@ -143,6 +155,96 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
 
 const sum = (list: Sale[], fn: (s: Sale) => number) => list.reduce((n, s) => n + fn(s), 0);
 const waitingSince = (s: Sale) => s.installDate ?? s.saleDate;
+
+/** Un tecnico: sus instalaciones y servicios sin pagar, con casillas, y un solo pago. */
+function TechGroup({ personId, debt, payDate }: { personId: number; debt: { sales: Sale[]; services: Service[] }; payDate: string }) {
+  const data = useData();
+  const { reload } = useStore();
+  const { toast, confirm } = useFeedback();
+  const name = data.personById.get(personId)?.name ?? 'Técnico';
+  const items = [
+    ...debt.sales.map((s) => ({ key: `s${s.id}`, kind: 'Instalación', clientId: s.clientId, day: s.installDate ?? s.saleDate, amount: s.installerPay ?? 0, saleId: s.id })),
+    ...debt.services.map((v) => ({ key: `v${v.id}`, kind: 'Servicio', clientId: v.clientId, day: v.visitDate ?? v.reportedDate, amount: v.technicianPay ?? 0, serviceId: v.id })),
+  ].sort((a, b) => a.day.localeCompare(b.day));
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(items.map((i) => i.key)));
+  const [busy, setBusy] = useState(false);
+  const chosen = items.filter((i) => selected.has(i.key));
+  const total = chosen.reduce((n, i) => n + i.amount, 0);
+
+  const submit = async () => {
+    const ok = await confirm({ title: `¿Pagarle a ${name}?`, message: `${plural(chosen.length, 'trabajo', 'trabajos')} · ${money(total)} · fecha ${date(payDate, data.today)}`, confirm: 'Registrar pago' });
+    if (!ok) return;
+    setBusy(true);
+    try {
+      await api('/tech-payments', {
+        method: 'POST',
+        body: {
+          saleIds: chosen.flatMap((i) => ('saleId' in i ? [i.saleId] : [])),
+          serviceIds: chosen.flatMap((i) => ('serviceId' in i ? [i.serviceId] : [])),
+          date: payDate,
+        },
+      });
+      await reload();
+      toast(`Pago a ${name} registrado`);
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <section className="section">
+      <div className="pay-head">
+        <Avatar name={name} />
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div className="pay-title">{name}</div>
+          <div className="muted" style={{ fontSize: 14 }}>
+            {plural(debt.sales.length, 'instalación', 'instalaciones')} · {plural(debt.services.length, 'servicio', 'servicios')} · {money(items.reduce((n, i) => n + i.amount, 0))}
+          </div>
+        </div>
+      </div>
+      <div className="group">
+        {items.map((item) => {
+          const isOn = selected.has(item.key);
+          return (
+            <button
+              key={item.key}
+              type="button"
+              className="row"
+              role="checkbox"
+              aria-checked={isOn}
+              onClick={() =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(item.key)) next.delete(item.key);
+                  else next.add(item.key);
+                  return next;
+                })
+              }
+            >
+              <span className={`check${isOn ? ' on' : ''}`} aria-hidden="true">
+                {isOn && <CircleCheck size={24} />}
+              </span>
+              <span className="row-label">
+                <span className="row-title" style={{ display: 'block' }}>{data.clientById.get(item.clientId)?.name ?? 'Cliente'}</span>
+                <span className="row-sub" style={{ display: 'block' }}>
+                  <Badge tone={item.kind === 'Servicio' ? 'red' : 'blue'}>{item.kind}</Badge> {date(item.day, data.today)}
+                </span>
+              </span>
+              <span className="row-value strong num">{money(item.amount)}</span>
+            </button>
+          );
+        })}
+      </div>
+      <div style={{ marginTop: 12 }}>
+        <button type="button" className="btn block" disabled={!chosen.length || busy} onClick={submit}>
+          {busy ? 'Guardando…' : chosen.length ? `Pagarle a ${name.split(' ')[0]} · ${money(total)}` : 'Elige al menos uno'}
+        </button>
+      </div>
+    </section>
+  );
+}
 
 /** Un vendedor o una financiera: sus ventas pendientes con casillas y un boton para marcarlas. */
 function PayGroup({

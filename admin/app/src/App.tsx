@@ -78,6 +78,7 @@ const ROUTES: [string, (p: Record<string, string>, q: URLSearchParams) => ReactN
   ['/ajustes/equipo', () => <PeopleScreen />],
   ['/ajustes/financieras', () => <CatalogScreen table="financiers" />],
   ['/ajustes/proveedores', () => <CatalogScreen table="suppliers" />],
+  ['/ajustes/marcas', () => <CatalogScreen table="brands" />],
   ['/ajustes/usuarios', () => <UsersScreen />],
   ['/ajustes/cuenta', () => <AccountScreen />],
 ];
@@ -131,7 +132,7 @@ function Shell() {
   // la barra de Guardar, sin dos barras apiladas.
   const isForm = /^\/(ventas\/(nueva|\d+\/editar)|servicio\/(nuevo|\d+)|clientes\/(nuevo|\d+\/editar))$/.test(path);
 
-  const pendingPayments = data.sales.filter((s) => ((s.commission ?? 0) > 0 && !s.commissionPaid) || (s.paymentMethod === 'financed' && !s.fundedPaid)).length;
+  const pendingPayments = data.sales.filter((s) => s.status === 'active' && (((s.commission ?? 0) > 0 && !s.commissionPaid) || (s.paymentMethod === 'financed' && !s.fundedPaid))).length;
   const counts: Record<string, number | undefined> = {
     '/clientes': data.clients.length || undefined,
     '/servicio': openServices || undefined,
@@ -141,12 +142,12 @@ function Shell() {
   return (
     <div className={`app${isForm ? ' no-tabbar' : ''}`}>
       <aside className="sidebar">
-        <Link to="/" className="brand">
-          <img src="/admin/mark.png" alt="" />
-          <span>
-            <span className="brand-name" style={{ display: 'block', color: 'var(--text)' }}>Infinity Water</span>
-            <span className="brand-sub">Gestión del negocio</span>
+        <Link to="/" className="brand brand-duo" aria-label="Inicio · Infinity Water y Magic Water">
+          <span className="brand-logos">
+            <img src="/admin/logo-infinity.webp" alt="Infinity Water" />
+            <img src="/admin/logo-magic.webp" alt="Magic Water" />
           </span>
+          <span className="brand-sub">Gestión del negocio</span>
         </Link>
         {NAV.map(({ to, label, icon: Icon }) => (
           <Link key={to} to={to} className={`nav-item${isActive(to, path) ? ' active' : ''}`} aria-current={isActive(to, path) ? 'page' : undefined}>

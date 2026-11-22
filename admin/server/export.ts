@@ -5,7 +5,10 @@
 import type { DB } from './db.ts';
 import * as repo from './repo.ts';
 import {
+  SALE_STATUS_LABEL,
   SERVICE_KIND_LABEL,
+  SERVICE_PAYMENT_LABEL,
+  serviceMoney,
   SOURCE_LABEL,
   WATER_LABEL,
   RO_TYPE_LABEL,
@@ -34,6 +37,7 @@ export function exportCsv(db: DB, kind: ExportKind): string {
   const people = new Map(repo.listPeople(db).map((p) => [p.id, p.name]));
   const financiers = new Map(repo.listCatalog(db, 'financiers').map((f) => [f.id, f.name]));
   const suppliers = new Map(repo.listCatalog(db, 'suppliers').map((s) => [s.id, s.name]));
+  const brands = new Map(repo.listCatalog(db, 'brands').map((b) => [b.id, b.name]));
 
   if (kind === 'clients') {
     const salesCount = new Map<number, number>();
@@ -61,7 +65,7 @@ export function exportCsv(db: DB, kind: ExportKind): string {
 
   if (kind === 'services') {
     return toCsv(
-      ['ID', 'Fecha reporte', 'Cliente', 'Teléfono', 'Tipo', 'Problema', 'Qué se hizo', 'Técnico', 'Fecha visita', 'Estado', 'Fecha cierre', 'Garantía o cobrado', 'Cobrado ($)', 'Venta #', 'Notas'],
+      ['ID', 'Fecha reporte', 'Cliente', 'Teléfono', 'Tipo', 'Problema', 'Qué se hizo', 'Técnico', 'Fecha visita', 'Estado', 'Fecha cierre', 'Garantía o cobrado', 'Cobrado ($)', 'Medio de pago', 'Pago al técnico ($)', 'Técnico pagado', 'Ganancia ($)', 'Venta #', 'Notas'],
       repo.listServices(db).map((v) => {
         const client = clients.get(v.clientId);
         return [
@@ -78,6 +82,10 @@ export function exportCsv(db: DB, kind: ExportKind): string {
           v.closedDate,
           v.billing === 'warranty' ? 'Garantía' : v.billing === 'charged' ? 'Cobrado' : '',
           dollars(v.amount),
+          v.paymentMethod ? SERVICE_PAYMENT_LABEL[v.paymentMethod] : '',
+          dollars(v.technicianPay),
+          v.technicianPay ? yesNo(v.technicianPaid) : '',
+          dollars(serviceMoney(v).profit),
           v.saleId,
           v.notes,
         ];
@@ -87,11 +95,11 @@ export function exportCsv(db: DB, kind: ExportKind): string {
 
   return toCsv(
     [
-      'Venta #', 'Fecha venta', 'Fecha instalación', 'Cliente', 'Teléfono', 'Dirección instalación', 'Ciudad', 'Estado', 'ZIP',
+      'Venta #', 'Estado', 'Marca', 'Fecha venta', 'Fecha instalación', 'Cliente', 'Teléfono', 'Dirección instalación', 'Ciudad', 'Estado', 'ZIP',
       'Agua', 'Filtros fuera de casa', 'Aireador', 'Ósmosis toda la casa (membranas)', 'Ósmosis en cocina', 'Tipo ósmosis', 'UV', 'Otro equipo', 'Resumen equipo',
       'Vendedor', 'Técnico instalador', 'Forma de pago', 'Financiera',
       'Valor de venta ($)', 'Abono / cobrado cash ($)', 'Financiado ($)', 'Pagó la financiera ($)', 'Descuento financiera ($)', 'Financiera ya pagó',
-      'Proveedores', 'Costo proveedores ($)', 'Comisión ($)', 'Comisión pagada', 'Pago instalación ($)',
+      'Proveedores', 'Costo proveedores ($)', 'Comisión ($)', 'Comisión pagada', 'Pago instalación ($)', 'Instalación pagada al técnico',
       'Ganancia ($)', 'Ganancia estimada', 'Próximo mantenimiento', 'Venta anterior (puesta al día)', 'Datos que faltan', 'Notas',
     ],
     repo.listSales(db).map((s) => {
@@ -100,6 +108,8 @@ export function exportCsv(db: DB, kind: ExportKind): string {
       const e = s.equipment;
       return [
         s.id,
+        SALE_STATUS_LABEL[s.status],
+        s.brandId ? brands.get(s.brandId) : '',
         s.saleDate,
         s.installDate,
         client?.name,
@@ -132,6 +142,7 @@ export function exportCsv(db: DB, kind: ExportKind): string {
         dollars(s.commission),
         yesNo(s.commissionPaid),
         dollars(s.installerPay),
+        s.installerPay ? yesNo(s.installerPaid) : '',
         dollars(m.profit),
         yesNo(m.estimate),
         s.nextServiceDate,

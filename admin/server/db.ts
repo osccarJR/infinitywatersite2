@@ -166,6 +166,27 @@ const MIGRATIONS: string[] = [
   /* 3: osmosis inversa de toda la casa (numero de membranas, 0 = no tiene) */ `
   ALTER TABLE sales ADD COLUMN eq_whole_ro INTEGER NOT NULL DEFAULT 0;
   `,
+  /* 4: marca con la que se instala (Infinity Water, Magic Water...) y estado
+        de la venta (las canceladas, declinadas o desinstaladas no suman). */ `
+  CREATE TABLE brands (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  INSERT INTO brands (name) VALUES ('Infinity Water'), ('Magic Water'), ('4Elements');
+  ALTER TABLE sales ADD COLUMN brand_id INTEGER REFERENCES brands(id);
+  ALTER TABLE sales ADD COLUMN status TEXT NOT NULL DEFAULT 'active';
+  `,
+  /* 5: servicio tecnico como rubro propio (medio de pago, pago al tecnico) y
+        pago a tecnicos unificado (instalaciones + servicios). */ `
+  ALTER TABLE services ADD COLUMN payment_method TEXT;
+  ALTER TABLE services ADD COLUMN technician_pay INTEGER;
+  ALTER TABLE services ADD COLUMN technician_paid INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE services ADD COLUMN technician_paid_date TEXT;
+  ALTER TABLE sales ADD COLUMN installer_paid INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE sales ADD COLUMN installer_paid_date TEXT;
+  `,
 ];
 
 export type DB = Database.Database;

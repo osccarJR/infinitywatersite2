@@ -6,8 +6,10 @@ import { AlertCircle, CircleCheck, MessageCircle, Phone, Wrench } from 'lucide-r
 import {
   RO_TYPE_LABEL,
   WATER_LABEL,
+  SALE_STATUS_LABEL,
   equipmentSummary,
   formatAddress,
+  isActiveSale,
   installState,
   saleMissing,
   saleMoney,
@@ -133,7 +135,18 @@ export function SaleDetail({ id }: { id: number }) {
         </Group>
       )}
 
+      {!isActiveSale(sale) && (
+        <div className="banner">
+          <AlertCircle size={20} />
+          <div>
+            <div className="banner-title">Venta {SALE_STATUS_LABEL[sale.status].toLowerCase()}</div>
+            <div className="banner-text">No suma en vendido, ganancia, cobros ni comisiones. Se cambia en Editar → Estado de la venta.</div>
+          </div>
+        </div>
+      )}
+
       <Group label="Lo que se instaló" footer={equipmentSummary(e)}>
+        <Row title="Marca" value={sale.brandId ? data.brands.find((b) => b.id === sale.brandId)?.name ?? '—' : '—'} />
         <Row title="Agua" value={sale.waterSource ? WATER_LABEL[sale.waterSource] : '—'} />
         <Row title="Filtros fuera de casa" value={e.outdoorTanks || 'No'} />
         <Row title="Aireador" value={e.aerator ? 'Sí' : 'No'} />
@@ -194,7 +207,9 @@ export function SaleDetail({ id }: { id: number }) {
               <MoneyLine key={row.supplierId} label={`Proveedor: ${data.supplierById.get(row.supplierId)?.name ?? '—'}`} value={row.cost == null ? null : -row.cost} note={row.cost == null ? 'Sin costo' : undefined} />
             ))}
             <MoneyLine label={`Comisión${person(sale.sellerId) ? ` de ${person(sale.sellerId)}` : ''}`} value={sale.commission == null ? null : -sale.commission} note={sale.commission == null ? 'Sin registrar' : undefined} />
-            {sale.installerPay != null && <MoneyLine label="Pago al técnico" value={-sale.installerPay} />}
+            {sale.installerPay != null && (
+              <MoneyLine label={`Pago al técnico${sale.installerPay ? (sale.installerPaid ? ' (pagado)' : ' (por pagar)') : ''}`} value={-sale.installerPay} />
+            )}
             <div className="money-line total">
               <span>Ganancia{m.estimate ? ' estimada' : ''}</span>
               <span className="v" style={{ color: m.profit < 0 ? 'var(--red)' : m.estimate ? 'var(--text)' : 'var(--green)' }}>
@@ -211,36 +226,38 @@ export function SaleDetail({ id }: { id: number }) {
         </div>
       </Section>
 
-      <Group label="Cobros y pagos">
-        {m.financed && (
+      {isActiveSale(sale) && (
+        <Group label="Cobros y pagos">
+          {m.financed && (
+            <Row
+              title="Pago de la financiera"
+              subtitle={sale.fundedPaid ? `Recibido el ${dateWithYear(sale.fundedDate)}` : `Pendiente · ${money(m.pendingFinancier)}`}
+              trailing={
+                <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
+                  {sale.fundedPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar recibido</>}
+                </button>
+              }
+            />
+          )}
           <Row
-            title="Pago de la financiera"
-            subtitle={sale.fundedPaid ? `Recibido el ${dateWithYear(sale.fundedDate)}` : `Pendiente · ${money(m.pendingFinancier)}`}
+            title={`Comisión${person(sale.sellerId) ? ` · ${person(sale.sellerId)}` : ''}`}
+            subtitle={
+              sale.commission == null
+                ? 'Sin registrar'
+                : sale.commissionPaid
+                  ? `${money(sale.commission)} pagada el ${dateWithYear(sale.commissionPaidDate)}`
+                  : `${money(sale.commission)} por pagar`
+            }
             trailing={
-              <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
-                {sale.fundedPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar recibido</>}
-              </button>
+              sale.commission != null && sale.commission > 0 ? (
+                <button type="button" className={`btn small ${sale.commissionPaid ? 'gray' : 'success'}`} onClick={() => mark('commissionPaid', !sale.commissionPaid)}>
+                  {sale.commissionPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar pagada</>}
+                </button>
+              ) : undefined
             }
           />
-        )}
-        <Row
-          title={`Comisión${person(sale.sellerId) ? ` · ${person(sale.sellerId)}` : ''}`}
-          subtitle={
-            sale.commission == null
-              ? 'Sin registrar'
-              : sale.commissionPaid
-                ? `${money(sale.commission)} pagada el ${dateWithYear(sale.commissionPaidDate)}`
-                : `${money(sale.commission)} por pagar`
-          }
-          trailing={
-            sale.commission != null && sale.commission > 0 ? (
-              <button type="button" className={`btn small ${sale.commissionPaid ? 'gray' : 'success'}`} onClick={() => mark('commissionPaid', !sale.commissionPaid)}>
-                {sale.commissionPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar pagada</>}
-              </button>
-            ) : undefined
-          }
-        />
-      </Group>
+        </Group>
+      )}
 
       <Group label="Seguimiento">
         <Row
