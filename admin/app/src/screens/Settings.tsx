@@ -7,7 +7,7 @@ import { DatabaseBackup, Download, KeyRound, ShieldCheck, Landmark, LogOut, Pack
 import type { CatalogItem, Person } from '../../../shared/domain.ts';
 import { permissionsSummary } from '../../../shared/domain.ts';
 import { useAccess } from '../lib/access.ts';
-import { PhotoEditor } from '../ui/photo.tsx';
+import { PhotoEditor, ProfilePhoto } from '../ui/photo.tsx';
 import { useData, useStore } from '../lib/store.tsx';
 import { api, download } from '../lib/api.ts';
 import { plural } from '../lib/format.ts';
@@ -392,7 +392,7 @@ export function AccountScreen() {
   return (
     <Page title="Mi cuenta" back={{ label: 'Inicio', to: '/' }} narrow>
       <div className="hero-head">
-        <Avatar name={data.me.name} size="lg" photo={data.me.avatar} />
+        <ProfilePhoto name={data.me.name} photo={data.me.avatar} />
         <h1 className="large-title">{data.me.name}</h1>
         <p className="muted">Usuario: {data.me.username}</p>
         {!data.viewer && <PhotoEditor hasPhoto={Boolean(data.me.avatar)} />}

@@ -499,7 +499,7 @@ export function SegmentedRow<T extends string | number>(props: {
 /* Varios                                                               */
 /* ------------------------------------------------------------------ */
 
-export function Avatar({ name, size, photo }: { name: string; size?: 'lg' | 'sm'; photo?: string | null }) {
+export function Avatar({ name, size, photo }: { name: string; size?: 'xl' | 'lg' | 'sm'; photo?: string | null }) {
   if (photo) {
     return (
       <span className={`avatar photo${size ? ' ' + size : ''}`} aria-hidden="true">

@@ -9,6 +9,8 @@ import type { User } from '../../../shared/domain.ts';
 import { api } from '../lib/api.ts';
 import { useStore } from '../lib/store.tsx';
 import { Sheet, useFeedback } from './sheet.tsx';
+import { Avatar } from './kit.tsx';
+import { createPortal } from 'react-dom';
 
 const VIEW = 280; // tamano del circulo en pantalla
 const OUT = 512; // tamano de la foto guardada
@@ -179,6 +181,33 @@ export function PhotoEditor({ hasPhoto }: { hasPhoto: boolean }) {
           </button>
         </div>
       </Sheet>
+    </>
+  );
+}
+
+/** Foto grande de perfil; al tocarla se ve en pantalla completa. */
+export function ProfilePhoto({ name, photo }: { name: string; photo: string | null }) {
+  const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setOpen(false);
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [open]);
+  if (!photo) return <Avatar name={name} size="xl" />;
+  return (
+    <>
+      <button type="button" className="profile-photo" onClick={() => setOpen(true)} aria-label={`Ver la foto de ${name}`}>
+        <Avatar name={name} size="xl" photo={photo} />
+      </button>
+      {open &&
+        createPortal(
+          <div className="photo-viewer" onClick={() => setOpen(false)} role="dialog" aria-label={`Foto de ${name}`}>
+            <img src={photo} alt={name} />
+            <span>{name}</span>
+          </div>,
+          document.body
+        )}
     </>
   );
 }

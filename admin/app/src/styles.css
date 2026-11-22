@@ -1806,3 +1806,14 @@ a.pay-card:active { transform: perspective(900px) scale(0.98); }
 .photo-ring { position: absolute; inset: 0; border-radius: 50%; box-shadow: inset 0 0 0 3px rgba(255, 255, 255, 0.85); pointer-events: none; }
 .photo-zoom { display: flex; align-items: center; gap: 10px; max-width: 320px; margin: 16px auto 4px; }
 .photo-zoom input { flex: 1; accent-color: var(--accent); }
+
+/* Foto de perfil grande (Mi cuenta y ficha del usuario) */
+.avatar.xl { width: 168px; height: 168px; font-size: 60px; box-shadow: 0 16px 40px rgba(15, 23, 42, 0.22), 0 0 0 5px var(--surface); }
+@media (max-width: 480px) { .avatar.xl { width: 140px; height: 140px; font-size: 50px; } }
+.profile-photo { border-radius: 50%; padding: 0; transition: transform 0.2s var(--ease); }
+.profile-photo:hover { transform: scale(1.03); }
+.profile-photo:active { transform: scale(0.97); }
+.photo-viewer { position: fixed; inset: 0; z-index: 200; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 24px; background: rgba(10, 10, 14, 0.88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); cursor: zoom-out; animation: fade-in 0.2s ease; }
+.photo-viewer img { width: min(82vw, 82vh, 520px); aspect-ratio: 1; border-radius: 28px; object-fit: cover; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5); animation: pop-in 0.3s var(--ease); }
+.photo-viewer span { color: #fff; font-size: 18px; font-weight: 600; }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }

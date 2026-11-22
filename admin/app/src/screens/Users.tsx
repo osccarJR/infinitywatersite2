@@ -16,6 +16,7 @@ import { dateWithYear, localDate } from '../lib/format.ts';
 import { Avatar, Badge, Empty, Group, IconBox, Page, Row, SegmentedRow, SwitchRow, TextField } from '../ui/kit.tsx';
 import { Picker, Sheet, useFeedback } from '../ui/sheet.tsx';
 import { PickerRow } from '../ui/pickers.tsx';
+import { ProfilePhoto } from '../ui/photo.tsx';
 
 type Role = 'admin' | 'member';
 
@@ -379,7 +380,7 @@ export function UserScreen({ id }: { id: number }) {
   return (
     <Page title={user.name} hideTitle back={{ label: 'Usuarios', to: '/ajustes/usuarios' }} narrow>
       <div className="hero-head">
-        <Avatar name={user.name} size="lg" photo={user.avatar} />
+        <ProfilePhoto name={user.name} photo={user.avatar} />
         <h1 className="large-title">{user.name}</h1>
         <p className="muted">
           {user.username} · {user.lastLoginAt ? `último acceso ${dateWithYear(localDate(user.lastLoginAt))}` : 'nunca ha entrado'}
