@@ -643,6 +643,18 @@ test('foto de perfil: se sube, se ve y no acepta cualquier archivo', async () =>
   assert.equal((await call('DELETE', '/auth/avatar', undefined, { as: sellerCookie })).data.user.avatar, null);
 });
 
+test('hora de instalación y garantía guardada', async () => {
+  const sale = (await call('GET', '/bootstrap')).data.sales.find((s) => s.id === saleId);
+  const r = await call('PUT', `/sales/${saleId}`, { ...sale, client: { id: sale.clientId }, installTime: '12:00 pm – 2:00 pm', expectedUpdatedAt: sale.updatedAt });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.sale.installTime, '12:00 pm – 2:00 pm');
+  const w = await call('POST', `/sales/${saleId}/warranty`, { issueDate: '2026-11-07', representative: 'Angie', issuedIn: 'Cape Coral, Florida / Well water', lines: [{ item: 'Reverse osmosis membrane', serial: 'MW-RO-20261107-001' }] });
+  assert.equal(w.status, 200, JSON.stringify(w.data));
+  assert.equal(w.data.sale.warranty.lines[0].serial, 'MW-RO-20261107-001');
+  assert.equal((await call('POST', `/sales/${saleId}/warranty`, { issueDate: '2026-11-07', representative: '', lines: [] })).status, 400);
+  assert.equal((await call('POST', `/sales/${saleId}/warranty`, { issueDate: '2026-11-07', representative: 'X', lines: [{ item: 'Y' }] }, { as: techCookie })).status, 403, 'el técnico solo ve ventas');
+});
+
 /* ------------------------- registro de actividad ------------------------- */
 
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {

@@ -32,6 +32,7 @@ const PayableAccountScreen = lazy(() => import('./screens/Payables.tsx').then((m
 const Inventory = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.Inventory })));
 const InventoryItemScreen = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.InventoryItemScreen })));
 const Reports = lazy(() => import('./screens/Reports.tsx').then((m) => ({ default: m.Reports })));
+const WarrantyPrint = lazy(() => import('./screens/WarrantyPrint.tsx').then((m) => ({ default: m.WarrantyPrint })));
 const Audit = lazy(() => import('./screens/Audit.tsx').then((m) => ({ default: m.Audit })));
 
 export function App() {
@@ -46,6 +47,7 @@ export function App() {
 
 function Gate() {
   const { status, error, reload } = useStore();
+  const { path } = useLocation();
   if (status === 'loading')
     return (
       <div className="splash">
@@ -65,6 +67,15 @@ function Gate() {
         </div>
       </div>
     );
+  // Documentos para imprimir: pagina limpia, sin menus.
+  const print = matchRoute('/imprimir/garantia/:id', path);
+  if (print && /^\d+$/.test(print.id)) {
+    return (
+      <Suspense fallback={<div className="splash"><Spinner /></div>}>
+        <WarrantyPrint id={Number(print.id)} />
+      </Suspense>
+    );
+  }
   return <Shell />;
 }
 

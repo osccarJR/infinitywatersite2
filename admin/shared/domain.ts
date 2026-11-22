@@ -108,6 +108,8 @@ export interface Sale {
   status: SaleStatus;
   saleDate: string;
   installDate: string | null;
+  /** Franja de la instalacion ("12:00 pm – 2:00 pm"). */
+  installTime: string | null;
   installerId: number | null;
   /** null = se instalo en la direccion del cliente. */
   installAddress: string | null;
@@ -137,11 +139,27 @@ export interface Sale {
   notes: string | null;
   /** Registrada al ponerse al dia (venta anterior al sistema). */
   isLegacy: boolean;
+  /** Garantia ya generada (para reimprimirla con los mismos seriales). */
+  warranty: WarrantyData | null;
   suppliers: SaleSupplier[];
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
   updatedBy: string | null;
+}
+
+export interface WarrantyLine {
+  item: string;
+  serial: string;
+}
+
+export interface WarrantyData {
+  issueDate: string;
+  representative: string;
+  /** "Cape Coral, Florida / Well water". */
+  issuedIn: string;
+  lines: WarrantyLine[];
+  generatedAt: string;
 }
 
 export interface Service {

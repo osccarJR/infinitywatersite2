@@ -9,6 +9,16 @@ import type { CatalogItem, Client, Person, Sale, Service } from '../shared/domai
 import type { ClientInput, PersonInput, SaleInput, ServiceInput } from './schemas.ts';
 
 const b = (value: boolean) => (value ? 1 : 0);
+
+function parseWarranty(json: string | null) {
+  try {
+    return json ? JSON.parse(json) : null;
+  } catch {
+    return null;
+  }
+}
+
+export const saveWarranty = (db: DB, saleId: number, data: unknown) => db.prepare('UPDATE sales SET warranty = ? WHERE id = ?').run(JSON.stringify(data), saleId).changes;
 const userName = `(SELECT name FROM users WHERE id = %s)`;
 
 /* ------------------------------------------------------------------ */
@@ -179,6 +189,8 @@ const toSale = (r: any, suppliers: Sale['suppliers']): Sale => ({
   nextServiceDate: r.next_service_date,
   notes: r.notes,
   isLegacy: Boolean(r.is_legacy),
+  installTime: r.install_time ?? null,
+  warranty: parseWarranty(r.warranty),
   suppliers,
   createdAt: r.created_at,
   updatedAt: r.updated_at,
@@ -219,6 +231,7 @@ const saleParams = (s: SaleInput, clientId: number) => {
     status: s.status,
     sale_date: s.saleDate,
     install_date: s.installDate,
+    install_time: s.installTime,
     installer_id: s.installerId,
     install_address: s.installAddress,
     install_city: s.installCity,

@@ -99,6 +99,7 @@ export const SaleInput = z.object({
   status: z.enum(['active', 'cancelled', 'declined', 'uninstalled']).default('active'),
   saleDate: date,
   installDate: optionalDate,
+  installTime: text(40),
   installerId: optionalId,
   installAddress: text(200),
   installCity: text(80),
@@ -241,6 +242,17 @@ export const UserUpdateInput = z.object({
   password: newPassword.optional(),
   role: z.enum(['admin', 'member']).optional(),
   permissions: PermissionsInput.optional(),
+});
+
+/** Garantia: lo que se imprime (equipos con su serial, fecha y representante). */
+export const WarrantyInput = z.object({
+  issueDate: date,
+  representative: requiredText('Escribe el nombre del representante', 80),
+  issuedIn: text(120).transform((v) => v ?? ''),
+  lines: z
+    .array(z.object({ item: requiredText('Escribe el equipo', 120), serial: text(60).transform((v) => v ?? '') }))
+    .min(1, 'Agrega al menos un equipo')
+    .max(8, 'Máximo 8 equipos'),
 });
 
 /* ------------------------- cuentas por pagar ------------------------- */

@@ -130,6 +130,10 @@ function sentence(e: Entry): { who: string; text: string } {
       return { who, text: `le devolvió el acceso a ${label}` };
     case 'login':
       return { who, text: 'entró al sistema' };
+    case 'warranty':
+      return { who, text: `generó ${label}` };
+    case 'warranty-update':
+      return { who, text: `volvió a generar ${label}` };
     case 'avatar':
       return { who, text: `cambió ${label}` };
     case 'login-failed':

@@ -457,7 +457,7 @@ function Agenda() {
   for (const sale of data.sales) {
     if (!isActiveSale(sale)) continue;
     if (sale.installDate && sale.installDate >= data.today && sale.installDate <= end) {
-      items.push({ key: `i${sale.id}`, day: sale.installDate, kind: 'install', clientId: sale.clientId, to: `/ventas/${sale.id}`, detail: equipmentSummary(sale.equipment) });
+      items.push({ key: `i${sale.id}`, day: sale.installDate, kind: 'install', clientId: sale.clientId, to: `/ventas/${sale.id}`, detail: `${sale.installTime ? `${sale.installTime} · ` : ''}${equipmentSummary(sale.equipment)}` });
     }
     if (sale.nextServiceDate && sale.nextServiceDate >= data.today && sale.nextServiceDate <= end) {
       items.push({ key: `m${sale.id}`, day: sale.nextServiceDate, kind: 'maintenance', clientId: sale.clientId, to: `/ventas/${sale.id}`, detail: equipmentSummary(sale.equipment) });

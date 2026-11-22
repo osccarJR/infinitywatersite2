@@ -22,6 +22,7 @@ import { api } from '../lib/api.ts';
 import { dateWithYear, localDate, mapsHref, money, percentText, relativeDay, telHref, whatsappHref } from '../lib/format.ts';
 import { Avatar, Badge, Empty, Group, Page, Row, Section } from '../ui/kit.tsx';
 import { SaleBadges, ServiceRow } from '../ui/items.tsx';
+import { SaleDocs } from '../ui/saledocs.tsx';
 import { useFeedback } from '../ui/sheet.tsx';
 
 export function SaleDetail({ id }: { id: number }) {
@@ -170,6 +171,8 @@ export function SaleDetail({ id }: { id: number }) {
         {e.other && <Row title="Otro" subtitle={e.other} />}
       </Group>
 
+      <SaleDocs sale={sale} />
+
       <Group label="Instalación">
         <Row
           title="Fecha"
@@ -186,6 +189,7 @@ export function SaleDetail({ id }: { id: number }) {
             )
           }
         />
+        {sale.installTime && <Row title="Hora" value={sale.installTime} />}
         <Row title="Técnico" value={person(sale.installerId) ?? '—'} />
         <Row title="Lugar" subtitle={address || '—'} href={address ? mapsHref(address) : undefined} chevron={Boolean(address)} />
       </Group>

@@ -292,6 +292,11 @@ const MIGRATIONS: string[] = [
   );
   ALTER TABLE users ADD COLUMN avatar_at TEXT;
   `,
+  /* 11: hora de la instalacion (franja que se le pasa al tecnico) y la
+        garantia generada (equipos y seriales, para reimprimirla igual). */ `
+  ALTER TABLE sales ADD COLUMN install_time TEXT;
+  ALTER TABLE sales ADD COLUMN warranty TEXT;
+  `,
 ];
 
 export type DB = Database.Database;

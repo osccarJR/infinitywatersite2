@@ -192,6 +192,7 @@ export const SPECS: Record<string, Spec[]> = {
     ['commissionPaid', 'Comisión pagada', bool],
     ['commissionPaidDate', 'Fecha pago comisión', date],
     ['installDate', 'Fecha de instalación', date],
+    ['installTime', 'Hora de instalación', text],
     ['installerId', 'Técnico', nameFrom('people')],
     ['installerPay', 'Pago al técnico', money],
     ['installerPaid', 'Técnico pagado', bool],

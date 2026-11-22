@@ -25,6 +25,7 @@ import {
   SaleInput,
   ServiceInput,
   ServiceInputNoAmount,
+  WarrantyInput,
   UserCreateInput,
   UserUpdateInput,
   PayableAccountInput,
@@ -455,6 +456,29 @@ export function buildApi(db: DB, dataDir: string) {
         if (changes.length) log(ctx, { action: 'update', entity: 'sale', entityId: num(ctx), label: saleLabel(after), changes });
       })()
     );
+    return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
+  });
+
+  /** Guarda la garantia que se va a imprimir (asi se reimprime con los mismos seriales). */
+  api.add('POST', '/sales/:id/warranty', (ctx) => {
+    const user = allowed(ctx, (p) => p.flags['sales.view'] && (p.flags['sales.edit'] || p.flags['sales.create']));
+    const sale = repo.getSale(db, num(ctx));
+    notFound(sale ? 1 : 0, 'La venta');
+    need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
+    const input = parse(WarrantyInput, ctx.body);
+    const data = { ...input, generatedAt: new Date().toISOString() };
+    repo.saveWarranty(db, num(ctx), data);
+    log(ctx, {
+      action: sale!.warranty ? 'warranty-update' : 'warranty',
+      entity: 'sale',
+      entityId: num(ctx),
+      label: `la garantía de ${saleLabel(sale)}`,
+      changes: [
+        { f: 'Fecha', b: input.issueDate.split('-').reverse().join('/') },
+        { f: 'Representante', b: input.representative },
+        ...input.lines.map((l) => ({ f: l.item, b: l.serial || 'sin serial' })),
+      ],
+    });
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
   });
 
