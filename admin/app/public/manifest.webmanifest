@@ -1,0 +1,15 @@
+{
+  "name": "Infinity Water · Gestión",
+  "short_name": "Infinity",
+  "description": "Clientes, ventas, instalaciones y servicio técnico",
+  "lang": "es",
+  "start_url": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "background_color": "#f2f2f7",
+  "theme_color": "#f2f2f7",
+  "icons": [
+    { "src": "/admin/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/admin/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

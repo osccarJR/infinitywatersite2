@@ -1,0 +1,40 @@
+{
+  "name": "infinitywater-admin",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Panel de gestion de Infinity Water: clientes, ventas, instalaciones, comisiones y servicio tecnico",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "build": "vite build && node scripts/build-server.mjs",
+    "typecheck": "tsc -p .",
+    "start": "node dist/server/index.js",
+    "user": "node dist/server/cli.js",
+    "test": "npm run build && node --test tests/domain.test.ts tests/api.test.mjs",
+    "deploy": "bash scripts/deploy.sh"
+  },
+  "dependencies": {
+    "better-sqlite3": "12.11.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "esbuild": "^0.28.2",
+    "lucide-react": "^1.77.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8"
+  },
+  "allowScripts": {
+    "better-sqlite3@12.11.1": true,
+    "esbuild@0.28.2": true
+  }
+}

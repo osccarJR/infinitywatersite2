@@ -252,6 +252,14 @@ docker compose --profile prod up --build web    # http://localhost:8080
 
 ---
 
+## Panel de gestión (`/admin`)
+
+Sistema interno del negocio (clientes, ventas, financieras, comisiones,
+proveedores, servicio técnico). Es un servicio Node aparte con su propia base
+SQLite; nginx le pasa solo `/admin`. Todo está en [`admin/`](admin/README.md).
+
+---
+
 ## Pendiente
 
 - **Fotos reales:** equipo, instalaciones, camioneta, antes y después. Las

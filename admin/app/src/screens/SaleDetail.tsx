@@ -1,0 +1,298 @@
+/**
+ * Detalle de una venta: que se instalo, donde, el dinero completo y las
+ * acciones rapidas (marcar que pago la financiera o la comision).
+ */
+import { AlertCircle, CircleCheck, MessageCircle, Phone, Wrench } from 'lucide-react';
+import {
+  RO_TYPE_LABEL,
+  WATER_LABEL,
+  equipmentSummary,
+  formatAddress,
+  installState,
+  saleMissing,
+  saleMoney,
+} from '../../../shared/domain.ts';
+import { useData, useStore } from '../lib/store.tsx';
+import { Link, navigate } from '../lib/router.tsx';
+import { api } from '../lib/api.ts';
+import { dateWithYear, mapsHref, money, percentText, relativeDay, telHref, whatsappHref } from '../lib/format.ts';
+import { Avatar, Badge, Empty, Group, Page, Row, Section } from '../ui/kit.tsx';
+import { SaleBadges, ServiceRow } from '../ui/items.tsx';
+import { useFeedback } from '../ui/sheet.tsx';
+
+export function SaleDetail({ id }: { id: number }) {
+  const data = useData();
+  const { reload } = useStore();
+  const { toast, confirm } = useFeedback();
+  const sale = data.sales.find((s) => s.id === id);
+
+  if (!sale) {
+    return (
+      <Page title="Venta" back={{ label: 'Ventas', to: '/ventas' }}>
+        <Empty title="Esta venta no existe" text="Puede que se haya borrado." />
+      </Page>
+    );
+  }
+
+  const client = data.clientById.get(sale.clientId);
+  const m = saleMoney(sale);
+  const missing = saleMissing(sale);
+  const state = installState(sale, data.today);
+  const services = data.servicesBySale.get(sale.id) ?? [];
+  const person = (pid: number | null) => (pid ? data.personById.get(pid)?.name : null);
+  const address =
+    sale.installAddress || sale.installCity
+      ? formatAddress({ address: sale.installAddress, city: sale.installCity, state: sale.installStateCode, zip: sale.installZip })
+      : formatAddress(client ?? {});
+  const e = sale.equipment;
+
+  const mark = async (field: 'fundedPaid' | 'commissionPaid', paid: boolean) => {
+    try {
+      await api(`/sales/${id}/mark`, { method: 'POST', body: { field, paid, date: paid ? data.today : null } });
+      await reload();
+      toast(paid ? (field === 'fundedPaid' ? 'Pago de la financiera registrado' : 'Comisión marcada como pagada') : 'Marcado como pendiente');
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
+
+  const remove = async () => {
+    const ok = await confirm({
+      title: '¿Borrar esta venta?',
+      message: 'El cliente se queda. Los servicios técnicos de esta venta quedan sin venta asociada. No se puede deshacer.',
+      confirm: 'Borrar venta',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await api(`/sales/${id}`, { method: 'DELETE' });
+      await reload();
+      toast('Venta borrada');
+      navigate(`/clientes/${sale.clientId}`, { replace: true });
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
+
+  return (
+    <Page
+      title={client?.name ?? 'Venta'}
+      subtitle={
+        <>
+          Venta del {dateWithYear(sale.saleDate)}
+          {sale.isLegacy && ' · registrada al ponerse al día'}
+        </>
+      }
+      back={{ label: 'Ventas', to: '/ventas' }}
+      actions={
+        <Link to={`/ventas/${id}/editar`} className="link-btn strong">
+          Editar
+        </Link>
+      }
+      narrow
+    >
+      <div style={{ marginTop: -8, marginBottom: 18 }}>
+        <SaleBadges sale={sale} data={data} hideMissing />
+      </div>
+
+      {missing.length > 0 && (
+        <Link to={`/ventas/${id}/editar`} className="banner" style={{ display: 'flex' }}>
+          <AlertCircle size={20} />
+          <div style={{ flex: 1 }}>
+            <div className="banner-title">Faltan {missing.length} {missing.length === 1 ? 'dato' : 'datos'}</div>
+            <div className="banner-text">{missing.join(' · ')}</div>
+          </div>
+          <span className="link-btn" style={{ padding: 0 }}>Completar</span>
+        </Link>
+      )}
+
+      {client && (
+        <Group>
+          <Row
+            leading={<Avatar name={client.name} />}
+            title={
+              <Link to={`/clientes/${client.id}`} style={{ fontWeight: 600, color: 'var(--text)' }}>
+                {client.name}
+              </Link>
+            }
+            subtitle={client.phone ?? 'Sin teléfono'}
+            chevron={false}
+            trailing={
+              client.phone ? (
+                <span style={{ display: 'flex', gap: 2 }}>
+                  <a className="icon-btn" href={telHref(client.phone)} aria-label="Llamar">
+                    <Phone size={20} />
+                  </a>
+                  <a className="icon-btn" href={whatsappHref(client.phone)} target="_blank" rel="noopener" aria-label="WhatsApp">
+                    <MessageCircle size={20} />
+                  </a>
+                </span>
+              ) : undefined
+            }
+          />
+        </Group>
+      )}
+
+      <Group label="Lo que se instaló" footer={equipmentSummary(e)}>
+        <Row title="Agua" value={sale.waterSource ? WATER_LABEL[sale.waterSource] : '—'} />
+        <Row title="Filtros fuera de casa" value={e.outdoorTanks || 'No'} />
+        <Row title="Aireador" value={e.aerator ? 'Sí' : 'No'} />
+        <Row title="Ósmosis de toda la casa" value={e.wholeHouseRo ? `${e.wholeHouseRo} ${e.wholeHouseRo === 1 ? 'membrana' : 'membranas'}` : 'No'} />
+        <Row
+          title="Ósmosis en la cocina"
+          value={e.ro ? [e.roType ? RO_TYPE_LABEL[e.roType] : null, e.roUv ? 'con UV' : 'sin UV'].filter(Boolean).join(' · ') : 'No'}
+        />
+        {e.other && <Row title="Otro" subtitle={e.other} />}
+      </Group>
+
+      <Group label="Instalación">
+        <Row
+          title="Fecha"
+          value={
+            sale.installDate ? (
+              <>
+                {dateWithYear(sale.installDate)}
+                {state === 'scheduled' && <span className="muted"> · {relativeDay(sale.installDate, data.today)}</span>}
+              </>
+            ) : sale.isLegacy ? (
+              <span className="muted">Sin registrar</span>
+            ) : (
+              <Badge tone="orange">Por instalar</Badge>
+            )
+          }
+        />
+        <Row title="Técnico" value={person(sale.installerId) ?? '—'} />
+        <Row title="Lugar" subtitle={address || '—'} href={address ? mapsHref(address) : undefined} chevron={Boolean(address)} />
+      </Group>
+
+      <Section title="Dinero">
+        <div className="card">
+          <div className="money-lines">
+            <MoneyLine label="Valor de la venta" value={sale.price} strong />
+            {m.financed ? (
+              <>
+                <MoneyLine label={`Abono en cash${(sale.cashDown ?? 0) === 0 ? ' (no abonó)' : ''}`} value={sale.cashDown ?? 0} />
+                <MoneyLine label="Se financió" value={sale.price == null ? null : m.financedAmount} />
+                <MoneyLine
+                  label={`${sale.financierId ? data.financierById.get(sale.financierId)?.name ?? 'La financiera' : 'La financiera'} ${sale.fundedPaid ? 'pagó' : 'paga'}`}
+                  value={sale.fundedAmount}
+                  note={sale.fundedAmount == null ? 'Sin registrar' : undefined}
+                />
+                {m.financierFee != null && (
+                  <MoneyLine label={`Descuento de la financiera (${percentText(m.financierFee, m.financedAmount)})`} value={-m.financierFee} />
+                )}
+              </>
+            ) : sale.paymentMethod === 'cash' ? (
+              <>
+                <MoneyLine label="Pago en cash" value={sale.cashDown} />
+                {m.pendingClient > 0 && <MoneyLine label="El cliente debe" value={m.pendingClient} tone="orange" />}
+              </>
+            ) : (
+              <MoneyLine label="Forma de pago" value={null} note="Sin registrar" />
+            )}
+            {sale.suppliers.map((row) => (
+              <MoneyLine key={row.supplierId} label={`Proveedor: ${data.supplierById.get(row.supplierId)?.name ?? '—'}`} value={row.cost == null ? null : -row.cost} note={row.cost == null ? 'Sin costo' : undefined} />
+            ))}
+            <MoneyLine label={`Comisión${person(sale.sellerId) ? ` de ${person(sale.sellerId)}` : ''}`} value={sale.commission == null ? null : -sale.commission} note={sale.commission == null ? 'Sin registrar' : undefined} />
+            {sale.installerPay != null && <MoneyLine label="Pago al técnico" value={-sale.installerPay} />}
+            <div className="money-line total">
+              <span>Ganancia{m.estimate ? ' estimada' : ''}</span>
+              <span className="v" style={{ color: m.profit < 0 ? 'var(--red)' : m.estimate ? 'var(--text)' : 'var(--green)' }}>
+                {m.estimate ? '≈ ' : ''}
+                {money(m.profit)}
+              </span>
+            </div>
+            {m.noCosts && (
+              <p className="muted" style={{ fontSize: 13.5, marginTop: 8 }}>
+                Sin costos de proveedores: la ganancia real será menor. Agrégalos en Editar.
+              </p>
+            )}
+          </div>
+        </div>
+      </Section>
+
+      <Group label="Cobros y pagos">
+        {m.financed && (
+          <Row
+            title="Pago de la financiera"
+            subtitle={sale.fundedPaid ? `Recibido el ${dateWithYear(sale.fundedDate)}` : `Pendiente · ${money(m.pendingFinancier)}`}
+            trailing={
+              <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
+                {sale.fundedPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar recibido</>}
+              </button>
+            }
+          />
+        )}
+        <Row
+          title={`Comisión${person(sale.sellerId) ? ` · ${person(sale.sellerId)}` : ''}`}
+          subtitle={
+            sale.commission == null
+              ? 'Sin registrar'
+              : sale.commissionPaid
+                ? `${money(sale.commission)} pagada el ${dateWithYear(sale.commissionPaidDate)}`
+                : `${money(sale.commission)} por pagar`
+          }
+          trailing={
+            sale.commission != null && sale.commission > 0 ? (
+              <button type="button" className={`btn small ${sale.commissionPaid ? 'gray' : 'success'}`} onClick={() => mark('commissionPaid', !sale.commissionPaid)}>
+                {sale.commissionPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar pagada</>}
+              </button>
+            ) : undefined
+          }
+        />
+      </Group>
+
+      <Group label="Seguimiento">
+        <Row
+          title="Próximo mantenimiento"
+          value={
+            sale.nextServiceDate ? (
+              <Badge tone={sale.nextServiceDate < data.today ? 'red' : 'blue'}>
+                {dateWithYear(sale.nextServiceDate)}
+              </Badge>
+            ) : (
+              '—'
+            )
+          }
+        />
+        {sale.notes && <div className="row-block" style={{ whiteSpace: 'pre-wrap' }}>{sale.notes}</div>}
+      </Group>
+
+      <Section title="Servicio técnico de esta venta">
+        <Group>
+          {services.map((service) => (
+            <ServiceRow key={service.id} service={service} data={data} showClient={false} />
+          ))}
+          <Row
+            className="action"
+            to={`/servicio/nuevo?cliente=${sale.clientId}&venta=${sale.id}`}
+            leading={<Wrench size={19} />}
+            title="Reportar un problema o mantenimiento"
+            chevron={false}
+          />
+        </Group>
+      </Section>
+
+      <div className="group" style={{ marginTop: 34 }}>
+        <button type="button" className="row danger" onClick={remove}>
+          Borrar venta
+        </button>
+      </div>
+      <p className="group-foot" style={{ textAlign: 'center' }}>
+        Venta #{sale.id} · registrada por {sale.createdBy ?? '—'}
+        {sale.updatedBy && sale.updatedAt !== sale.createdAt ? ` · editada por ${sale.updatedBy}` : ''}
+      </p>
+    </Page>
+  );
+}
+
+function MoneyLine({ label, value, note, strong, tone }: { label: string; value: number | null; note?: string; strong?: boolean; tone?: 'orange' }) {
+  return (
+    <div className={`money-line${value != null && value < 0 ? ' minus' : ''}`} style={strong ? { fontWeight: 600 } : undefined}>
+      <span>{label}</span>
+      <span className={`v${tone ? ' ' + tone : ''}`}>
+        {note ? <span className="muted">{note}</span> : value == null ? '—' : value < 0 ? `− ${money(-value)}` : money(value)}
+      </span>
+    </div>
+  );
+}
