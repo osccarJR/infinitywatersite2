@@ -87,7 +87,7 @@ test('login correcto: cookie HttpOnly, SameSite=Strict, Path=/admin', async () =
   const boot = await call('GET', '/bootstrap');
   assert.equal(boot.status, 200);
   assert.equal(boot.data.me.name, 'Papá Albornoz');
-  assert.equal(boot.headers.get('cache-control'), 'no-store');
+  assert.equal(boot.headers.get('cache-control'), 'private, no-cache'); // se revalida siempre (ETag)
 });
 
 let saleId;
@@ -336,6 +336,18 @@ test('marca, estado y pago unificado al tecnico (instalaciones + servicios)', as
   assert.equal((await call('POST', '/brands', { name: 'AquaPro' })).status, 200);
 });
 
+test('bootstrap: 304 si nada cambio, 200 despues de guardar algo', async () => {
+  const first = await fetch(BASE + '/admin/api/bootstrap', { headers: { 'X-IW-Admin': '1', Cookie: cookie } });
+  const etag = first.headers.get('etag');
+  assert.ok(etag);
+  const again = await fetch(BASE + '/admin/api/bootstrap', { headers: { 'X-IW-Admin': '1', Cookie: cookie, 'If-None-Match': `W/${etag}` } });
+  assert.equal(again.status, 304);
+  await call('POST', '/clients', { name: 'Cambio de version' });
+  const after = await fetch(BASE + '/admin/api/bootstrap', { headers: { 'X-IW-Admin': '1', Cookie: cookie, 'If-None-Match': etag } });
+  assert.equal(after.status, 200);
+  assert.notEqual(after.headers.get('etag'), etag);
+});
+
 test('url mal codificada responde 400, no 500', async () => {
   assert.equal((await fetch(BASE + '/admin/%E0%A4%A')).status, 400);
 });
@@ -351,8 +363,9 @@ test('archivos: la app, rutas internas, 404 de assets y sin salir de la carpeta'
   assert.equal((await fetch(BASE + '/otra-cosa')).status, 404);
 });
 
-test('cerrar sesion invalida la cookie', async () => {
-  await call('POST', '/auth/logout');
+test('cerrar sesion invalida la cookie y borra la cache del navegador', async () => {
+  const out = await call('POST', '/auth/logout');
+  assert.equal(out.headers.get('clear-site-data'), '"cache"');
   assert.equal((await call('GET', '/bootstrap')).status, 401);
 });
 

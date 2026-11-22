@@ -23,6 +23,7 @@ import { backupDatabase, openDatabase } from './db.ts';
 import { buildApi } from './api.ts';
 import { HttpError, clientIp, parseCookies, readJson, sendJson, sessionCookie, type Ctx } from './http.ts';
 import { SESSION_COOKIE, SESSION_DAYS, purgeExpiredSessions, userFromSession } from './auth.ts';
+import { bumpVersion } from './version.ts';
 
 const PORT = Number(process.env.PORT ?? 3042);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -157,6 +158,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     secure,
   };
   const result = await found.route.handler(ctx);
+  // Toda escritura que llega hasta aqui cambia la version de los datos.
+  if (req.method !== 'GET' && req.method !== 'HEAD') bumpVersion();
   if (!res.headersSent) sendJson(res, 200, result ?? { ok: true });
 }
 

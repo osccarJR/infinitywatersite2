@@ -46,6 +46,8 @@ import { exportCsv, type ExportKind } from './export.ts';
 import { autocomplete, placeAddress, placesAllowed, placesEnabled } from './places.ts';
 import { addressById, geoEnabled, searchAddresses, searchCities, zipLookup } from './geo.ts';
 import { todayISO } from '../shared/domain.ts';
+import { dataVersion } from './version.ts';
+import { createHash } from 'node:crypto';
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
   const result = schema.safeParse(data);
@@ -135,6 +137,9 @@ export function buildApi(db: DB, dataDir: string) {
     (ctx) => {
       deleteSession(db, ctx.token);
       ctx.res.setHeader('Set-Cookie', sessionCookie(SESSION_COOKIE, '', 0, ctx.secure));
+      // Los datos se guardan en la cache del navegador para responder 304:
+      // al salir se borran (equipo compartido).
+      ctx.res.setHeader('Clear-Site-Data', '"cache"');
       return { ok: true };
     },
     { public: true }
@@ -158,8 +163,31 @@ export function buildApi(db: DB, dataDir: string) {
 
   /* ------------------------------ datos ------------------------------ */
 
-  api.add('GET', '/bootstrap', (ctx) => ({
-    me: me(ctx),
+  api.add('GET', '/bootstrap', (ctx) => {
+    const user = me(ctx);
+    // Huella de los datos (por usuario: la respuesta incluye "me"). Si el
+    // navegador ya tiene esta version, 304 sin cuerpo.
+    const etag = `"${createHash('sha1').update(`${dataVersion(db)}:${user.id}:${user.name}`).digest('base64url')}"`;
+    const seen = String(ctx.req.headers['if-none-match'] ?? '').split(',').map((t) => t.trim().replace(/^W\//, ''));
+    if (seen.includes(etag)) {
+      ctx.res.writeHead(304, { ETag: etag, 'Cache-Control': 'private, no-cache' });
+      ctx.res.end();
+      return undefined;
+    }
+    const body = JSON.stringify(bootstrapData(user));
+    ctx.res.writeHead(200, {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Content-Length': Buffer.byteLength(body),
+      ETag: etag,
+      // Se guarda pero se revalida siempre: el navegador pregunta "¿cambio?" cada vez.
+      'Cache-Control': 'private, no-cache',
+    });
+    ctx.res.end(body);
+    return undefined;
+  });
+
+  const bootstrapData = (user: NonNullable<Ctx['user']>) => ({
+    me: user,
     features: { places: addressesEnabled() },
     clients: repo.listClients(db),
     sales: repo.listSales(db),
@@ -168,7 +196,7 @@ export function buildApi(db: DB, dataDir: string) {
     financiers: repo.listCatalog(db, 'financiers'),
     suppliers: repo.listCatalog(db, 'suppliers'),
     brands: repo.listCatalog(db, 'brands'),
-  }));
+  });
 
   /* ------------------------ autocompletado de direcciones ------------------------ */
 

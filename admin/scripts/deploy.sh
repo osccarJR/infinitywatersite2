@@ -45,7 +45,7 @@ ssh "$HOST" "cd $DIR && rm -rf .deps && mkdir .deps && cp package.json package-l
   && mv .deps/node_modules node_modules && rm -rf .deps node_modules.old"
 
 echo "> reiniciando el servicio"
-ssh "$HOST" "cd $DIR && if pm2 describe $NAME >/dev/null 2>&1; then pm2 reload $NAME --update-env >/dev/null; else PORT=$PORT HOST=127.0.0.1 NODE_ENV=production DATA_DIR=$DIR/data pm2 start dist/server/index.js --name $NAME --cwd $DIR >/dev/null; fi && pm2 save >/dev/null"
+ssh "$HOST" "cd $DIR && if pm2 describe $NAME >/dev/null 2>&1; then pm2 reload $NAME --update-env >/dev/null; else PORT=$PORT HOST=127.0.0.1 NODE_ENV=production DATA_DIR=$DIR/data pm2 start dist/server/index.js --name $NAME --cwd $DIR --max-memory-restart 400M >/dev/null; fi && pm2 save >/dev/null"
 
 if [[ "${1:-}" == "--nginx" ]]; then
   echo "> nginx: subiendo snippet (copia en /root/nginx-backups)"
