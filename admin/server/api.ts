@@ -34,8 +34,8 @@ import {
   InventoryMovementInput,
 } from './schemas.ts';
 import * as books from './books.ts';
-import { need, protectSaleBody, protectServiceBody, scopeOf, seesClient, seesSale, seesService, shapeSale, shapeService } from './permissions.ts';
-import { normalizePermissions, type User } from '../shared/domain.ts';
+import { createdTodayBy, need, protectClientBody, protectSaleBody, protectServiceBody, scopeOf, seesClient, seesSale, seesService, shapeClient, shapeSale, shapeService } from './permissions.ts';
+import { normalizePermissions, type PermissionFlag, type User } from '../shared/domain.ts';
 import {
   SESSION_COOKIE,
   SESSION_DAYS,
@@ -80,6 +80,8 @@ const allowed = (ctx: Ctx, check: (p: User['permissions']) => boolean, message?:
   return user;
 };
 const isAdmin = (p: User['permissions']) => p.admin;
+/** Atajo: el permiso detallado (p. ej. can('sales.create')). */
+const can = (flag: PermissionFlag) => (p: User['permissions']) => p.flags[flag];
 
 const num = (ctx: Ctx, key = 'id') => Number(ctx.params[key]);
 
@@ -210,28 +212,31 @@ export function buildApi(db: DB, dataDir: string) {
   const bootstrapData = (user: User, viewer: User | null) => {
     const p = user.permissions;
     const scope = scopeOf(db, user);
-    const costs = p.money === 'all';
+    const f = p.flags;
+    const costs = f['money.costs'];
+    // Cuentas por pagar: todas o solo las que se le asignaron.
+    const accountOk = (id: number) => p.payableAccounts === null || p.payableAccounts.includes(id);
     return {
       me: user,
       viewer,
       features: { places: addressesEnabled() },
-      clients: repo.listClients(db).filter((c) => seesClient(scope, c.id)),
-      sales: p.sales === 'none' ? [] : repo.listSales(db).filter((s) => seesSale(scope, s.id)).map((s) => shapeSale(s, p)),
-      services: p.services === 'none' ? [] : repo.listServices(db).filter((s) => seesService(scope, s.id)).map((s) => shapeService(s, p)),
+      clients: !f['clients.view'] ? [] : repo.listClients(db).filter((c) => seesClient(scope, c.id)).map((c) => shapeClient(c, p)),
+      sales: !f['sales.view'] ? [] : repo.listSales(db).filter((s) => seesSale(scope, s.id)).map((s) => shapeSale(s, p)),
+      services: !f['services.view'] ? [] : repo.listServices(db).filter((s) => seesService(scope, s.id)).map((s) => shapeService(s, p)),
       people: repo.listPeople(db),
       financiers: repo.listCatalog(db, 'financiers'),
-      suppliers: costs || p.inventory !== 'none' ? repo.listCatalog(db, 'suppliers') : [],
+      suppliers: costs || f['inventory.view'] || f['catalogs.suppliers'] ? repo.listCatalog(db, 'suppliers') : [],
       brands: repo.listCatalog(db, 'brands'),
-      payableAccounts: p.payables === 'none' ? [] : books.listPayableAccounts(db),
-      payables: p.payables === 'none' ? [] : books.listPayables(db),
-      payablePayments: p.payables === 'none' ? [] : books.listPayablePayments(db),
-      inventoryItems: p.inventory === 'none' ? [] : books.listInventoryItems(db).map((i) => (costs ? i : { ...i, cost: null })),
+      payableAccounts: !f['payables.view'] ? [] : books.listPayableAccounts(db).filter((a) => accountOk(a.id)),
+      payables: !f['payables.view'] ? [] : books.listPayables(db).filter((x) => accountOk(x.accountId)),
+      payablePayments: !f['payables.view'] ? [] : books.listPayablePayments(db).filter((x) => accountOk(x.accountId)),
+      inventoryItems: !f['inventory.view'] ? [] : books.listInventoryItems(db).map((i) => (costs ? i : { ...i, cost: null })),
       inventoryMovements:
-        p.inventory === 'none'
+        !f['inventory.view']
           ? []
           : books
               .listInventoryMovements(db)
-              .map((m) => ({ ...m, unitCost: costs ? m.unitCost : null, saleId: m.saleId && seesSale(scope, m.saleId) && p.sales !== 'none' ? m.saleId : null, serviceId: m.serviceId && seesService(scope, m.serviceId) && p.services !== 'none' ? m.serviceId : null })),
+              .map((m) => ({ ...m, unitCost: costs ? m.unitCost : null, saleId: m.saleId && seesSale(scope, m.saleId) && f['sales.view'] ? m.saleId : null, serviceId: m.serviceId && seesService(scope, m.serviceId) && f['services.view'] ? m.serviceId : null })),
     };
   };
 
@@ -286,26 +291,26 @@ export function buildApi(db: DB, dataDir: string) {
   /* ----------------------------- clientes ----------------------------- */
 
   api.add('POST', '/clients', (ctx) => {
-    const user = allowed(ctx, (p) => p.clients === 'edit');
+    const user = allowed(ctx, can('clients.create'));
     const input = parse(ClientInput, ctx.body);
     const id = repo.insertClient(db, input, user.id);
     repo.audit(db, user.id, 'create', 'client', id);
-    return { client: repo.getClient(db, id) };
+    return { client: shapeClient(repo.getClient(db, id)!, user.permissions) };
   });
 
   api.add('PUT', '/clients/:id', (ctx) => {
-    const user = allowed(ctx, (p) => p.clients === 'edit');
+    const user = allowed(ctx, can('clients.edit'));
     need(seesClient(scopeOf(db, user), num(ctx)), 'No tienes acceso a este cliente.');
-    const input = parse(ClientInput, ctx.body);
+    const input = parse(ClientInput, protectClientBody(ctx.body, repo.getClient(db, num(ctx)), user.permissions));
     checkVersion(db, 'clients', num(ctx), input.expectedUpdatedAt);
     notFound(repo.updateClient(db, num(ctx), input, user.id), 'El cliente');
     repo.audit(db, user.id, 'update', 'client', num(ctx));
-    return { client: repo.getClient(db, num(ctx)) };
+    return { client: shapeClient(repo.getClient(db, num(ctx))!, user.permissions) };
   });
 
   api.add('DELETE', '/clients/:id', (ctx) => {
     // Borrar un cliente borra todas sus ventas y servicios: solo con alcance total.
-    const user = allowed(ctx, (p) => p.delete && p.clients === 'edit' && p.scope === 'all');
+    const user = allowed(ctx, (p) => p.flags['clients.delete'] && p.scope === 'all');
     const client = repo.getClient(db, num(ctx));
     notFound(client ? 1 : 0, 'El cliente');
     repo.deleteClient(db, num(ctx));
@@ -316,7 +321,7 @@ export function buildApi(db: DB, dataDir: string) {
   /* ------------------------------ ventas ------------------------------ */
 
   api.add('POST', '/sales', (ctx) => {
-    const user = allowed(ctx, (p) => p.sales === 'edit');
+    const user = allowed(ctx, can('sales.create'));
     const input = parse(SaleInput, protectSaleBody(ctx.body, null, user.permissions));
     const id = friendly(() =>
       db.transaction(() => {
@@ -330,9 +335,11 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('PUT', '/sales/:id', (ctx) => {
-    const user = allowed(ctx, (p) => p.sales === 'edit');
+    const user = me(ctx);
     const existing = repo.getSale(db, num(ctx));
     notFound(existing ? 1 : 0, 'La venta');
+    // Editar, o corregir el mismo dia lo que el mismo registro ("Guardar y otro", un error de dedo).
+    need(user.permissions.flags['sales.edit'] || (user.permissions.flags['sales.create'] && createdTodayBy(db, 'sales', num(ctx), user.id)));
     need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
     const input = parse(SaleInput, protectSaleBody(ctx.body, existing, user.permissions));
     friendly(() =>
@@ -347,18 +354,23 @@ export function buildApi(db: DB, dataDir: string) {
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
   });
 
+  /** Marcar pagado: la comision con "Pagar comisiones"; lo de la financiera con "Registrar pagos de financieras". */
+  const markFlag = (field: 'fundedPaid' | 'commissionPaid'): PermissionFlag => (field === 'fundedPaid' ? 'payments.financiers' : 'payments.commissions');
+
   api.add('POST', '/sales/:id/mark', (ctx) => {
-    const user = allowed(ctx, (p) => p.payments === 'edit');
-    need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
+    const user = me(ctx);
     const { field, paid, date } = parse(MarkInput, ctx.body);
+    need(user.permissions.flags[markFlag(field)]);
+    need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
     notFound(repo.markSale(db, num(ctx), field, paid, date, user.id), 'La venta');
     repo.audit(db, user.id, 'mark', 'sale', num(ctx), { field, paid });
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
   });
 
   api.add('POST', '/sales/mark-batch', (ctx) => {
-    const user = allowed(ctx, (p) => p.payments === 'edit');
+    const user = me(ctx);
     const { ids, field, paid, date } = parse(MarkBatchInput, ctx.body);
+    need(user.permissions.flags[markFlag(field)]);
     const unique = [...new Set(ids)];
     const scope = scopeOf(db, user);
     need(unique.every((id) => seesSale(scope, id)), 'Una de las ventas no es tuya.');
@@ -377,7 +389,7 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('POST', '/tech-payments', (ctx) => {
-    const user = allowed(ctx, (p) => p.payments === 'edit');
+    const user = allowed(ctx, can('payments.technicians'));
     const { saleIds, serviceIds, date } = parse(TechPayInput, ctx.body);
     const scope = scopeOf(db, user);
     need(saleIds.every((id) => seesSale(scope, id)) && serviceIds.every((id) => seesService(scope, id)), 'Uno de los trabajos no es tuyo.');
@@ -393,7 +405,7 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('DELETE', '/sales/:id', (ctx) => {
-    const user = allowed(ctx, (p) => p.delete && p.sales === 'edit');
+    const user = allowed(ctx, can('sales.delete'));
     need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
     notFound(repo.deleteSale(db, num(ctx)), 'La venta');
     repo.audit(db, user.id, 'delete', 'sale', num(ctx));
@@ -403,15 +415,17 @@ export function buildApi(db: DB, dataDir: string) {
   /* -------------------------- servicio tecnico -------------------------- */
 
   const saveService = (ctx: Ctx, id: number | null) => {
-    const user = allowed(ctx, (p) => p.services === 'edit');
+    const user = me(ctx);
     const p = user.permissions;
     const scope = scopeOf(db, user);
     const existing = id == null ? null : repo.getService(db, id);
-    if (id != null) {
+    if (id == null) need(p.flags['services.create']);
+    else {
       notFound(existing ? 1 : 0, 'El servicio');
+      need(p.flags['services.edit'] || (p.flags['services.create'] && createdTodayBy(db, 'services', id, user.id)));
       need(seesService(scope, id), 'No tienes acceso a este servicio.');
     }
-    const input = parse(p.money === 'none' ? ServiceInputNoAmount : ServiceInput, protectServiceBody(ctx.body, existing, p));
+    const input = parse(p.flags['money.prices'] ? ServiceInput : ServiceInputNoAmount, protectServiceBody(ctx.body, existing, p));
     return friendly(() =>
       db.transaction(() => {
         const sameClient = existing != null && 'id' in input.client && input.client.id === existing.clientId;
@@ -420,7 +434,7 @@ export function buildApi(db: DB, dataDir: string) {
           const sale = repo.getSale(db, input.saleId);
           if (!sale || sale.clientId !== clientId) throw new HttpError(400, 'La venta elegida es de otro cliente');
           // Una venta que no ve solo puede quedarse si ya estaba enlazada.
-          need((p.sales !== 'none' && seesSale(scope, input.saleId)) || existing?.saleId === input.saleId, 'No tienes acceso a esa venta.');
+          need((p.flags['sales.view'] && seesSale(scope, input.saleId)) || existing?.saleId === input.saleId, 'No tienes acceso a esa venta.');
           if (input.nextServiceDate !== undefined) repo.setNextServiceDate(db, input.saleId, input.nextServiceDate);
         }
         if (id == null) {
@@ -440,7 +454,7 @@ export function buildApi(db: DB, dataDir: string) {
   api.add('PUT', '/services/:id', (ctx) => ({ service: shapeService(repo.getService(db, saveService(ctx, num(ctx)))!, me(ctx).permissions) }));
 
   api.add('DELETE', '/services/:id', (ctx) => {
-    const user = allowed(ctx, (p) => p.delete && p.services === 'edit');
+    const user = allowed(ctx, can('services.delete'));
     need(seesService(scopeOf(db, user), num(ctx)), 'No tienes acceso a este servicio.');
     notFound(repo.deleteService(db, num(ctx)), 'El servicio');
     repo.audit(db, user.id, 'delete', 'service', num(ctx));
@@ -451,30 +465,34 @@ export function buildApi(db: DB, dataDir: string) {
 
   // Crear se puede desde los formularios (vendedor, financiera, marca nuevos);
   // editar y borrar, solo con permiso de catalogos.
-  const createsCatalog = (p: User['permissions']) => p.catalogs || p.sales === 'edit' || p.services === 'edit' || p.inventory === 'edit';
-  const editsCatalog = (p: User['permissions']) => p.catalogs;
+  const CATALOG_FLAG = { people: 'catalogs.team', financiers: 'catalogs.financiers', suppliers: 'catalogs.suppliers', brands: 'catalogs.brands' } as const;
+  const createsCatalog = (kind: keyof typeof CATALOG_FLAG) => (p: User['permissions']) => {
+    const f = p.flags;
+    return f[CATALOG_FLAG[kind]] || f['sales.create'] || f['sales.edit'] || f['services.create'] || f['services.edit'] || f['inventory.move'] || f['inventory.products'];
+  };
+  const editsCatalog = (kind: keyof typeof CATALOG_FLAG) => can(CATALOG_FLAG[kind]);
 
   api.add('POST', '/people', (ctx) => {
-    allowed(ctx, createsCatalog);
+    allowed(ctx, createsCatalog('people'));
     const id = repo.insertPerson(db, parse(PersonInput, ctx.body));
     return { person: repo.listPeople(db).find((p) => p.id === id) };
   });
 
   api.add('PUT', '/people/:id', (ctx) => {
-    allowed(ctx, editsCatalog);
+    allowed(ctx, editsCatalog('people'));
     notFound(repo.updatePerson(db, num(ctx), parse(PersonInput, ctx.body)), 'La persona');
     return { person: repo.listPeople(db).find((p) => p.id === num(ctx)) };
   });
 
   for (const table of ['financiers', 'suppliers', 'brands'] as const) {
     api.add('POST', `/${table}`, (ctx) => {
-      allowed(ctx, createsCatalog);
+      allowed(ctx, createsCatalog(table));
       const { name } = parse(CatalogInput, ctx.body);
       const id = friendly(() => repo.insertCatalog(db, table, name));
       return { item: repo.listCatalog(db, table).find((i) => i.id === id) };
     });
     api.add('PUT', `/${table}/:id`, (ctx) => {
-      allowed(ctx, editsCatalog);
+      allowed(ctx, editsCatalog(table));
       const { name, active } = parse(CatalogInput, ctx.body);
       notFound(
         friendly(() => repo.updateCatalog(db, table, num(ctx), name, active)),
@@ -486,7 +504,7 @@ export function buildApi(db: DB, dataDir: string) {
 
   for (const kind of ['people', 'financiers', 'suppliers', 'brands'] as const) {
     api.add('DELETE', `/${kind}/:id`, (ctx) => {
-      allowed(ctx, editsCatalog);
+      allowed(ctx, editsCatalog(kind));
       const used = repo.catalogUsage(db, kind, num(ctx));
       if (used > 0) {
         throw new HttpError(409, `Se usa en ${used} ${used === 1 ? 'registro' : 'registros'}. Desactívalo en vez de borrarlo.`);
@@ -512,8 +530,16 @@ export function buildApi(db: DB, dataDir: string) {
       throw new HttpError(400, 'La persona del equipo elegida ya no existe', 'permissions.personId');
     }
   };
-  const storedPermissions = (role: 'admin' | 'member', permissions: unknown) =>
-    role === 'admin' ? null : JSON.stringify(normalizePermissions(permissions as any, false));
+  const storedPermissions = (role: 'admin' | 'member', permissions: unknown) => {
+    if (role === 'admin') return null;
+    const p = normalizePermissions(permissions as any, false);
+    // Solo cuentas por pagar que existen.
+    if (p.payableAccounts) {
+      const ids = new Set(books.listPayableAccounts(db).map((a) => a.id));
+      p.payableAccounts = p.payableAccounts.filter((id) => ids.has(id));
+    }
+    return JSON.stringify(p);
+  };
 
   api.add('POST', '/users', async (ctx) => {
     const user = allowed(ctx, isAdmin);
@@ -567,27 +593,29 @@ export function buildApi(db: DB, dataDir: string) {
 
   /* ------------------------- cuentas por pagar ------------------------- */
 
-  const editsPayables = (p: User['permissions']) => p.payables === 'edit';
-  const accountExists = (id: number) => {
+  /** La cuenta existe y el usuario la puede ver. */
+  const accountExists = (id: number, user?: User) => {
     if (!books.listPayableAccounts(db).some((a) => a.id === id)) throw new HttpError(400, 'La cuenta elegida ya no existe', 'accountId');
+    const allowedAccounts = user?.permissions.payableAccounts;
+    if (allowedAccounts && !allowedAccounts.includes(id)) throw new HttpError(403, 'No tienes acceso a esa cuenta.', 'accountId');
   };
 
   api.add('POST', '/payable-accounts', (ctx) => {
-    const user = allowed(ctx, editsPayables);
+    const user = allowed(ctx, can('payables.accounts'));
     const id = friendly(() => books.insertPayableAccount(db, parse(PayableAccountInput, ctx.body)));
     repo.audit(db, user.id, 'create', 'payable-account', id);
     return { account: books.listPayableAccounts(db).find((a) => a.id === id) };
   });
 
   api.add('PUT', '/payable-accounts/:id', (ctx) => {
-    const user = allowed(ctx, editsPayables);
+    const user = allowed(ctx, can('payables.accounts'));
     notFound(friendly(() => books.updatePayableAccount(db, num(ctx), parse(PayableAccountInput, ctx.body))), 'La cuenta');
     repo.audit(db, user.id, 'update', 'payable-account', num(ctx));
     return { account: books.listPayableAccounts(db).find((a) => a.id === num(ctx)) };
   });
 
   api.add('DELETE', '/payable-accounts/:id', (ctx) => {
-    const user = allowed(ctx, (p) => editsPayables(p) && p.delete);
+    const user = allowed(ctx, (p) => p.flags['payables.accounts'] && p.flags['payables.delete']);
     const used = books.payableAccountUsage(db, num(ctx));
     if (used > 0) throw new HttpError(409, `Tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. Desactívala en vez de borrarla.`);
     notFound(books.deletePayableAccount(db, num(ctx)), 'La cuenta');
@@ -596,20 +624,21 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('POST', '/payables', (ctx) => {
-    const user = allowed(ctx, editsPayables);
+    const user = allowed(ctx, can('payables.charges'));
     const input = parse(PayableInput, ctx.body);
-    accountExists(input.accountId);
+    accountExists(input.accountId, user);
     const id = friendly(() => books.insertPayable(db, input, user.id));
     repo.audit(db, user.id, 'create', 'payable', id);
     return { payable: books.getPayable(db, id) };
   });
 
   api.add('PUT', '/payables/:id', (ctx) => {
-    const user = allowed(ctx, editsPayables);
+    const user = allowed(ctx, can('payables.charges'));
     const input = parse(PayableInput, ctx.body);
-    accountExists(input.accountId);
+    accountExists(input.accountId, user);
     const current = books.payableVersion(db, num(ctx));
     notFound(current ? 1 : 0, 'El cargo');
+    accountExists(books.getPayable(db, num(ctx))!.accountId, user);
     if (input.expectedUpdatedAt && current !== input.expectedUpdatedAt) {
       throw new HttpError(409, 'Alguien cambió este cargo mientras lo editabas. Vuelve a abrirlo.');
     }
@@ -625,9 +654,10 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('DELETE', '/payables/:id', (ctx) => {
-    const user = allowed(ctx, (p) => editsPayables(p) && p.delete);
+    const user = allowed(ctx, can('payables.delete'));
     const payable = books.getPayable(db, num(ctx));
     notFound(payable ? 1 : 0, 'El cargo');
+    accountExists(payable!.accountId, user);
     friendly(() =>
       db.transaction(() => {
         // Los pagos hechos a este cargo quedan como abonos a la cuenta.
@@ -640,9 +670,9 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('POST', '/payable-payments', (ctx) => {
-    const user = allowed(ctx, editsPayables);
+    const user = allowed(ctx, can('payables.pay'));
     const input = parse(PayablePaymentInput, ctx.body);
-    accountExists(input.accountId);
+    accountExists(input.accountId, user);
     if (input.payableId) {
       const payable = books.getPayable(db, input.payableId);
       if (!payable) throw new HttpError(400, 'El cargo elegido ya no existe', 'payableId');
@@ -654,9 +684,10 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('DELETE', '/payable-payments/:id', (ctx) => {
-    const user = allowed(ctx, editsPayables);
+    const user = allowed(ctx, can('payables.delete'));
     const payment = books.getPayablePayment(db, num(ctx));
     notFound(payment ? 1 : 0, 'El pago');
+    accountExists(payment!.accountId, user);
     books.deletePayablePayment(db, num(ctx));
     repo.audit(db, user.id, 'delete', 'payable-payment', num(ctx), { amount: payment!.amount, date: payment!.date });
     return { ok: true };
@@ -664,31 +695,29 @@ export function buildApi(db: DB, dataDir: string) {
 
   /* ----------------------------- inventario ----------------------------- */
 
-  const editsInventory = (p: User['permissions']) => p.inventory === 'edit';
-
   api.add('POST', '/inventory-items', (ctx) => {
-    const user = allowed(ctx, editsInventory);
+    const user = allowed(ctx, can('inventory.products'));
     const input = parse(InventoryItemInput, ctx.body);
-    if (user.permissions.money !== 'all') input.cost = null;
+    if (!user.permissions.flags['money.costs']) input.cost = null;
     const id = friendly(() => books.insertInventoryItem(db, input));
     repo.audit(db, user.id, 'create', 'inventory-item', id);
     return { item: books.getInventoryItem(db, id) };
   });
 
   api.add('PUT', '/inventory-items/:id', (ctx) => {
-    const user = allowed(ctx, editsInventory);
+    const user = allowed(ctx, can('inventory.products'));
     const existing = books.getInventoryItem(db, num(ctx));
     notFound(existing ? 1 : 0, 'El producto');
     const input = parse(InventoryItemInput, ctx.body);
     // Quien no ve costos no los cambia.
-    if (user.permissions.money !== 'all') input.cost = existing!.cost;
+    if (!user.permissions.flags['money.costs']) input.cost = existing!.cost;
     friendly(() => books.updateInventoryItem(db, num(ctx), input));
     repo.audit(db, user.id, 'update', 'inventory-item', num(ctx));
     return { item: books.getInventoryItem(db, num(ctx)) };
   });
 
   api.add('DELETE', '/inventory-items/:id', (ctx) => {
-    const user = allowed(ctx, (p) => editsInventory(p) && p.delete);
+    const user = allowed(ctx, can('inventory.delete'));
     const used = books.inventoryItemUsage(db, num(ctx));
     if (used > 0) throw new HttpError(409, `Tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. Desactívalo en vez de borrarlo.`);
     notFound(books.deleteInventoryItem(db, num(ctx)), 'El producto');
@@ -697,18 +726,19 @@ export function buildApi(db: DB, dataDir: string) {
   });
 
   api.add('POST', '/inventory-movements', (ctx) => {
-    const user = allowed(ctx, editsInventory);
+    const user = me(ctx);
     const p = user.permissions;
     const input = parse(InventoryMovementInput, ctx.body);
-    if (p.money !== 'all') input.unitCost = null;
+    need(input.kind === 'adjust' ? p.flags['inventory.count'] : p.flags['inventory.move']);
+    if (!p.flags['money.costs']) input.unitCost = null;
     if (input.kind !== 'in') input.supplierId = null;
     const id = friendly(() =>
       db.transaction(() => {
         const item = books.getInventoryItem(db, input.itemId);
         if (!item) throw new HttpError(400, 'El producto ya no existe', 'itemId');
         const scope = scopeOf(db, user);
-        if (input.saleId) need(p.sales !== 'none' && seesSale(scope, input.saleId) && !!repo.getSale(db, input.saleId), 'No tienes acceso a esa venta.');
-        if (input.serviceId) need(p.services !== 'none' && seesService(scope, input.serviceId) && !!repo.getService(db, input.serviceId), 'No tienes acceso a ese servicio.');
+        if (input.saleId) need(p.flags['sales.view'] && seesSale(scope, input.saleId) && !!repo.getSale(db, input.saleId), 'No tienes acceso a esa venta.');
+        if (input.serviceId) need(p.flags['services.view'] && seesService(scope, input.serviceId) && !!repo.getService(db, input.serviceId), 'No tienes acceso a ese servicio.');
         const stock = books.stockOf(db, input.itemId);
         const after = stock + (input.kind === 'out' ? -input.quantity : input.quantity);
         if (after < 0) {
@@ -721,11 +751,11 @@ export function buildApi(db: DB, dataDir: string) {
     );
     repo.audit(db, user.id, 'create', 'inventory-movement', id, { itemId: input.itemId, kind: input.kind, quantity: input.quantity });
     const movement = books.getInventoryMovement(db, id)!;
-    return { movement: p.money === 'all' ? movement : { ...movement, unitCost: null } };
+    return { movement: p.flags['money.costs'] ? movement : { ...movement, unitCost: null } };
   });
 
   api.add('DELETE', '/inventory-movements/:id', (ctx) => {
-    const user = allowed(ctx, editsInventory);
+    const user = allowed(ctx, can('inventory.delete'));
     const movement = books.getInventoryMovement(db, num(ctx));
     notFound(movement ? 1 : 0, 'El movimiento');
     if (books.stockOf(db, movement!.itemId) - (movement!.kind === 'out' ? -movement!.quantity : movement!.quantity) < 0) {
@@ -741,7 +771,7 @@ export function buildApi(db: DB, dataDir: string) {
   for (const kind of ['sales', 'clients', 'services'] as const satisfies readonly ExportKind[]) {
     api.add('GET', `/export/${kind}`, (ctx) => {
       // El Excel completo del servidor lleva todos los montos de todo el negocio.
-      const user = allowed(ctx, (p) => p.export && p.scope === 'all' && p.money === 'all' && (kind === 'clients' || p[kind] !== 'none'));
+      const user = allowed(ctx, (p) => p.flags.export && p.scope === 'all' && p.flags['money.profit'] && p.flags['clients.contact'] && p.flags[`${kind}.view`]);
       repo.audit(db, user.id, 'export', kind, null);
       const csv = exportCsv(db, kind);
       const stamp = todayISO();

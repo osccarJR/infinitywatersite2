@@ -54,8 +54,9 @@ export function Inventory({ action }: { action: string | null }) {
   const a = useAccess();
   const { reload } = useStore();
   const { toast } = useFeedback();
-  const canEdit = a.canEdit('inventory');
-  const [editing, setEditing] = useState<Editing>(() => (canEdit && action === 'movimiento' ? { kind: 'move' } : canEdit && action === 'producto' ? { kind: 'item', item: null } : null));
+  const canMove = a.can('inventory.move') || a.can('inventory.count');
+  const canProducts = a.can('inventory.products');
+  const [editing, setEditing] = useState<Editing>(() => (canMove && action === 'movimiento' ? { kind: 'move' } : canProducts && action === 'producto' ? { kind: 'item', item: null } : null));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<Filter>('all');
   const [creating, setCreating] = useState<string | null>(null);
@@ -95,14 +96,18 @@ export function Inventory({ action }: { action: string | null }) {
       title="Inventario"
       subtitle={data.inventoryItems.length ? `${plural(levels.filter((s) => s.item.active).length, 'producto', 'productos')}${low.length ? ` · ${low.length} por comprar` : ''}` : 'Equipos, repuestos y filtros'}
       headerAction={
-        canEdit && data.inventoryItems.length > 0 ? (
+        (canMove || canProducts) && data.inventoryItems.length > 0 ? (
           <span style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="btn small gray" onClick={() => setEditing({ kind: 'item', item: null })}>
-              <Plus size={17} /> <span className="add-label">Producto</span>
-            </button>
-            <button type="button" className="btn small add-btn" onClick={() => setEditing({ kind: 'move' })} aria-label="Registrar movimiento">
-              <PackagePlus size={18} /> <span className="add-label">Movimiento</span>
-            </button>
+            {canProducts && (
+              <button type="button" className="btn small gray" onClick={() => setEditing({ kind: 'item', item: null })}>
+                <Plus size={17} /> <span className="add-label">Producto</span>
+              </button>
+            )}
+            {canMove && (
+              <button type="button" className="btn small add-btn" onClick={() => setEditing({ kind: 'move' })} aria-label="Registrar movimiento">
+                <PackagePlus size={18} /> <span className="add-label">Movimiento</span>
+              </button>
+            )}
           </span>
         ) : undefined
       }
@@ -112,7 +117,7 @@ export function Inventory({ action }: { action: string | null }) {
           <span className="onboarding-icon violet"><Boxes size={28} /></span>
           <h2>Lleva el control de lo que tienes en bodega</h2>
           <p className="muted">Agrega tus productos, registra lo que entra y lo que sale en cada instalación, y el sistema te avisa cuando toca comprar.</p>
-          {canEdit ? (
+          {canProducts ? (
             <>
               <div className="suggest-chips">
                 {SUGGESTED.map((s) => (
@@ -132,11 +137,11 @@ export function Inventory({ action }: { action: string | null }) {
           <div className="stats">
             <Stat
               hero
-              label={a.costs ? 'Valor en bodega' : 'Unidades en bodega'}
+              label={a.can('money.costs') ? 'Valor en bodega' : 'Unidades en bodega'}
               icon={<Boxes size={15} />}
-              value={a.costs ? moneyFit(value) : levels.reduce((n, s) => n + Math.max(s.stock, 0), 0)}
-              note={`${plural(levels.filter((s) => s.item.active).length, 'producto activo', 'productos activos')}${a.costs && spentThisMonth ? ` · comprado este mes ${moneyFit(spentThisMonth)}` : ''}`}
-              privacy={a.costs}
+              value={a.can('money.costs') ? moneyFit(value) : levels.reduce((n, s) => n + Math.max(s.stock, 0), 0)}
+              note={`${plural(levels.filter((s) => s.item.active).length, 'producto activo', 'productos activos')}${a.can('money.costs') && spentThisMonth ? ` · comprado este mes ${moneyFit(spentThisMonth)}` : ''}`}
+              privacy={a.can('money.costs')}
             />
             <Stat
               label="Por comprar"
@@ -179,7 +184,7 @@ export function Inventory({ action }: { action: string | null }) {
                         subtitle={
                           <>
                             <span style={{ display: 'block' }}>
-                              {[s.item.sku, a.costs && s.item.cost != null ? `${money(s.item.cost)} c/u` : null, s.item.minStock ? `mínimo ${s.item.minStock}` : null].filter(Boolean).join(' · ') || ' '}
+                              {[s.item.sku, a.can('money.costs') && s.item.cost != null ? `${money(s.item.cost)} c/u` : null, s.item.minStock ? `mínimo ${s.item.minStock}` : null].filter(Boolean).join(' · ') || ' '}
                             </span>
                             {(s.low || s.out) && <span className="badges"><Badge tone={s.out ? 'red' : 'orange'}>{s.out ? 'Sin existencia' : 'Por comprar'}</Badge></span>}
                           </>
@@ -223,7 +228,7 @@ function MovementRow({ m, showItem, onDelete }: { m: InventoryMovement; showItem
     date(m.date, data.today),
     client ? `${sale ? 'Instalación' : 'Servicio'} de ${client.name}` : null,
     supplier,
-    a.costs && m.unitCost != null ? `${money(m.unitCost)} c/u` : null,
+    a.can('money.costs') && m.unitCost != null ? `${money(m.unitCost)} c/u` : null,
     m.notes,
   ].filter(Boolean);
   return (
@@ -247,7 +252,6 @@ export function InventoryItemScreen({ id }: { id: number }) {
   const a = useAccess();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
-  const canEdit = a.canEdit('inventory');
   const [editing, setEditing] = useState<Editing>(null);
   const s = useMemo(() => stockLevels(data.inventoryItems, data.inventoryMovements).find((x) => x.item.id === id), [data, id]);
   if (!s) {
@@ -276,7 +280,7 @@ export function InventoryItemScreen({ id }: { id: number }) {
     <Page
       title={item.name}
       back={{ label: 'Inventario', to: '/inventario' }}
-      actions={canEdit ? <button type="button" className="link-btn strong" onClick={() => setEditing({ kind: 'item', item })}>Editar</button> : undefined}
+      actions={a.can('inventory.products') ? <button type="button" className="link-btn strong" onClick={() => setEditing({ kind: 'item', item })}>Editar</button> : undefined}
       narrow
     >
       <div className={`stock-hero ${s.out ? 'red' : s.low ? 'orange' : 'green'}`}>
@@ -288,37 +292,43 @@ export function InventoryItemScreen({ id }: { id: number }) {
         </span>
       </div>
 
-      {canEdit && (
-        <div className="quick-actions three">
-          <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'move', itemId: item.id, move: 'in' })}>
-            <ArrowDownToLine size={22} />
-            Entrada
-          </button>
-          <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'move', itemId: item.id, move: 'out' })} disabled={s.stock <= 0}>
-            <ArrowUpFromLine size={22} />
-            Salida
-          </button>
-          <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'move', itemId: item.id, move: 'adjust' })}>
-            <ClipboardCheck size={22} />
-            Contar
-          </button>
+      {(a.can('inventory.move') || a.can('inventory.count')) && (
+        <div className={`quick-actions ${a.can('inventory.move') && a.can('inventory.count') ? 'three' : a.can('inventory.move') ? 'two' : 'one'}`}>
+          {a.can('inventory.move') && (
+            <>
+              <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'move', itemId: item.id, move: 'in' })}>
+                <ArrowDownToLine size={22} />
+                Entrada
+              </button>
+              <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'move', itemId: item.id, move: 'out' })} disabled={s.stock <= 0}>
+                <ArrowUpFromLine size={22} />
+                Salida
+              </button>
+            </>
+          )}
+          {a.can('inventory.count') && (
+            <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'move', itemId: item.id, move: 'adjust' })}>
+              <ClipboardCheck size={22} />
+              Contar
+            </button>
+          )}
         </div>
       )}
 
       <Group>
         <Row title="Categoría" value={INVENTORY_CATEGORY_LABEL[item.category]} />
         {item.sku && <Row title="Código" value={item.sku} />}
-        {a.costs && <Row title="Costo por unidad" value={item.cost != null ? money(item.cost) : '—'} />}
-        {a.costs && s.value != null && <Row title="Valor en bodega" value={money(Math.max(s.value, 0))} />}
+        {a.can('money.costs') && <Row title="Costo por unidad" value={item.cost != null ? money(item.cost) : '—'} />}
+        {a.can('money.costs') && s.value != null && <Row title="Valor en bodega" value={money(Math.max(s.value, 0))} />}
         {item.notes && <div className="row-block" style={{ whiteSpace: 'pre-wrap' }}>{item.notes}</div>}
       </Group>
 
       <Section title="Movimientos">
-        <Group footer={canEdit && s.movements.length ? 'Toca un movimiento para borrarlo si fue un error.' : undefined}>
+        <Group footer={a.can('inventory.delete') && s.movements.length ? 'Toca un movimiento para borrarlo si fue un error.' : undefined}>
           {s.movements.length === 0 ? (
             <Empty inGroup title="Sin movimientos" text="Registra la primera entrada cuando llegue mercancía." />
           ) : (
-            s.movements.map((m) => <MovementRow key={m.id} m={m} onDelete={canEdit ? () => removeMove(m) : undefined} />)
+            s.movements.map((m) => <MovementRow key={m.id} m={m} onDelete={a.can('inventory.delete') ? () => removeMove(m) : undefined} />)
           )}
         </Group>
       </Section>
@@ -415,14 +425,14 @@ function ItemSheet({ open, item, onClose }: { open: boolean; item: InventoryItem
       </div>
       <Group footer="Con esta cantidad o menos, el sistema avisa que toca comprar. 0 = sin aviso.">
         <TextField label="Mínimo" inputMode="numeric" value={form.minStock} onChange={(v) => setForm({ ...form, minStock: v.replace(/\D/g, '').slice(0, 5) })} />
-        {a.costs && <MoneyField label="Costo por unidad" value={form.cost} onChange={(cost) => setForm({ ...form, cost })} placeholder="Opcional" />}
+        {a.can('money.costs') && <MoneyField label="Costo por unidad" value={form.cost} onChange={(cost) => setForm({ ...form, cost })} placeholder="Opcional" />}
       </Group>
       <Group>
         <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Proveedor habitual, medidas…" multiline />
         {item && <SwitchRow label="Activo" subtitle="Inactivo: ya no se usa; se conserva su historial" checked={form.active} onChange={(active) => setForm({ ...form, active })} />}
       </Group>
       {error && <p className="field-error">{error}</p>}
-      {item && a.delete && (
+      {item && a.can('inventory.delete') && (
         <div className="group" style={{ marginTop: 22 }}>
           <button type="button" className="row danger" onClick={remove}><Trash2 size={17} /> Borrar producto</button>
         </div>
@@ -461,7 +471,7 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
   useEffect(() => {
     if (!open) return;
     setError(null);
-    setKind(initialKind ?? 'in');
+    setKind(initialKind ?? (a.can('inventory.move') ? 'in' : 'adjust'));
     const s = levels.find((x) => x.item.id === itemId);
     setForm({ itemId: itemId ?? null, quantity: 1, counted: Math.max(s?.stock ?? 0, 0), unitCost: s?.item.cost ?? null, supplierId: null, link: null, date: data.today, notes: '' });
   }, [open, itemId, initialKind]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -524,7 +534,7 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
       right={<button type="button" className="link-btn strong" onClick={save} disabled={busy}>Guardar</button>}
     >
       <div className="move-kinds" role="radiogroup" aria-label="Tipo de movimiento">
-        {(['in', 'out', 'adjust'] as MovementKind[]).map((k) => (
+        {(['in', 'out', 'adjust'] as MovementKind[]).filter((k) => (k === 'adjust' ? a.can('inventory.count') : a.can('inventory.move'))).map((k) => (
           <button key={k} type="button" role="radio" aria-checked={kind === k} className={`move-kind ${k}${kind === k ? ' on' : ''}`} onClick={() => setKind(k)}>
             {k === 'in' ? <ArrowDownToLine size={20} /> : k === 'out' ? <ArrowUpFromLine size={20} /> : <ClipboardCheck size={20} />}
             <b>{k === 'in' ? 'Entra' : k === 'out' ? 'Sale' : 'Contar'}</b>
@@ -553,7 +563,7 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
 
       {kind === 'in' && (
         <Group>
-          {a.costs && <MoneyField label="Costo por unidad" value={form.unitCost} onChange={(unitCost) => setForm({ ...form, unitCost })} placeholder="Opcional" hint={form.unitCost && form.quantity > 1 ? `Total ${money(form.unitCost * form.quantity)}` : undefined} />}
+          {a.can('money.costs') && <MoneyField label="Costo por unidad" value={form.unitCost} onChange={(unitCost) => setForm({ ...form, unitCost })} placeholder="Opcional" hint={form.unitCost && form.quantity > 1 ? `Total ${money(form.unitCost * form.quantity)}` : undefined} />}
           <PickerRow label="Proveedor" value={form.supplierId ? data.supplierById.get(form.supplierId)?.name : null} placeholder="Opcional" onOpen={() => setPicker('supplier')} />
         </Group>
       )}

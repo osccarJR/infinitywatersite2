@@ -59,7 +59,7 @@ export function ClientDetail({ id }: { id: number }) {
       hideTitle
       back={{ label: 'Clientes', to: '/clientes' }}
       actions={
-        a.canEdit('clients') ? (
+        a.can('clients.edit') ? (
           <Link to={`/clientes/${id}/editar`} className="link-btn strong">
             Editar
           </Link>
@@ -88,12 +88,12 @@ export function ClientDetail({ id }: { id: number }) {
           <MapPin size={22} />
           Mapa
         </a>
-        {a.canEdit('sales') ? (
+        {a.can('sales.create') ? (
           <Link className="quick-action" to={`/ventas/nueva?cliente=${id}`}>
             <Plus size={22} />
             Venta
           </Link>
-        ) : a.canEdit('services') ? (
+        ) : a.can('services.create') ? (
           <Link className="quick-action" to={`/servicio/nuevo?cliente=${id}`}>
             <Wrench size={22} />
             Servicio
@@ -121,8 +121,8 @@ export function ClientDetail({ id }: { id: number }) {
           {sales.map((sale) => (
             <SaleRow key={sale.id} sale={sale} data={data} showClient={false} />
           ))}
-          {sales.length === 0 && !a.canEdit('sales') && <Empty inGroup title="Sin ventas" />}
-          {a.canEdit('sales') && <Row
+          {sales.length === 0 && !a.can('sales.create') && <Empty inGroup title="Sin ventas" />}
+          {a.can('sales.create') && <Row
             className="action"
             to={`/ventas/nueva?cliente=${id}`}
             leading={<Plus size={20} />}
@@ -137,8 +137,8 @@ export function ClientDetail({ id }: { id: number }) {
           {services.map((service) => (
             <ServiceRow key={service.id} service={service} data={data} showClient={false} />
           ))}
-          {services.length === 0 && !a.canEdit('services') && <Empty inGroup title="Sin servicios" />}
-          {a.canEdit('services') && <Row
+          {services.length === 0 && !a.can('services.create') && <Empty inGroup title="Sin servicios" />}
+          {a.can('services.create') && <Row
             className="action"
             to={`/servicio/nuevo?cliente=${id}`}
             leading={<Wrench size={19} />}
@@ -148,7 +148,7 @@ export function ClientDetail({ id }: { id: number }) {
         </Group>
       </Section>}
 
-      {a.delete && a.canEdit('clients') && a.scope === 'all' && (
+      {a.can('clients.delete') && (
         <div className="group" style={{ marginTop: 34 }}>
           <button type="button" className="row danger" onClick={remove}>
             Borrar cliente

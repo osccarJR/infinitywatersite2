@@ -214,23 +214,13 @@ const newPassword = z.string().min(10, 'La contraseña debe tener al menos 10 ca
 
 export const PasswordInput = z.object({ current: z.string().min(1).max(200), next: newPassword });
 
-const level = z.enum(['none', 'view', 'edit']);
-
 /** Permisos tal como llegan de la app; se completan y corrigen con normalizePermissions. */
 export const PermissionsInput = z.object({
   scope: z.enum(['all', 'own']),
   personId: id.nullable(),
-  clients: z.enum(['view', 'edit']),
-  sales: level,
-  services: level,
-  money: z.enum(['none', 'prices', 'all']),
-  payments: level,
-  payables: level,
-  inventory: level,
-  reports: z.boolean(),
-  export: z.boolean(),
-  delete: z.boolean(),
-  catalogs: z.boolean(),
+  flags: z.record(z.string().max(40), z.boolean()).refine((f) => Object.keys(f).length <= 80, 'Demasiados permisos'),
+  payableAccounts: z.array(id).max(200).nullable().default(null),
+  profiles: z.array(z.enum(['seller', 'technician', 'office', 'cashier', 'accountant'])).max(5).optional(),
 });
 
 export const UserCreateInput = z.object({

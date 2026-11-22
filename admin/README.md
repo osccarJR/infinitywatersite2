@@ -40,30 +40,40 @@ está en un solo sitio: `shared/domain.ts` → `saleMoney`.
 ## Usuarios y permisos
 
 Solo un **administrador** entra a *Ajustes → Usuarios y permisos*. Cada usuario
-es administrador (todo) o tiene permisos propios:
+es administrador (todo) o tiene permisos detallados (`shared/permissions.ts`):
 
-| Permiso | Opciones |
+| Sección | Interruptores |
 |---|---|
-| Alcance | Todo el negocio · **Solo lo suyo** (las ventas que vendió o instaló según la persona del equipo que es, los servicios que atendió, lo que registró y los clientes de todo eso) |
-| Clientes | Ver · Ver y editar |
-| Ventas, Servicio técnico, Inventario | No · Ver · Ver y editar |
-| Montos | Ninguno · Solo precios (lo que paga el cliente; con "solo lo suyo", también su comisión o su pago) · Todo |
-| Pagos y Cuentas por pagar | No · Ver · Ver y editar (solo con "Todos los montos") |
-| Además | Reportes · Descargar a Excel · Borrar registros · Editar catálogos |
+| Alcance | Todo el negocio · **Solo lo suyo** (lo que vendió o instaló según la persona del equipo que es, lo que atendió y lo que registró) |
+| Clientes | Ver · ver teléfono, correo y dirección · agregar · editar · borrar |
+| Ventas | Ver · registrar · editar · cancelar/declinar · borrar |
+| Servicio técnico | Ver · registrar · editar · borrar |
+| Montos | Precios y cobros · financieras · comisiones de todos · pagos a técnicos · costos · ganancias (esta última exige todas las demás) |
+| Pagos | Ver lo pendiente · pagar comisiones · pagar técnicos · registrar pagos de financieras |
+| Cuentas por pagar | Ver · gastos · pagos · crear cuentas · borrar, y **qué cuentas ve** (todas o solo algunas, p. ej. solo su tarjeta) |
+| Inventario | Ver · entradas y salidas · conteos · productos · borrar |
+| Reportes | Cada uno de los 11 por separado |
+| Excel y catálogos | Descargar a Excel · equipo · financieras · proveedores · marcas |
 
-Perfiles listos: **Vendedor**, **Técnico**, **Oficina**, **Contador**, **Administrador**.
+Perfiles combinables (se marcan varios y se suma lo más amplio de cada uno):
+**Vendedor**, **Técnico**, **Oficina**, **Pagos y cobros**, **Contador**; y
+**Administrador**, que va solo. Las dependencias se corrigen solas (registrar
+implica ver; pagar comisiones exige verlas; las ganancias exigen todos los
+montos) y en el editor lo que falta se muestra apagado con la razón.
+
 Las reglas se aplican **en el servidor** (`server/permissions.ts`): lo que un
-usuario no puede ver no se le envía, y al guardar se conservan los montos que
-no ve (un usuario sin montos no puede borrar ni cambiar precios o comisiones).
-Los cambios de permisos aplican al instante, sin volver a iniciar sesión.
+usuario no puede ver no se le envía, y al guardar se conservan los montos y
+datos de contacto que no ve. Quien vinculado a una persona del equipo ve
+siempre su propia comisión o su pago. Lo que alguien registra hoy lo puede
+corregir el mismo día aunque no tenga "Editar". Los permisos de la primera
+versión (por niveles) se convierten solos al leerlos.
 
 **Ver como:** desde la ficha de un usuario, el administrador abre el sistema
-tal cual lo ve esa persona (mismos datos y permisos, cabecera `X-IW-View-As`).
-Es solo lectura: el servidor rechaza cualquier guardado durante la vista previa.
+tal cual lo ve esa persona (cabecera `X-IW-View-As`). Es solo lectura: el
+servidor rechaza cualquier guardado durante la vista previa.
 
 Siempre queda al menos un administrador activo y nadie puede quitarse a sí
-mismo el acceso de administrador. Los usuarios que existían antes de los
-permisos quedaron como administradores.
+mismo el acceso de administrador.
 
 ## Cuentas por pagar
 
@@ -115,7 +125,7 @@ cd admin
 npm install
 DATA_DIR=data PASSWORD=una-clave-de-prueba node --experimental-strip-types server/cli.ts crear demo "Demo"
 npm run dev        # API en :3042 + Vite en http://localhost:5173/admin/
-npm test           # compila y corre las 44 pruebas
+npm test           # compila y corre las 49 pruebas
 npm run typecheck
 ```
 

@@ -111,3 +111,66 @@ test('montos: coma decimal, coma de miles y casos ambiguos', async () => {
   assert.equal(parseMoney('12a'), undefined);
   assert.equal(parseMoney(''), null);
 });
+
+test('perfiles combinables: Oficina + Técnico tiene lo más amplio de cada uno', async () => {
+  const { mergePresets, presetsOf, permissionsSummary, PERMISSION_PRESETS, normalizePermissions, redundantPresets } = await import('../shared/domain.ts');
+  const both = mergePresets(['office', 'technician'], 7);
+  assert.equal(both.scope, 'all'); // todo el negocio gana a "solo lo suyo"
+  assert.equal(both.flags['services.edit'], true);
+  assert.equal(both.flags['inventory.move'], true);
+  assert.equal(both.flags['money.prices'], true);
+  assert.equal(both.flags['money.profit'], false);
+  assert.equal(both.flags['payments.view'], false);
+  assert.equal(both.flags['catalogs.brands'], true);
+  // Se recuerdan los dos marcados, aunque Oficina ya incluya todo lo de Tecnico.
+  assert.deepEqual(presetsOf(both), ['technician', 'office']);
+  assert.match(permissionsSummary(both), /Técnico \+ Oficina/);
+  assert.deepEqual(redundantPresets(['office', 'technician']), ['technician']);
+  assert.deepEqual(redundantPresets(['seller', 'technician']), []);
+  // Cada perfil solo se reconoce como si mismo.
+  for (const preset of PERMISSION_PRESETS) assert.deepEqual(presetsOf(mergePresets([preset.key], null)), [preset.key]);
+  // Vendedor + Contador: ve todos los montos, ve pagos (sin pagar), sigue pudiendo vender.
+  const sc = mergePresets(['seller', 'accountant'], 3);
+  assert.equal(sc.flags['money.profit'], true);
+  assert.equal(sc.flags['payments.view'], true);
+  assert.equal(sc.flags['payments.commissions'], false);
+  assert.equal(sc.flags['sales.create'], true);
+  // Ajustado a mano: personalizado.
+  assert.equal(presetsOf(normalizePermissions({ ...mergePresets(['seller'], 3), flags: { ...mergePresets(['seller'], 3).flags, 'sales.delete': true } }, false)), null);
+});
+
+test('permisos detallados: dependencias que se corrigen solas', async () => {
+  const { normalizePermissions } = await import('../shared/domain.ts');
+  const p = normalizePermissions(
+    {
+      scope: 'own',
+      personId: 4,
+      payableAccounts: [2],
+      flags: { 'sales.create': true, 'money.prices': true, 'money.profit': true, 'payments.commissions': true, 'clients.delete': true, 'payables.accounts': true, 'report.financiers': true },
+    },
+    false
+  );
+  assert.equal(p.flags['sales.view'], true, 'registrar implica ver');
+  assert.equal(p.flags['clients.view'], true, 've los clientes de sus ventas');
+  assert.equal(p.flags['money.profit'], false, 'ganancias solo con todos los montos');
+  assert.equal(p.flags['payments.commissions'], false, 'pagar comisiones sin verlas no');
+  assert.equal(p.flags['clients.delete'], false, 'borrar clientes solo con alcance total');
+  assert.equal(p.flags['payables.accounts'], false, 'crear cuentas solo si ve todas');
+  assert.equal(p.flags['report.financiers'], false, 'reporte de financieras sin ver financieras no');
+  assert.deepEqual(p.payableAccounts, [2]);
+});
+
+test('permisos de la primera versión se convierten', async () => {
+  const { normalizePermissions } = await import('../shared/domain.ts');
+  const p = normalizePermissions({ scope: 'all', personId: null, clients: 'edit', sales: 'edit', services: 'view', money: 'prices', payments: 'none', payables: 'none', inventory: 'edit', reports: true, export: false, delete: false, catalogs: true, profiles: ['office'] }, false);
+  assert.equal(p.flags['sales.create'], true);
+  assert.equal(p.flags['sales.delete'], false);
+  assert.equal(p.flags['services.view'], true);
+  assert.equal(p.flags['services.create'], false);
+  assert.equal(p.flags['money.prices'], true);
+  assert.equal(p.flags['money.commissions'], false);
+  assert.equal(p.flags['inventory.count'], true);
+  assert.equal(p.flags['report.summary'], true);
+  assert.equal(p.flags['report.financiers'], false);
+  assert.equal(p.flags['catalogs.brands'], true);
+});

@@ -19,7 +19,7 @@ import { useData, useStore } from '../lib/store.tsx';
 import { useAccess, visibleMissing } from '../lib/access.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
-import { dateWithYear, mapsHref, money, percentText, relativeDay, telHref, whatsappHref } from '../lib/format.ts';
+import { dateWithYear, localDate, mapsHref, money, percentText, relativeDay, telHref, whatsappHref } from '../lib/format.ts';
 import { Avatar, Badge, Empty, Group, Page, Row, Section } from '../ui/kit.tsx';
 import { SaleBadges, ServiceRow } from '../ui/items.tsx';
 import { useFeedback } from '../ui/sheet.tsx';
@@ -42,7 +42,8 @@ export function SaleDetail({ id }: { id: number }) {
   const client = data.clientById.get(sale.clientId);
   const m = saleMoney(sale);
   const missing = visibleMissing(saleMissing(sale), a);
-  const canEdit = a.canEdit('sales');
+  // Editar, o corregir el mismo dia lo que el mismo registro (el servidor lo confirma).
+  const canEdit = a.can('sales.edit') || (a.can('sales.create') && sale.createdBy === data.me.name && localDate(sale.createdAt) === data.today);
   const state = installState(sale, data.today);
   const services = data.servicesBySale.get(sale.id) ?? [];
   const person = (pid: number | null) => (pid ? data.personById.get(pid)?.name : null);
@@ -234,14 +235,14 @@ export function SaleDetail({ id }: { id: number }) {
         </div>
       </Section>}
 
-      {isActiveSale(sale) && a.canSee('payments') && (
+      {isActiveSale(sale) && a.canSee('payments') && (a.can('money.financier') || a.can('money.commissions')) && (
         <Group label="Cobros y pagos">
-          {m.financed && (
+          {m.financed && a.can('money.financier') && (
             <Row
               title="Pago de la financiera"
               subtitle={sale.fundedPaid ? `Recibido el ${dateWithYear(sale.fundedDate)}` : `Pendiente · ${money(m.pendingFinancier)}`}
               trailing={
-                a.canEdit('payments') && <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
+                a.can('payments.financiers') && <button type="button" className={`btn small ${sale.fundedPaid ? 'gray' : 'success'}`} onClick={() => mark('fundedPaid', !sale.fundedPaid)}>
                   {sale.fundedPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar recibido</>}
                 </button>
               }
@@ -257,7 +258,7 @@ export function SaleDetail({ id }: { id: number }) {
                   : `${money(sale.commission)} por pagar`
             }
             trailing={
-              a.canEdit('payments') && sale.commission != null && sale.commission > 0 ? (
+              a.can('payments.commissions') && sale.commission != null && sale.commission > 0 ? (
                 <button type="button" className={`btn small ${sale.commissionPaid ? 'gray' : 'success'}`} onClick={() => mark('commissionPaid', !sale.commissionPaid)}>
                   {sale.commissionPaid ? 'Deshacer' : <><CircleCheck size={16} /> Marcar pagada</>}
                 </button>
@@ -288,8 +289,8 @@ export function SaleDetail({ id }: { id: number }) {
           {services.map((service) => (
             <ServiceRow key={service.id} service={service} data={data} showClient={false} />
           ))}
-          {services.length === 0 && !a.canEdit('services') && <Empty inGroup title="Sin servicios" />}
-          {a.canEdit('services') && <Row
+          {services.length === 0 && !a.can('services.create') && <Empty inGroup title="Sin servicios" />}
+          {a.can('services.create') && <Row
             className="action"
             to={`/servicio/nuevo?cliente=${sale.clientId}&venta=${sale.id}`}
             leading={<Wrench size={19} />}
@@ -299,7 +300,7 @@ export function SaleDetail({ id }: { id: number }) {
         </Group>
       </Section>}
 
-      {a.delete && canEdit && (
+      {a.can('sales.delete') && (
         <div className="group" style={{ marginTop: 34 }}>
           <button type="button" className="row danger" onClick={remove}>
             Borrar venta
@@ -314,16 +315,16 @@ export function SaleDetail({ id }: { id: number }) {
   );
 }
 
-/** Dinero para quien no ve costos: lo que paga el cliente y, si es suyo, lo que le toca. */
+/** Dinero para quien no ve las ganancias: solo las lineas de los montos que puede ver. */
 function PriceCard({ sale }: { sale: Sale }) {
   const data = useData();
   const a = useAccess();
   const m = saleMoney(sale);
   const financier = sale.financierId ? data.financierById.get(sale.financierId)?.name : null;
   const payment = sale.paymentMethod === 'financed' ? `Financiado${financier ? ` · ${financier}` : ''}` : sale.paymentMethod === 'cash' ? 'Cash' : 'Sin registrar';
-  const mine = a.scope === 'own' && a.personId != null;
+  const mine = a.personId != null;
   return (
-    <Group label="Pago del cliente">
+    <Group label={a.prices ? 'Dinero' : 'Pago del cliente'}>
       <Row title="Forma de pago" value={payment} />
       {a.prices && (
         <>
@@ -331,14 +332,30 @@ function PriceCard({ sale }: { sale: Sale }) {
           {sale.paymentMethod === 'financed' && <Row title="Abono en cash" value={money(sale.cashDown ?? 0)} />}
           {sale.paymentMethod === 'cash' && <Row title="Cobrado" value={sale.cashDown == null ? '—' : money(sale.cashDown)} />}
           {m.pendingClient > 0 && <Row title="El cliente debe" value={<span className="orange">{money(m.pendingClient)}</span>} />}
-          {mine && sale.sellerId === a.personId && sale.commission != null && (
-            <Row title="Tu comisión" value={<>{money(sale.commission)} {sale.commissionPaid ? <Badge tone="green">Pagada</Badge> : <Badge tone="violet">Pendiente</Badge>}</>} />
-          )}
-          {mine && sale.installerId === a.personId && sale.installerPay != null && (
-            <Row title="Tu pago por instalar" value={<>{money(sale.installerPay)} {sale.installerPaid ? <Badge tone="green">Pagado</Badge> : <Badge tone="orange">Pendiente</Badge>}</>} />
+          {a.can('money.financier') && sale.paymentMethod === 'financed' && (
+            <>
+              <Row title="Pagó la financiera" value={sale.fundedAmount == null ? '—' : money(sale.fundedAmount)} />
+              {m.financierFee != null && <Row title="Descuento de la financiera" value={`${money(m.financierFee)} (${percentText(m.financierFee, m.financedAmount)})`} />}
+            </>
           )}
         </>
       )}
+      {sale.commission != null && (a.can('money.commissions') || (mine && sale.sellerId === a.personId)) && (
+        <Row
+          title={mine && sale.sellerId === a.personId ? 'Tu comisión' : `Comisión${sale.sellerId ? ` · ${data.personById.get(sale.sellerId)?.name ?? ''}` : ''}`}
+          value={<>{money(sale.commission)} {sale.commissionPaid ? <Badge tone="green">Pagada</Badge> : <Badge tone="violet">Pendiente</Badge>}</>}
+        />
+      )}
+      {sale.installerPay != null && (a.can('money.techpay') || (mine && sale.installerId === a.personId)) && (
+        <Row
+          title={mine && sale.installerId === a.personId ? 'Tu pago por instalar' : 'Pago al técnico'}
+          value={<>{money(sale.installerPay)} {sale.installerPaid ? <Badge tone="green">Pagado</Badge> : <Badge tone="orange">Pendiente</Badge>}</>}
+        />
+      )}
+      {a.can('money.costs') &&
+        sale.suppliers.map((row) => (
+          <Row key={row.supplierId} title={`Proveedor: ${data.supplierById.get(row.supplierId)?.name ?? '—'}`} value={row.cost == null ? 'Sin costo' : money(row.cost)} />
+        ))}
     </Group>
   );
 }

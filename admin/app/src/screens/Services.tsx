@@ -40,7 +40,7 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
     <Page
       title="Servicio técnico"
       subtitle={openCount ? plural(openCount, 'servicio abierto', 'servicios abiertos') : 'Todo resuelto'}
-      headerAction={a.canEdit('services') ? <AddButton to="/servicio/nuevo" label="Servicio" /> : undefined}
+      headerAction={a.can('services.create') ? <AddButton to="/servicio/nuevo" label="Servicio" /> : undefined}
     >
       <div className="toolbar">
         <SearchBox value={query} onChange={setQuery} placeholder="Cliente, problema o técnico" />
@@ -60,7 +60,7 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
           icon={<Wrench size={40} />}
           title="Sin servicios todavía"
           text="Cuando un cliente reporte un problema, anótalo aquí: qué pasó, quién fue, si fue garantía o se cobró."
-          action={a.canEdit('services') ? <Link to="/servicio/nuevo" className="btn">Registrar servicio</Link> : undefined}
+          action={a.can('services.create') ? <Link to="/servicio/nuevo" className="btn">Registrar servicio</Link> : undefined}
         />
       ) : list.length === 0 ? (
         <Empty title={filter === 'open' ? 'Ningún servicio abierto' : 'Sin resultados'} />
@@ -70,7 +70,7 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
             <span><b>{plural(t.count, 'servicio', 'servicios')}</b></span>
             <span>Garantía <b>{t.warranty}</b></span>
             {a.prices && <span>Cobrado <b>{money(t.chargedAmount)}</b></span>}
-            {a.costs && t.technician > 0 && <span>Técnicos <b>{money(t.technician)}</b></span>}
+            {a.can('money.techpay') && t.technician > 0 && <span>Técnicos <b>{money(t.technician)}</b></span>}
             {a.costs && <span>Ganancia <b>{money(t.profit)}</b></span>}
             {a.export && (
               <button

@@ -38,7 +38,7 @@ export function Clients() {
     <Page
       title="Clientes"
       subtitle={`${data.clients.length} en total`}
-      headerAction={a.canEdit('clients') ? <AddButton to="/clientes/nuevo" label="Cliente" /> : undefined}
+      headerAction={a.can('clients.create') ? <AddButton to="/clientes/nuevo" label="Cliente" /> : undefined}
     >
       <div className="toolbar">
         <SearchBox value={query} onChange={setQuery} placeholder="Nombre, teléfono o calle" />
@@ -58,7 +58,7 @@ export function Clients() {
           icon={<Users size={40} />}
           title="Aún no hay clientes"
           text="Se crean solos al registrar una venta o un servicio. También puedes agregar uno suelto."
-          action={a.canEdit('clients') ? <Link to="/clientes/nuevo" className="btn">Agregar cliente</Link> : undefined}
+          action={a.can('clients.create') ? <Link to="/clientes/nuevo" className="btn">Agregar cliente</Link> : undefined}
         />
       ) : list.length === 0 ? (
         <Empty title="Sin resultados" text="Prueba con otra parte del nombre, el teléfono o la calle." />

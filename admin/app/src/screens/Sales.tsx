@@ -16,7 +16,7 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
   const a = useAccess();
   const { toast } = useFeedback();
   // Filtros de dinero solo para quien ve esos montos.
-  const filters = SALE_FILTERS.filter((f) => (f.key === 'to_collect' || f.key === 'commission' ? a.costs : true));
+  const filters = SALE_FILTERS.filter((f) => (f.key === 'to_collect' ? a.prices && a.can('money.financier') : f.key === 'commission' ? a.can('money.commissions') : true));
   const [query, setQuery] = useState('');
   const [filter, setFilter] = useState<SaleFilter>(filters.some((f) => f.key === initialFilter) ? (initialFilter as SaleFilter) : 'all');
   const [period, setPeriod] = useState<PeriodKey>('all');
@@ -26,7 +26,7 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
 
   const counts = useMemo(
     () => Object.fromEntries(filters.map((f) => [f.key, inPeriod.filter((s) => (f.key === 'incomplete' ? isActiveSale(s) && visibleMissing(saleMissing(s), a).length > 0 : saleMatches(s, f.key, data.today))).length])),
-    [inPeriod, data.today, a.money]
+    [inPeriod, data.today, a]
   );
 
   const list = useMemo(() => {
@@ -56,7 +56,7 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
     <Page
       title="Ventas"
       subtitle={plural(data.sales.length, 'venta registrada', 'ventas registradas')}
-      headerAction={a.canEdit('sales') ? <AddButton to="/ventas/nueva" label="Venta" /> : undefined}
+      headerAction={a.can('sales.create') ? <AddButton to="/ventas/nueva" label="Venta" /> : undefined}
     >
       <div className="toolbar">
         <div className="toolbar inline" style={{ marginBottom: 0 }}>
@@ -72,9 +72,9 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
         <Empty
           icon={<Receipt size={40} />}
           title="Aún no hay ventas"
-          text={a.canEdit('sales') ? 'Registra la venta de hoy o ponte al día con tus clientes anteriores.' : a.scope === 'own' ? 'Aquí verás tus ventas e instalaciones.' : undefined}
+          text={a.can('sales.create') ? 'Registra la venta de hoy o ponte al día con tus clientes anteriores.' : a.scope === 'own' ? 'Aquí verás tus ventas e instalaciones.' : undefined}
           action={
-            !a.canEdit('sales') ? undefined : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
+            !a.can('sales.create') ? undefined : <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', justifyContent: 'center' }}>
               <Link to="/ventas/nueva" className="btn">Venta nueva</Link>
               <Link to="/ventas/nueva?anterior=1" className="btn gray">Cliente anterior</Link>
             </div>
@@ -95,7 +95,7 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
             {collect && <span>Te deben <b style={{ color: 'var(--orange)' }}>{moneyRound(owed)}</b></span>}
             {a.prices && !collect && filter !== 'inactive' && <span>Vendido <b>{moneyRound(t.sold)}</b></span>}
             {a.costs && !collect && filter !== 'inactive' && <span>Ganancia <b>{t.estimates ? '≈ ' : ''}{moneyRound(t.profit)}</b></span>}
-            {a.costs && !collect && filter !== 'inactive' && t.commission > 0 && <span>Comisiones <b>{moneyRound(t.commission)}</b></span>}
+            {a.can('money.commissions') && !collect && filter !== 'inactive' && t.commission > 0 && <span>Comisiones <b>{moneyRound(t.commission)}</b></span>}
             {a.export && (
               <button
                 type="button"

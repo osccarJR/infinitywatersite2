@@ -24,7 +24,7 @@ export function Settings() {
     if (data.viewer) return signOut(); // en la vista previa solo sale de ella
     if (await confirm({ title: '¿Cerrar sesión?', confirm: 'Cerrar sesión' })) await signOut();
   };
-  const fullExport = access.export && access.scope === 'all' && access.costs;
+  const fullExport = access.export && access.scope === 'all' && access.costs && access.can('clients.contact');
   const safeDownload = (path: string) => {
     try {
       download(path);
@@ -46,10 +46,10 @@ export function Settings() {
 
       {access.catalogs && (
       <Group label="Catálogos" footer="También se agregan solos desde los formularios de venta y servicio.">
-        <Row to="/ajustes/equipo" leading={<IconBox icon={<Users size={17} />} color="#0a72c2" />} title="Equipo" subtitle="Vendedores y técnicos" value={data.people.length || undefined} />
-        <Row to="/ajustes/financieras" leading={<IconBox icon={<Landmark size={17} />} color="#5856d6" />} title="Financieras" value={data.financiers.length || undefined} />
-        <Row to="/ajustes/proveedores" leading={<IconBox icon={<Package size={17} />} color="#ff9500" />} title="Proveedores" value={data.suppliers.length || undefined} />
-        <Row to="/ajustes/marcas" leading={<IconBox icon={<Tag size={17} />} color="#6a3fdc" />} title="Marcas" subtitle="Con la que se instala cada equipo" value={data.brands.length || undefined} />
+        {access.can('catalogs.team') && <Row to="/ajustes/equipo" leading={<IconBox icon={<Users size={17} />} color="#0a72c2" />} title="Equipo" subtitle="Vendedores y técnicos" value={data.people.length || undefined} />}
+        {access.can('catalogs.financiers') && <Row to="/ajustes/financieras" leading={<IconBox icon={<Landmark size={17} />} color="#5856d6" />} title="Financieras" value={data.financiers.length || undefined} />}
+        {access.can('catalogs.suppliers') && <Row to="/ajustes/proveedores" leading={<IconBox icon={<Package size={17} />} color="#ff9500" />} title="Proveedores" value={data.suppliers.length || undefined} />}
+        {access.can('catalogs.brands') && <Row to="/ajustes/marcas" leading={<IconBox icon={<Tag size={17} />} color="#6a3fdc" />} title="Marcas" subtitle="Con la que se instala cada equipo" value={data.brands.length || undefined} />}
       </Group>
       )}
 

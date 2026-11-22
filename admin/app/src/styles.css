@@ -1642,3 +1642,14 @@ a.wallet-card:active { transform: scale(0.98); }
 .app.previewing .topbar { top: calc(56px + var(--safe-t)); padding-top: 0; min-height: 48px; }
 @media (min-width: 960px) { .app.previewing .topbar { top: 56px; } }
 .splash.inline { min-height: 50vh; }
+
+/* Perfiles combinables: casillas cuadradas y aviso de la combinacion */
+.preset-check.square { border-radius: 7px; }
+.preset-hint { font-size: 13px; color: var(--text-2); margin: -4px 4px 18px; }
+.preset-note { color: var(--orange); }
+.quick-actions.one { grid-template-columns: minmax(0, 1fr); }
+
+/* Interruptor que depende de otro permiso */
+.switch:disabled { opacity: 0.4; cursor: not-allowed; }
+.row.is-disabled .row-title { color: var(--text-3); }
+.perm-summary li span b { font-weight: 600; }

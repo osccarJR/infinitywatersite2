@@ -11,7 +11,7 @@ import { Eye } from 'lucide-react';
 import { goBack, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
-import { dateWithYear, moneyPlain } from '../lib/format.ts';
+import { dateWithYear, localDate, moneyPlain } from '../lib/format.ts';
 import { Empty, Group, MoneyField, hasInvalidMoney, Page, Row, SegmentedRow, StackField, SwitchRow } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
 import { ClientPicker, PersonPicker, PickerRow, clientRef, type ClientChoice } from '../ui/pickers.tsx';
@@ -43,8 +43,10 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
   const a = useAccess();
-  const readOnly = !a.canEdit('services');
   const existing = id ? data.services.find((s) => s.id === id) : undefined;
+  // Lo que registro hoy lo puede corregir aunque no tenga "Editar" (el servidor lo confirma).
+  const mineToday = Boolean(existing && existing.createdBy === data.me.name && localDate(existing.createdAt) === data.today);
+  const readOnly = existing ? !(a.can('services.edit') || (a.can('services.create') && mineToday)) : !a.can('services.create');
 
   const [form, setForm] = useState<FormState>(() => {
     const linkedSaleId = existing?.saleId ?? saleId ?? (clientId ? data.salesByClient.get(clientId)?.[0]?.id ?? null : null);
@@ -292,29 +294,29 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           )}
         </Group>
 
-        {!a.costs && a.scope === 'own' && existing && existing.technicianId === a.personId && existing.technicianPay != null && (
+        {!a.can('money.techpay') && a.personId != null && existing && existing.technicianId === a.personId && existing.technicianPay != null && (
           <Group label="Tu pago por este servicio">
             <Row title="Te toca" value={<>{moneyPlain(existing.technicianPay)} {existing.technicianPaid ? '· pagado' : '· pendiente'}</>} />
           </Group>
         )}
 
-        {a.costs && <Group
+        {a.can('money.techpay') && <Group
           label="Pago al técnico"
           footer={
-            form.billing === 'charged' || form.technicianPay
+            a.costs && (form.billing === 'charged' || form.technicianPay)
               ? `Ganancia del servicio: ${moneyPlain(money.profit)}${money.technician ? ` (cobrado ${moneyPlain(money.charged)} − técnico ${moneyPlain(money.technician)})` : ''}`
               : 'Lo que le pagas al técnico por este trabajo. Se junta con sus instalaciones en Pagos → Técnicos.'
           }
         >
           <MoneyField field="technicianPay" label="Se le paga al técnico" value={form.technicianPay} onChange={(v) => set('technicianPay', v)} placeholder="Opcional" />
-          {a.canEdit('payments') && (form.technicianPay ?? 0) > 0 && (
+          {a.can('payments.technicians') && (form.technicianPay ?? 0) > 0 && (
             <SwitchRow
               label="Ya se le pagó"
               checked={form.technicianPaid}
               onChange={(v) => setForm((f) => ({ ...f, technicianPaid: v, technicianPaidDate: v && !f.technicianPaidDate ? data.today : f.technicianPaidDate }))}
             />
           )}
-          {a.canEdit('payments') && form.technicianPaid && (form.technicianPay ?? 0) > 0 && (
+          {a.can('payments.technicians') && form.technicianPaid && (form.technicianPay ?? 0) > 0 && (
             <DateField field="technicianPaidDate" label="Fecha del pago" value={form.technicianPaidDate} onChange={(v) => set('technicianPaidDate', v)} />
           )}
         </Group>}
@@ -330,7 +332,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
             onChange={(status) => setForm((f) => ({ ...f, status, closedDate: status === 'closed' && !f.closedDate ? data.today : f.closedDate }))}
           />
           {form.status === 'closed' && <DateField field="closedDate" label="Fecha de cierre" value={form.closedDate} onChange={(v) => set('closedDate', v)} />}
-          {linkedSale && a.canEdit('sales') && (
+          {linkedSale && a.can('sales.edit') && (
             <>
               <DateField field="nextServiceDate" label="Próximo mantenimiento" value={form.nextServiceDate} onChange={(v) => set('nextServiceDate', v)} quick="maintenance" />
             </>
@@ -355,7 +357,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
 
         {id && (
           <>
-            {a.delete && !readOnly && (
+            {a.can('services.delete') && (
               <div className="group" style={{ marginTop: 20 }}>
                 <button type="button" className="row danger" onClick={remove}>
                   Borrar servicio

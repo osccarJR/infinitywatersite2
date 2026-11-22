@@ -22,10 +22,10 @@ export function SaleBadges({ sale, data, hideMissing }: { sale: Sale; data: Data
     <span className="badges">
       {state === 'pending' && <Badge tone="orange">Por instalar</Badge>}
       {state === 'scheduled' && <Badge tone="blue">Instala {date(sale.installDate, data.today)}</Badge>}
-      {a.costs && m.pendingFinancier > 0 && <Badge tone="orange">Financiera por pagar</Badge>}
+      {a.can('money.financier') && m.pendingFinancier > 0 && <Badge tone="orange">Financiera por pagar</Badge>}
       {a.prices && m.pendingClient > 0 && <Badge tone="orange">Cliente debe {money(m.pendingClient)}</Badge>}
-      {a.costs && (sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Comisión pendiente</Badge>}
-      {!a.costs && a.scope === 'own' && sale.sellerId === a.personId && (sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Tu comisión pendiente</Badge>}
+      {a.can('money.commissions') && (sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Comisión pendiente</Badge>}
+      {!a.can('money.commissions') && a.personId != null && sale.sellerId === a.personId && (sale.commission ?? 0) > 0 && !sale.commissionPaid && <Badge tone="violet">Tu comisión pendiente</Badge>}
       {!hideMissing && missing.length > 0 && <Badge>Faltan {missing.length} {missing.length === 1 ? 'dato' : 'datos'}</Badge>}
     </span>
   );

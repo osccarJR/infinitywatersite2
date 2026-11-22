@@ -34,13 +34,13 @@ export function Home() {
   const firstName = data.me.name.split(' ')[0];
   const hidden = useAmountsHidden();
   const empty = data.sales.length === 0 && data.clients.length === 0 && data.services.length === 0;
-  const incomplete = useMemo(() => data.sales.filter((s) => visibleMissing(saleMissing(s), a).length > 0), [data.sales, a.money]);
+  const incomplete = useMemo(() => data.sales.filter((s) => visibleMissing(saleMissing(s), a).length > 0), [data.sales, a]);
   const complete = data.sales.length - incomplete.length;
   const owe = useMemo(
     () => (a.canSee('payables') ? payablesTotals(accountStatuses(data.payableAccounts, data.payables, data.payablePayments, data.today)) : null),
-    [data, a.payables]
+    [data, a.canSee('payables')]
   );
-  const stock = useMemo(() => (a.canSee('inventory') ? stockLevels(data.inventoryItems, data.inventoryMovements) : []), [data, a.inventory]);
+  const stock = useMemo(() => (a.canSee('inventory') ? stockLevels(data.inventoryItems, data.inventoryMovements) : []), [data, a.canSee('inventory')]);
   const lowStock = stock.filter((x) => x.low || x.out);
   const showSales = a.canSee('sales');
   const showServices = a.canSee('services');
@@ -97,13 +97,13 @@ export function Home() {
                       tone={t.profit < 0 ? 'red' : undefined}
                       note={t.estimates ? `${plural(t.estimates, 'venta estimada', 'ventas estimadas')} (faltan costos)` : t.income ? `Margen ${percentText(t.profit, t.income)}` : '—'}
                     />
-                    <Stat
+                    {a.can('money.financier') && <Stat
                       label="Ya cobrado"
                       icon={<Wallet size={15} />}
                       iconColor="#16a3c4"
                       value={moneyFit(t.received)}
                       note={`de ${moneyRound(t.knownIncome)} esperado${t.unknownPayment ? ` · ${t.unknownPayment} sin forma de pago` : ''}`}
-                    />
+                    />}
                   </>
                 )}
                 {!a.costs && (
@@ -149,9 +149,9 @@ export function Home() {
                   note={p.openServices.length ? 'Sin resolver todavía' : 'Todo resuelto'}
                   to="/servicio"
                 />
+                {a.can('money.techpay') && <Stat label="Pagado a técnicos" icon={<HardHat size={15} />} iconColor="#8e8e93" value={moneyFit(svc.technician)} note="De los servicios del periodo" />}
                 {a.costs && (
                   <>
-                    <Stat label="Pagado a técnicos" icon={<HardHat size={15} />} iconColor="#8e8e93" value={moneyFit(svc.technician)} note="De los servicios del periodo" />
                     <Stat
                       label="Ganancia de servicio"
                       icon={<TrendingUp size={15} />}
@@ -186,7 +186,7 @@ export function Home() {
               <div className="stats">
                 {a.canSee('payments') && (
                   <>
-                    <Stat
+                    {a.can('money.financier') && <Stat
                       label="Te deben"
                       icon={<HandCoins size={15} />}
                       iconColor="#f08c00"
@@ -194,23 +194,23 @@ export function Home() {
                       tone={p.fromFinanciers + p.fromClients > 0 ? 'orange' : undefined}
                       note={p.toCollect.length ? `Financieras ${moneyRound(p.fromFinanciers)}${p.fromClients ? ` · Clientes ${moneyRound(p.fromClients)}` : ''}` : 'Todo cobrado'}
                       to="/pagos?tab=financieras"
-                    />
-                    <Stat
+                    />}
+                    {a.can('money.commissions') && <Stat
                       label="Comisiones"
                       icon={<Landmark size={15} />}
                       iconColor="#6a3fdc"
                       value={moneyFit(p.commissionsOwed)}
                       note={p.commissionSales.length ? `Por pagar · ${plural(p.commissionSales.length, 'venta', 'ventas')}` : 'Todas pagadas'}
                       to="/pagos?tab=comisiones"
-                    />
-                    <Stat
+                    />}
+                    {a.can('money.techpay') && <Stat
                       label="Técnicos"
                       icon={<HardHat size={15} />}
                       iconColor="#8e8e93"
                       value={moneyFit(techOwed)}
                       note={techOwed ? 'Por pagar: instalaciones y servicios' : 'Todo pagado'}
                       to="/pagos?tab=tecnicos"
-                    />
+                    />}
                   </>
                 )}
                 {owe && (
@@ -328,7 +328,7 @@ export function Home() {
               </Group>
             </Section>}
 
-            {a.canEdit('sales') && <Section title="Ponerse al día">
+            {a.can('sales.create') && <Section title="Ponerse al día">
               <div className="card">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 10 }}>
                   <span style={{ fontWeight: 600 }}>
@@ -355,7 +355,7 @@ export function Home() {
               </div>
             </Section>}
 
-            {!a.canEdit('sales') && a.reports && (
+            {!a.can('sales.create') && a.reports && (
               <Section title="Reportes">
                 <Link to="/reportes" className="card report-cta">
                   <BarChart3 size={22} />
@@ -394,7 +394,7 @@ export function Home() {
                         key={row.id ?? 0}
                         leading={<Avatar name={name} />}
                         title={name}
-                        subtitle={a.costs ? `${plural(row.count, 'venta', 'ventas')} · comisión ${money(row.commission)}${row.owed ? ` (${money(row.owed)} por pagar)` : ''}` : plural(row.count, 'venta', 'ventas')}
+                        subtitle={a.can('money.commissions') ? `${plural(row.count, 'venta', 'ventas')} · comisión ${money(row.commission)}${row.owed ? ` (${money(row.owed)} por pagar)` : ''}` : plural(row.count, 'venta', 'ventas')}
                         value={money(row.sold)}
                         strong
                       />
@@ -404,7 +404,7 @@ export function Home() {
               </Group>
             </Section>
 
-            {a.costs && <Section title="Por financiera">
+            {a.can('money.financier') && <Section title="Por financiera">
               <Group footer="El descuento es lo que se queda la financiera: lo financiado menos lo que nos pagó.">
                 {financiers.length === 0 ? (
                   <Empty inGroup title="Sin ventas financiadas en este periodo" />

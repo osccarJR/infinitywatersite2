@@ -6,14 +6,14 @@
  * exactamente como lo ve esa persona, sin poder guardar nada.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { Check, Eye, KeyRound, Plus, ShieldCheck, UserCog, X } from 'lucide-react';
-import type { Permissions, User } from '../../../shared/domain.ts';
-import { ADMIN_PERMISSIONS, PERMISSION_PRESETS, normalizePermissions, permissionsSummary, presetOf } from '../../../shared/domain.ts';
+import { BarChart3, Boxes, Check, CreditCard, Eye, FileSpreadsheet, HandCoins, KeyRound, Plus, Receipt, ShieldCheck, UserCog, Users as UsersIcon, Wallet, Wrench, X } from 'lucide-react';
+import type { PermissionFlag, Permissions, User } from '../../../shared/domain.ts';
+import { ADMIN_PERMISSIONS, PERMISSION_AREAS, PERMISSION_PRESETS, areaSummary, mergePresets, normalizePermissions, permissionsSummary, presetsOf, redundantPresets } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { navigate, useLeaveGuard } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
 import { dateWithYear, localDate } from '../lib/format.ts';
-import { Avatar, Badge, Empty, Group, Page, Row, SegmentedRow, SwitchRow, TextField } from '../ui/kit.tsx';
+import { Avatar, Badge, Empty, Group, IconBox, Page, Row, SegmentedRow, SwitchRow, TextField } from '../ui/kit.tsx';
 import { Picker, Sheet, useFeedback } from '../ui/sheet.tsx';
 import { PickerRow } from '../ui/pickers.tsx';
 
@@ -93,7 +93,7 @@ export function UsersScreen() {
 function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () => void; onSaved: (users: User[]) => void }) {
   const data = useData();
   const [form, setForm] = useState({ name: '', username: '', password: '' });
-  const [preset, setPreset] = useState<string>('seller');
+  const [presets, setPresets] = useState<string[]>(['seller']);
   const [personId, setPersonId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [created, setCreated] = useState<{ id: number; username: string; password: string } | null>(null);
@@ -102,7 +102,7 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
   useEffect(() => {
     if (!open) return;
     setForm({ name: '', username: '', password: suggestPassword() });
-    setPreset('seller');
+    setPresets(['seller']);
     setPersonId(null);
     setError(null);
     setCreated(null);
@@ -115,16 +115,21 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
     if (match) setPersonId(match.id);
   }, [form.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const chosen = PERMISSION_PRESETS.find((p) => p.key === preset);
-  const needsPerson = chosen?.permissions.scope === 'own';
+  const isAdminChoice = presets.includes('admin');
+  const merged = isAdminChoice ? null : mergePresets(presets, personId);
+  const needsPerson = merged?.scope === 'own';
+  const toggle = (key: string) => {
+    setError(null);
+    setPresets((current) => togglePreset(current, key) ?? current);
+  };
 
   const save = async () => {
     setError(null);
     if (needsPerson && !personId) return setError('Elige quién es en el equipo: así el sistema sabe cuáles son sus ventas y sus servicios.');
     setBusy(true);
     try {
-      const role: Role = preset === 'admin' ? 'admin' : 'member';
-      const permissions = chosen ? { ...chosen.permissions, personId } : undefined;
+      const role: Role = isAdminChoice ? 'admin' : 'member';
+      const permissions = merged ? { ...merged, personId } : undefined;
       const { users, id } = await api<{ users: User[]; id: number }>('/users', {
         method: 'POST',
         body: { username: form.username, name: form.name, password: form.password, role, ...(permissions ? { permissions } : {}) },
@@ -170,13 +175,13 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
         <TextField label="Contraseña" value={form.password} onChange={(password) => setForm({ ...form, password })} />
       </Group>
       <div className="group-label">Qué hace en el negocio</div>
-      <PresetCards value={preset} onChange={setPreset} />
+      <PresetCards value={presets} onToggle={toggle} />
       {needsPerson && (
         <Group footer="Verá solo las ventas, instalaciones y servicios de esta persona.">
           <TeamPicker value={personId} onChange={setPersonId} />
         </Group>
       )}
-      <p className="group-foot">Después puedes ajustar cada permiso por separado.</p>
+      <p className="group-foot">Puedes marcar varios perfiles (por ejemplo Oficina + Técnico) y después ajustar cada permiso por separado.</p>
       {error && <p className="field-error">{error}</p>}
     </Sheet>
   );
@@ -188,33 +193,63 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
 
 const ADMIN_CARD = { key: 'admin', label: 'Administrador', text: 'Todo: dinero, pagos, usuarios y respaldo. Como tú.' };
 
-function PresetCards({ value, onChange, custom }: { value: string | null; onChange: (key: string) => void; custom?: boolean }) {
+/**
+ * Marca o desmarca un perfil. Administrador va solo (ya lo incluye todo).
+ * Devuelve null si quedaria sin ningun perfil.
+ */
+function togglePreset(current: string[], key: string): string[] | null {
+  if (key === 'admin') return current.includes('admin') ? null : ['admin'];
+  const base = current.filter((k) => k !== 'admin');
+  const next = base.includes(key) ? base.filter((k) => k !== key) : [...base, key];
+  return next.length ? next : null;
+}
+
+function PresetCards({ value, onToggle, custom }: { value: string[]; onToggle: (key: string) => void; custom?: boolean }) {
   const cards = [...PERMISSION_PRESETS, ADMIN_CARD];
+  const multi = value.length > 1;
+  const label = (k: string) => cards.find((c) => c.key === k)?.label;
+  const redundant = redundantPresets(value.filter((k) => k !== 'admin'));
   return (
-    <div className="preset-grid" role="radiogroup" aria-label="Perfil">
-      {cards.map((card) => (
-        <button key={card.key} type="button" role="radio" aria-checked={value === card.key} className={`preset-card${value === card.key ? ' on' : ''}`} onClick={() => onChange(card.key)}>
-          <span className="preset-head">
-            <b>{card.label}</b>
-            <span className="preset-check">{value === card.key && <Check size={14} strokeWidth={3} />}</span>
+    <>
+      <div className="preset-grid" role="group" aria-label="Perfiles (puedes marcar varios)">
+        {cards.map((card) => {
+          const on = value.includes(card.key);
+          return (
+            <button key={card.key} type="button" role="checkbox" aria-checked={on} className={`preset-card${on ? ' on' : ''}`} onClick={() => onToggle(card.key)}>
+              <span className="preset-head">
+                <b>{card.label}</b>
+                <span className="preset-check square">{on && <Check size={14} strokeWidth={3} />}</span>
+              </span>
+              <span className="preset-text">{card.text}</span>
+            </button>
+          );
+        })}
+        {custom && (
+          <div className="preset-card on custom">
+            <span className="preset-head">
+              <b>Personalizado</b>
+              <span className="preset-check square"><Check size={14} strokeWidth={3} /></span>
+            </span>
+            <span className="preset-text">Ajustado a mano, punto por punto (abajo).</span>
+          </div>
+        )}
+      </div>
+      <p className="preset-hint">
+        {multi
+          ? `Combinados: ${value.map(label).join(' + ')}. Tiene lo más amplio de cada perfil.`
+          : 'Puedes marcar varios perfiles: tendrá lo más amplio de cada uno.'}
+        {redundant.length > 0 && (
+          <span className="preset-note">
+            {' '}
+            {redundant.map(label).join(' y ')} no {redundant.length === 1 ? 'agrega' : 'agregan'} nada: los otros perfiles marcados ya lo incluyen.
           </span>
-          <span className="preset-text">{card.text}</span>
-        </button>
-      ))}
-      {custom && (
-        <div className="preset-card on custom">
-          <span className="preset-head">
-            <b>Personalizado</b>
-            <span className="preset-check"><Check size={14} strokeWidth={3} /></span>
-          </span>
-          <span className="preset-text">Ajustado a mano, punto por punto (abajo).</span>
-        </div>
-      )}
-    </div>
+        )}
+      </p>
+    </>
   );
 }
 
-function TeamPicker({ value, onChange }: { value: number | null; onChange: (id: number | null) => void }) {
+function TeamPicker({ value, onChange, optional }: { value: number | null; onChange: (id: number | null) => void; optional?: boolean }) {
   const data = useData();
   const [open, setOpen] = useState(false);
   const options = data.people
@@ -222,8 +257,8 @@ function TeamPicker({ value, onChange }: { value: number | null; onChange: (id: 
     .map((p) => ({ id: p.id, label: p.name, sublabel: [p.isSeller && 'Vende', p.isInstaller && 'Instala'].filter(Boolean).join(' · '), inactive: !p.active }));
   return (
     <>
-      <PickerRow field="permissions.personId" label="Quién es en el equipo" value={value ? data.personById.get(value)?.name : null} placeholder="Elegir" onOpen={() => setOpen(true)} />
-      <Picker open={open} onClose={() => setOpen(false)} title="Quién es en el equipo" options={options} value={value} onSelect={onChange} empty="Agrega primero a la persona en Ajustes → Equipo." />
+      <PickerRow field="permissions.personId" label="Quién es en el equipo" value={value ? data.personById.get(value)?.name : null} placeholder={optional ? 'Opcional' : 'Elegir'} onOpen={() => setOpen(true)} />
+      <Picker open={open} onClose={() => setOpen(false)} title="Quién es en el equipo" options={options} value={value} onSelect={onChange} empty="Agrega primero a la persona en Ajustes → Equipo." {...(optional ? { allowNone: 'Nadie del equipo' } : {})} />
     </>
   );
 }
@@ -232,11 +267,17 @@ function TeamPicker({ value, onChange }: { value: number | null; onChange: (id: 
 /* Un usuario: permisos, acceso y "Ver como"                             */
 /* ------------------------------------------------------------------ */
 
-const LEVEL_OPTIONS = [
-  { value: 'none' as const, label: 'No' },
-  { value: 'view' as const, label: 'Ver' },
-  { value: 'edit' as const, label: 'Ver y editar' },
-];
+const AREA_LOOK: Record<string, { icon: React.ReactNode; color: string }> = {
+  clients: { icon: <UsersIcon size={17} />, color: '#0a72c2' },
+  sales: { icon: <Receipt size={17} />, color: '#1d9a46' },
+  services: { icon: <Wrench size={17} />, color: '#ff9500' },
+  money: { icon: <Wallet size={17} />, color: '#6a3fdc' },
+  payments: { icon: <HandCoins size={17} />, color: '#0f7a3c' },
+  payables: { icon: <CreditCard size={17} />, color: '#e5484d' },
+  inventory: { icon: <Boxes size={17} />, color: '#5856d6' },
+  reports: { icon: <BarChart3 size={17} />, color: '#16a3c4' },
+  other: { icon: <FileSpreadsheet size={17} />, color: '#636366' },
+};
 
 export function UserScreen({ id }: { id: number }) {
   const data = useData();
@@ -254,7 +295,8 @@ export function UserScreen({ id }: { id: number }) {
 
   useEffect(() => {
     if (!user) return;
-    const p = user.role === 'admin' ? { ...PERMISSION_PRESETS[2].permissions, personId: null } : user.permissions;
+    // Si hoy es administrador y se le cambia el perfil, se parte de Oficina.
+    const p = user.role === 'admin' ? mergePresets(['office'], null) : user.permissions;
     setRole(user.role);
     setPerms(normalizePermissions(p, false));
     setSaved(JSON.stringify({ role: user.role, p: normalizePermissions(p, false) }));
@@ -268,16 +310,17 @@ export function UserScreen({ id }: { id: number }) {
   );
 
   const effective = role === 'admin' ? ADMIN_PERMISSIONS : perms;
-  const presetKey = role === 'admin' ? 'admin' : presetOf(perms);
+  const selected = role === 'admin' ? ['admin'] : presetsOf(perms);
   const set = <K extends keyof Permissions>(key: K, value: Permissions[K]) => setPerms((p) => normalizePermissions({ ...p, [key]: value }, false));
+  const [area, setArea] = useState<string | null>(null);
   const isMe = user?.id === data.me.id;
 
   const choosePreset = (key: string) => {
-    if (key === 'admin') return setRole('admin');
-    const preset = PERMISSION_PRESETS.find((p) => p.key === key);
-    if (!preset) return;
+    const next = togglePreset(selected ?? [], key);
+    if (!next) return toast('Deja al menos un perfil marcado.', 'error');
+    if (next[0] === 'admin') return setRole('admin');
     setRole('member');
-    setPerms((p) => normalizePermissions({ ...preset.permissions, personId: p.personId }, false));
+    setPerms((p) => mergePresets(next, p.personId, p.payableAccounts));
   };
 
   const save = async () => {
@@ -344,14 +387,14 @@ export function UserScreen({ id }: { id: number }) {
       )}
 
       <div className="group-label">Perfil</div>
-      <PresetCards value={presetKey} onChange={isMe ? () => toast('Tu propio acceso no se puede reducir.', 'error') : choosePreset} custom={!presetKey} />
+      <PresetCards value={selected ?? []} onToggle={isMe ? () => toast('Tu propio acceso no se puede reducir.', 'error') : choosePreset} custom={!selected} />
       {isMe && role === 'admin' && <p className="group-foot">Eres administrador. Para no quedarte fuera, tu propio acceso no se puede reducir.</p>}
 
       {role === 'member' && (
         <>
-          <Group label="Qué ve" footer={perms.scope === 'own' ? 'Solo lo suyo: las ventas que vendió o instaló, los servicios que atendió, lo que registró desde su usuario y los clientes de todo eso.' : undefined}>
+          <Group label="Alcance" footer={perms.scope === 'own' ? 'Solo lo suyo: las ventas que vendió o instaló, los servicios que atendió, lo que registró desde su usuario y los clientes de todo eso.' : 'Si es parte del equipo, elígelo: así ve su propia comisión o su pago aunque no vea los demás montos.'}>
             <SegmentedRow
-              title="Alcance"
+              title="Qué ve"
               options={[
                 { value: 'all', label: 'Todo el negocio' },
                 { value: 'own', label: 'Solo lo suyo' },
@@ -359,45 +402,24 @@ export function UserScreen({ id }: { id: number }) {
               value={perms.scope}
               onChange={(v) => set('scope', v)}
             />
-            {perms.scope === 'own' && <TeamPicker value={perms.personId} onChange={(v) => set('personId', v)} />}
-            <SegmentedRow
-              title="Clientes"
-              options={[
-                { value: 'view', label: 'Ver' },
-                { value: 'edit', label: 'Ver y editar' },
-              ]}
-              value={perms.clients}
-              onChange={(v) => set('clients', v)}
-            />
-            <SegmentedRow title="Ventas" options={LEVEL_OPTIONS} value={perms.sales} onChange={(v) => set('sales', v)} />
-            <SegmentedRow title="Servicio técnico" options={LEVEL_OPTIONS} value={perms.services} onChange={(v) => set('services', v)} />
-            <SegmentedRow title="Inventario" options={LEVEL_OPTIONS} value={perms.inventory} onChange={(v) => set('inventory', v)} />
+            <TeamPicker value={perms.personId} onChange={(v) => set('personId', v)} optional={perms.scope === 'all'} />
           </Group>
 
-          <Group label="Dinero" footer={perms.money !== 'all' ? 'Pagos y cuentas por pagar solo se pueden dar a quien ve todos los montos.' : 'Ve ganancias, costos, comisiones y lo que pagan las financieras.'}>
-            <SegmentedRow
-              title="Montos"
-              options={[
-                { value: 'none', label: 'Ninguno' },
-                { value: 'prices', label: 'Solo precios' },
-                { value: 'all', label: 'Todo' },
-              ]}
-              value={perms.money}
-              onChange={(v) => set('money', v)}
-            />
-            {perms.money === 'all' && (
-              <>
-                <SegmentedRow title="Pagos" subtitle="comisiones, técnicos, financieras" options={LEVEL_OPTIONS} value={perms.payments} onChange={(v) => set('payments', v)} />
-                <SegmentedRow title="Cuentas por pagar" subtitle="tarjetas y proveedores" options={LEVEL_OPTIONS} value={perms.payables} onChange={(v) => set('payables', v)} />
-              </>
-            )}
-          </Group>
-
-          <Group label="Además">
-            <SwitchRow label="Reportes" subtitle="Solo con lo que puede ver" checked={perms.reports} onChange={(v) => set('reports', v)} />
-            <SwitchRow label="Descargar a Excel" subtitle="Solo lo que puede ver" checked={perms.export} onChange={(v) => set('export', v)} />
-            <SwitchRow label="Borrar registros" subtitle="Ventas, servicios y gastos que puede editar" checked={perms.delete} onChange={(v) => set('delete', v)} />
-            <SwitchRow label="Editar catálogos" subtitle="Equipo, financieras, proveedores y marcas" checked={perms.catalogs} onChange={(v) => set('catalogs', v)} />
+          <Group label="Qué puede hacer" footer="Toca cada sección para activar o quitar acciones una por una.">
+            {PERMISSION_AREAS.map((x) => {
+              const summary = areaSummary(perms, x.key);
+              const off = summary === 'Sin acceso' || summary === 'Ningún monto';
+              const accounts = x.key === 'payables' && perms.flags['payables.view'] && perms.payableAccounts ? ` · ${perms.payableAccounts.length} ${perms.payableAccounts.length === 1 ? 'cuenta' : 'cuentas'}` : '';
+              return (
+                <Row
+                  key={x.key}
+                  onClick={() => setArea(x.key)}
+                  leading={<IconBox icon={AREA_LOOK[x.key].icon} color={off ? '#c7c7cc' : AREA_LOOK[x.key].color} />}
+                  title={x.label}
+                  subtitle={<span className={off ? 'faint' : undefined}>{summary + accounts}</span>}
+                />
+              );
+            })}
           </Group>
         </>
       )}
@@ -426,51 +448,122 @@ export function UserScreen({ id }: { id: number }) {
         </div>
       )}
 
+      <AreaSheet areaKey={area} perms={perms} onChange={setPerms} onClose={() => setArea(null)} />
       <AccessSheet user={user} mode={access} onClose={() => setAccess(null)} onSaved={setUsers} />
     </Page>
   );
 }
 
-/** En palabras: que puede y que no puede hacer. Lo entiende cualquiera. */
+/** En palabras: que puede y que no puede hacer, seccion por seccion. */
 function PermissionSummary({ p, name }: { p: Permissions; name: string }) {
+  const data = useData();
   const lines = useMemo(() => {
-    const yes: string[] = [];
-    const no: string[] = [];
-    const level = (l: 'none' | 'view' | 'edit', what: string) => (l === 'edit' ? yes.push(`Ver y registrar ${what}`) : l === 'view' ? yes.push(`Ver ${what} (sin cambiar nada)`) : no.push(`Ver ${what}`));
-    if (p.admin) return { yes: ['Todo, incluidos usuarios, permisos y el respaldo completo'], no: [] };
-    yes.push(p.scope === 'all' ? 'Todo el negocio, no solo lo suyo' : 'Solo lo suyo (sus ventas, instalaciones y servicios)');
-    p.clients === 'edit' ? yes.push('Ver y editar clientes') : yes.push('Ver clientes');
-    level(p.sales, 'ventas');
-    level(p.services, 'servicio técnico');
-    level(p.inventory, 'inventario');
-    if (p.money === 'all') yes.push('Todos los montos: ganancias, costos y comisiones');
-    else if (p.money === 'prices') {
-      yes.push(p.scope === 'own' ? 'Precios de venta y su propia comisión' : 'Precios de venta y cobros');
-      no.push('Ganancias, costos, comisiones de otros y lo que paga la financiera');
-    } else no.push('Ningún monto de dinero');
-    level(p.payments, 'pagos de comisiones y técnicos');
-    level(p.payables, 'cuentas por pagar');
-    (p.reports ? yes : no).push('Reportes');
-    (p.export ? yes : no).push('Descargar a Excel');
-    (p.delete ? yes : no).push('Borrar registros');
-    no.push('Usuarios, permisos y respaldo completo');
-    return { yes, no };
-  }, [p]);
+    if (p.admin) return [{ on: true, label: 'Todo', text: 'Incluidos usuarios, permisos y el respaldo completo' }];
+    const scope = { on: true, label: 'Alcance', text: p.scope === 'all' ? 'Todo el negocio' : 'Solo lo suyo (sus ventas, instalaciones y servicios)' };
+    const areas = PERMISSION_AREAS.map((x) => {
+      let text = areaSummary(p, x.key);
+      if (x.key === 'payables' && p.flags['payables.view'] && p.payableAccounts) {
+        const names = p.payableAccounts.map((id) => data.payableAccounts.find((a) => a.id === id)?.name).filter(Boolean);
+        text += ` · solo ${names.length ? names.join(', ') : 'ninguna cuenta'}`;
+      }
+      return { on: text !== 'Sin acceso' && text !== 'Ningún monto', label: x.label, text };
+    });
+    return [scope, ...areas, { on: false, label: 'Usuarios y respaldo', text: 'Solo administradores' }];
+  }, [p, data.payableAccounts]);
 
   return (
     <>
       <div className="group-label">Resumen: qué puede hacer {name}</div>
       <div className="perm-summary">
         <ul>
-          {lines.yes.map((line) => (
-            <li key={line} className="yes"><Check size={15} strokeWidth={3} /> {line}</li>
-          ))}
-          {lines.no.map((line) => (
-            <li key={line} className="no"><X size={15} strokeWidth={3} /> {line}</li>
+          {lines.map((line) => (
+            <li key={line.label} className={line.on ? 'yes' : 'no'}>
+              {line.on ? <Check size={15} strokeWidth={3} /> : <X size={15} strokeWidth={3} />}
+              <span><b>{line.label}:</b> {line.text}</span>
+            </li>
           ))}
         </ul>
       </div>
     </>
+  );
+}
+
+/** Interruptores de una seccion. Lo que depende de otro permiso se muestra apagado con la razon. */
+function AreaSheet({ areaKey, perms, onChange, onClose }: { areaKey: string | null; perms: Permissions; onChange: (p: Permissions) => void; onClose: () => void }) {
+  const data = useData();
+  const area = PERMISSION_AREAS.find((x) => x.key === areaKey);
+  if (!area) return <Sheet open={false} onClose={onClose} title="" children={null} />;
+  const viewFlag = area.flags[0].flag;
+  const isSectionView = viewFlag.endsWith('.view');
+
+  const toggle = (flag: PermissionFlag, value: boolean) => {
+    const flags = { ...perms.flags, [flag]: value };
+    // Quitar "Ver" quita todo lo de la seccion; las ganancias encienden todos los montos.
+    if (!value && flag === viewFlag && isSectionView) for (const x of area.flags) flags[x.flag] = false;
+    if (value && flag === 'money.profit') for (const x of area.flags) flags[x.flag] = true;
+    onChange(normalizePermissions({ ...perms, flags }, false));
+  };
+  /** Si al activarlo el sistema lo vuelve a apagar, depende de algo que falta. */
+  const blocked = (flag: PermissionFlag) => !perms.flags[flag] && flag !== 'money.profit' && !normalizePermissions({ ...perms, flags: { ...perms.flags, [flag]: true } }, false).flags[flag];
+  const setAll = (value: boolean) => {
+    const flags = { ...perms.flags };
+    for (const x of area.flags) flags[x.flag] = value;
+    onChange(normalizePermissions({ ...perms, flags }, false));
+  };
+  const toggleAccount = (id: number) => {
+    const current = perms.payableAccounts ?? [];
+    const next = current.includes(id) ? current.filter((x) => x !== id) : [...current, id];
+    onChange(normalizePermissions({ ...perms, payableAccounts: next }, false));
+  };
+
+  return (
+    <Sheet open={areaKey != null} onClose={onClose} title={area.label} right={<button type="button" className="link-btn strong" onClick={onClose}>Listo</button>}>
+      <p className="muted" style={{ textAlign: 'center', margin: '0 0 14px', fontSize: 14.5 }}>{area.text}</p>
+      {(area.key === 'reports' || area.key === 'money') && (
+        <div className="amount-chips" style={{ marginTop: 0, justifyContent: 'center' }}>
+          <button type="button" onClick={() => setAll(true)}>{area.key === 'money' ? 'Todos los montos' : 'Todos'}</button>
+          <button type="button" onClick={() => setAll(false)}>Ninguno</button>
+        </div>
+      )}
+      <Group>
+        {area.flags.map((x) => {
+          const isBlocked = blocked(x.flag);
+          return (
+            <SwitchRow
+              key={x.flag}
+              label={x.label}
+              subtitle={x.hint ? <span className={isBlocked ? 'orange' : undefined}>{x.hint}</span> : undefined}
+              checked={perms.flags[x.flag]}
+              onChange={(v) => toggle(x.flag, v)}
+              disabled={isBlocked}
+            />
+          );
+        })}
+      </Group>
+      {area.key === 'payables' && perms.flags['payables.view'] && (
+        <>
+          <Group label="Qué cuentas ve" footer={perms.payableAccounts ? 'Solo verá los gastos y pagos de las cuentas marcadas.' : 'Ve todas las cuentas, también las que se creen después.'}>
+            <SegmentedRow
+              title="Cuentas"
+              options={[
+                { value: 'all', label: 'Todas' },
+                { value: 'some', label: 'Solo algunas' },
+              ]}
+              value={perms.payableAccounts ? 'some' : 'all'}
+              onChange={(v) => onChange(normalizePermissions({ ...perms, payableAccounts: v === 'all' ? null : [] }, false))}
+            />
+          </Group>
+          {perms.payableAccounts && (
+            <Group>
+              {data.payableAccounts.length === 0 && <Empty inGroup title="Aún no hay cuentas" text="Créalas en Cuentas por pagar." />}
+              {data.payableAccounts.map((acc) => (
+                <SwitchRow key={acc.id} label={acc.name} checked={perms.payableAccounts!.includes(acc.id)} onChange={() => toggleAccount(acc.id)} />
+              ))}
+            </Group>
+          )}
+        </>
+      )}
+    </Sheet>
   );
 }
 

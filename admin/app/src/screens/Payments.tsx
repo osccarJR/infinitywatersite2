@@ -20,9 +20,21 @@ type Tab = 'comisiones' | 'tecnicos' | 'financieras' | 'clientes';
 
 export function Payments({ initialTab }: { initialTab: string | null }) {
   const data = useData();
-  const [tab, setTab] = useState<Tab>(initialTab === 'financieras' || initialTab === 'clientes' || initialTab === 'tecnicos' ? initialTab : 'comisiones');
+  const a = useAccess();
+  // Cada pestana solo con el monto que muestra.
+  const tabs = (
+    [
+      ['comisiones', a.can('money.commissions')],
+      ['tecnicos', a.can('money.techpay')],
+      ['financieras', a.can('money.financier')],
+      ['clientes', a.prices],
+    ] as [Tab, boolean][]
+  )
+    .filter(([, ok]) => ok)
+    .map(([t]) => t);
+  const [tab, setTab] = useState<Tab>(tabs.includes(initialTab as Tab) ? (initialTab as Tab) : tabs[0] ?? 'clientes');
   const [payDate, setPayDate] = useState(data.today);
-  const canPay = useAccess().canEdit('payments');
+  const canPay = (tab === 'comisiones' && a.can('payments.commissions')) || (tab === 'tecnicos' && a.can('payments.technicians')) || (tab === 'financieras' && a.can('payments.financiers'));
 
   const commissionGroups = useMemo(() => {
     const map = new Map<number | null, Sale[]>();
@@ -67,12 +79,14 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
     <Page title="Pagos" subtitle="Lo que debes pagar y lo que te deben" narrow>
       <div style={{ marginBottom: 16 }}>
         <Segmented<Tab>
-          options={[
-            { value: 'comisiones', label: `Comisiones${counts.comisiones ? ` · ${counts.comisiones}` : ''}` },
-            { value: 'tecnicos', label: `Técnicos${counts.tecnicos ? ` · ${counts.tecnicos}` : ''}` },
-            { value: 'financieras', label: `Financieras${counts.financieras ? ` · ${counts.financieras}` : ''}` },
-            { value: 'clientes', label: `Clientes${counts.clientes ? ` · ${counts.clientes}` : ''}` },
-          ]}
+          options={(
+            [
+              { value: 'comisiones', label: `Comisiones${counts.comisiones ? ` · ${counts.comisiones}` : ''}` },
+              { value: 'tecnicos', label: `Técnicos${counts.tecnicos ? ` · ${counts.tecnicos}` : ''}` },
+              { value: 'financieras', label: `Financieras${counts.financieras ? ` · ${counts.financieras}` : ''}` },
+              { value: 'clientes', label: `Clientes${counts.clientes ? ` · ${counts.clientes}` : ''}` },
+            ] as { value: Tab; label: string }[]
+          ).filter((o) => tabs.includes(o.value))}
           value={tab}
           onChange={setTab}
           label="Tipo de pago"
@@ -163,7 +177,7 @@ function TechGroup({ personId, debt, payDate }: { personId: number; debt: { sale
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
-  const canPay = useAccess().canEdit('payments');
+  const canPay = useAccess().can('payments.technicians');
   const name = data.personById.get(personId)?.name ?? 'Técnico';
   const items = [
     ...debt.sales.map((s) => ({ key: `s${s.id}`, kind: 'Instalación', clientId: s.clientId, day: s.installDate ?? s.saleDate, amount: s.installerPay ?? 0, saleId: s.id })),
@@ -274,7 +288,7 @@ function PayGroup({
   const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
-  const canPay = useAccess().canEdit('payments');
+  const canPay = useAccess().can(field === 'fundedPaid' ? 'payments.financiers' : 'payments.commissions');
   const [selected, setSelected] = useState<Set<number>>(() => new Set(sales.map((s) => s.id)));
   const [busy, setBusy] = useState(false);
   const chosen = sales.filter((s) => selected.has(s.id));

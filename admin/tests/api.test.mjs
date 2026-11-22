@@ -341,7 +341,10 @@ test('marca, estado y pago unificado al tecnico (instalaciones + servicios)', as
 /* ---------------------------- permisos ---------------------------- */
 
 const EQ = { outdoorTanks: 0, aerator: false, wholeHouseRo: 0, ro: true, roType: 'box', roUv: false, other: null };
-const SELLER_PERMS = { scope: 'own', personId: null, clients: 'edit', sales: 'edit', services: 'view', money: 'prices', payments: 'none', payables: 'none', inventory: 'none', reports: false, export: false, delete: false, catalogs: false };
+const flags = (...list) => Object.fromEntries(list.map((k) => [k, true]));
+const perms = (scope, personId, list, extra = {}) => ({ scope, personId, flags: flags(...list), payableAccounts: null, ...extra });
+const SELLER_FLAGS = ['clients.view', 'clients.contact', 'clients.create', 'clients.edit', 'sales.view', 'sales.create', 'sales.edit', 'services.view', 'money.prices'];
+const SELLER_PERMS = perms('own', null, SELLER_FLAGS);
 let sellerCookie = '';
 let sellerUserId;
 let techCookie = '';
@@ -361,7 +364,7 @@ test('permisos: crear un vendedor que solo ve lo suyo, con precios pero sin cost
   sellerUserId = created.data.id;
   const angie = created.data.users.find((u) => u.username === 'angie');
   assert.equal(angie.role, 'member');
-  assert.equal(angie.permissions.payments, 'none');
+  assert.equal(angie.permissions.flags['payments.view'], false);
   adminId = created.data.users.find((u) => u.username === 'papa').id;
   sellerCookie = await loginAs('angie', 'clave-angie-123');
 
@@ -420,7 +423,7 @@ test('permisos: tecnico sin montos marca "se cobro" sin monto y no borra el mont
   const techPerson = (await call('GET', '/bootstrap')).data.people.find((p) => p.name === 'Carlos');
   const r = await call('POST', '/users', {
     username: 'carlos', name: 'Carlos', password: 'clave-carlos-123', role: 'member',
-    permissions: { ...SELLER_PERMS, personId: techPerson.id, clients: 'view', sales: 'view', services: 'edit', money: 'none', inventory: 'edit' },
+    permissions: perms('own', techPerson.id, ['clients.view', 'clients.contact', 'sales.view', 'services.view', 'services.create', 'services.edit', 'inventory.view', 'inventory.move']),
   });
   assert.equal(r.status, 200, JSON.stringify(r.data));
   techCookie = await loginAs('carlos', 'clave-carlos-123');
@@ -462,14 +465,16 @@ test('usuarios: no te quitas tu propio acceso y siempre queda un administrador',
   assert.equal((await call('PUT', `/users/${adminId}`, { role: 'member', permissions: SELLER_PERMS })).status, 400);
   assert.equal((await call('PUT', `/users/${adminId}`, { active: false })).status, 400);
   // Cambiar permisos aplica al instante a la sesion abierta del usuario.
-  await call('PUT', `/users/${sellerUserId}`, { permissions: { ...SELLER_PERMS, personId: sellerId, money: 'none' } });
+  await call('PUT', `/users/${sellerUserId}`, { permissions: perms('own', sellerId, SELLER_FLAGS.filter((f) => f !== 'money.prices')) });
   const boot = (await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data;
   assert.ok(boot.sales.every((s) => s.price === null));
   // Pagos sin ver todos los montos se corrige solo.
-  await call('PUT', `/users/${sellerUserId}`, { permissions: { ...SELLER_PERMS, personId: sellerId, money: 'prices', payments: 'edit', payables: 'edit' } });
+  await call('PUT', `/users/${sellerUserId}`, { permissions: perms('own', sellerId, [...SELLER_FLAGS, 'payments.view', 'payments.commissions', 'money.profit']) });
   const angie = (await call('GET', '/users')).data.users.find((u) => u.username === 'angie');
-  assert.equal(angie.permissions.payments, 'none');
-  assert.equal(angie.permissions.payables, 'none');
+  assert.equal(angie.permissions.flags['payments.commissions'], false, 'pagar comisiones sin verlas se corrige solo');
+  assert.equal(angie.permissions.flags['money.profit'], false);
+  // Se deja como vendedor para lo que sigue.
+  await call('PUT', `/users/${sellerUserId}`, { permissions: perms('own', sellerId, SELLER_FLAGS) });
 });
 
 /* ------------------------- cuentas por pagar ------------------------- */
@@ -520,6 +525,59 @@ test('inventario: entradas, salidas sin quedar en negativo y costos protegidos',
   await call('PUT', `/inventory-items/${item.id}`, { name: 'Membrana 75 GPD', category: 'membrane', minStock: 3, cost: 1 }, { as: techCookie });
   assert.equal((await call('GET', '/bootstrap')).data.inventoryItems.find((i) => i.id === item.id).cost, 2_800);
   assert.equal((await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data.inventoryItems.length, 0, 'el vendedor no ve inventario');
+});
+
+
+test('permisos detallados: registrar sin editar, contacto oculto y pagos por tipo', async () => {
+  const people = (await call('GET', '/bootstrap')).data.people;
+  const r = await call('POST', '/users', {
+    username: 'recepcion', name: 'Recepción', password: 'clave-recep-123', role: 'member',
+    permissions: perms('all', null, ['clients.view', 'sales.view', 'sales.create', 'money.prices', 'money.commissions', 'payments.view', 'payments.commissions']),
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const as = await loginAs('recepcion', 'clave-recep-123');
+  const boot = (await call('GET', '/bootstrap', undefined, { as })).data;
+  assert.ok(boot.clients.length > 0);
+  assert.ok(boot.clients.every((c) => c.phone === null && c.address === null && c.email === null), 'sin telefono ni direccion');
+  assert.ok(boot.sales.every((s) => s.installAddress === null));
+  assert.ok(boot.sales.some((s) => s.commission != null), 've comisiones');
+  assert.ok(boot.sales.every((s) => s.fundedAmount === null), 'no ve lo de financieras');
+  // Registra una venta y la puede corregir el mismo dia, pero no una ajena.
+  const created = await call('POST', '/sales', { client: { create: { name: 'Cliente de recepción', phone: '2395551111' } }, saleDate: '2026-11-21', equipment: EQ, price: 250_000 }, { as });
+  assert.equal(created.status, 200, JSON.stringify(created.data));
+  const mine = created.data.sale;
+  assert.equal((await call('PUT', `/sales/${mine.id}`, { ...mine, client: { id: mine.clientId }, price: 260_000, expectedUpdatedAt: mine.updatedAt }, { as })).status, 200);
+  const other = boot.sales.find((s) => s.id !== mine.id);
+  assert.equal((await call('PUT', `/sales/${other.id}`, { ...other, client: { id: other.clientId } }, { as })).status, 403);
+  // Editar un cliente sin ver su contacto no borra el telefono.
+  // (no tiene clients.edit: 403)
+  assert.equal((await call('PUT', `/clients/${mine.clientId}`, { name: 'Otro nombre', phone: null }, { as })).status, 403);
+  // Pagar comisiones si; marcar lo de la financiera no; no puede cancelar ventas.
+  assert.equal((await call('POST', `/sales/${mine.id}/mark`, { field: 'fundedPaid', paid: true, date: null }, { as })).status, 403);
+  const status = await call('PUT', `/sales/${mine.id}`, { ...mine, client: { id: mine.clientId }, status: 'cancelled' }, { as });
+  assert.equal(status.status, 200);
+  assert.equal(status.data.sale.status, 'active', 'el estado no lo cambia sin permiso');
+  assert.equal(people.length > 0, true);
+});
+
+test('permisos detallados: cuentas por pagar solo de las tarjetas asignadas', async () => {
+  const accounts = (await call('GET', '/bootstrap')).data.payableAccounts;
+  const visa = accounts.find((a) => a.name === 'Visa');
+  const master = accounts.find((a) => a.name === 'Mastercard');
+  const r = await call('POST', '/users', {
+    username: 'jaimetest', name: 'Jaime Test', password: 'clave-jaime-123', role: 'member',
+    permissions: perms('all', null, ['payables.view', 'payables.charges', 'payables.pay', 'payables.accounts'], { payableAccounts: [master.id] }),
+  });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.users.find((u) => u.username === 'jaimetest').permissions.flags['payables.accounts'], false, 'no crea cuentas si no ve todas');
+  const as = await loginAs('jaimetest', 'clave-jaime-123');
+  const boot = (await call('GET', '/bootstrap', undefined, { as })).data;
+  assert.deepEqual(boot.payableAccounts.map((a) => a.name), ['Mastercard']);
+  assert.ok(boot.payablePayments.every((p) => p.accountId === master.id));
+  assert.equal(boot.sales.length, 0, 'sin ventas');
+  assert.equal((await call('POST', '/payables', { accountId: visa.id, date: '2026-11-20', description: 'No', amount: 100 }, { as })).status, 403);
+  assert.equal((await call('POST', '/payables', { accountId: master.id, date: '2026-11-20', description: 'Gasolina', amount: 4_500 }, { as })).status, 200);
+  assert.equal((await call('POST', '/payable-accounts', { name: 'Nueva', kind: 'card' }, { as })).status, 403);
 });
 
 test('bootstrap: 304 si nada cambio, 200 despues de guardar algo', async () => {

@@ -30,7 +30,7 @@ interface PageProps {
 export function Page({ title, subtitle, back, actions, headerAction, narrow, hideTitle, children }: PageProps) {
   const [scrolled, setScrolled] = useState(false);
   // El ojito de montos solo tiene sentido para quien ve dinero.
-  const seesMoney = (useStore().data?.me.permissions.money ?? 'none') !== 'none';
+  const seesMoney = Boolean(useStore().data?.me.permissions.flags['money.prices']);
   useEffect(() => {
     document.title = `${title} · Gestión`;
     const onScroll = () => setScrolled(window.scrollY > (hideTitle ? 90 : 44));
@@ -397,7 +397,7 @@ export function MoneyField({
 /** true si algun monto del formulario esta mal escrito. */
 export const hasInvalidMoney = (form: HTMLFormElement | null) => Boolean(form?.querySelector('[aria-invalid="true"]'));
 
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Switch({ checked, onChange, label, disabled }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean }) {
   return (
     <button
       type="button"
@@ -405,6 +405,7 @@ export function Switch({ checked, onChange, label }: { checked: boolean; onChang
       aria-checked={checked}
       aria-label={label}
       className="switch"
+      disabled={disabled}
       onClick={() => onChange(!checked)}
     />
   );
@@ -416,20 +417,22 @@ export function SwitchRow({
   checked,
   onChange,
   field,
+  disabled,
 }: {
   label: string;
   subtitle?: ReactNode;
   checked: boolean;
   onChange: (v: boolean) => void;
   field?: string;
+  disabled?: boolean;
 }) {
   return (
-    <div className="row" data-field={field}>
-      <div className="row-label" onClick={() => onChange(!checked)}>
+    <div className={`row${disabled ? ' is-disabled' : ''}`} data-field={field}>
+      <div className="row-label" onClick={() => !disabled && onChange(!checked)}>
         <div className="row-title">{label}</div>
         {subtitle && <div className="row-sub">{subtitle}</div>}
       </div>
-      <Switch checked={checked} onChange={onChange} label={label} />
+      <Switch checked={checked} onChange={onChange} label={label} disabled={disabled} />
     </div>
   );
 }

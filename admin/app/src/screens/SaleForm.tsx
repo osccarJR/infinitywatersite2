@@ -221,7 +221,10 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
       ? fromSale(existing, data.clientById.get(existing.clientId))
       : { ...blank(data.today, clientId, legacy, defaultBrand(data.brands)), sellerId: mySellerId }
   );
-  const payEdit = a.canEdit('payments');
+  // Cada pago se marca con su permiso: financiera, comision, tecnico.
+  const payFinancier = a.can('payments.financiers');
+  const payCommission = a.can('payments.commissions');
+  const payTechnician = a.can('payments.technicians');
   const initial = useRef(JSON.stringify(form));
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -471,7 +474,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                   {a.prices && <SwitchRow label="El cliente abonó cash" checked={form.cashDownOn} onChange={(v) => set('cashDownOn', v)} />}
                   {a.prices && form.cashDownOn && <MoneyField field="cashDown" label="Abono en cash" value={form.cashDown} onChange={(v) => set('cashDown', v)} />}
                   {a.prices && <Row title="Se financió" value={form.price == null ? '—' : money(m.financedAmount)} />}
-                  {a.costs && <MoneyField
+                  {a.can('money.financier') && <MoneyField
                     field="fundedAmount"
                     label="Lo que pagó la financiera"
                     value={form.fundedAmount}
@@ -482,12 +485,12 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                         : undefined
                     }
                   />}
-                  {payEdit && <SwitchRow
+                  {payFinancier && <SwitchRow
                     label="La financiera ya pagó"
                     checked={form.fundedPaid}
                     onChange={(v) => setForm((f) => ({ ...f, fundedPaid: v, fundedDate: v && !f.fundedDate ? data.today : f.fundedDate }))}
                   />}
-                  {payEdit && form.fundedPaid && <DateField field="fundedDate" label="Fecha del pago" value={form.fundedDate} onChange={(v) => set('fundedDate', v)} />}
+                  {payFinancier && form.fundedPaid && <DateField field="fundedDate" label="Fecha del pago" value={form.fundedDate} onChange={(v) => set('fundedDate', v)} />}
                 </>
               )}
               {form.paymentMethod === 'cash' && a.prices && (
@@ -501,19 +504,19 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
             {/* ------------------------ vendedor y comision ------------------------ */}
             <Group label="Quién vendió">
               <PersonPicker field="sellerId" role="seller" label="Vendedor" value={form.sellerId} onChange={(v) => set('sellerId', v)} />
-              {a.costs && <MoneyField
+              {a.can('money.commissions') && <MoneyField
                 field="commission"
                 label="Comisión"
                 value={form.commission}
                 onChange={(v) => set('commission', v)}
                 hint={form.commission != null && form.price ? `${percent(form.commission, form.price)}% del valor de la venta` : undefined}
               />}
-              {payEdit && <SwitchRow
+              {payCommission && <SwitchRow
                 label="Comisión pagada"
                 checked={form.commissionPaid}
                 onChange={(v) => setForm((f) => ({ ...f, commissionPaid: v, commissionPaidDate: v && !f.commissionPaidDate ? data.today : f.commissionPaidDate }))}
               />}
-              {payEdit && form.commissionPaid && <DateField field="commissionPaidDate" label="Fecha de pago" value={form.commissionPaidDate} onChange={(v) => set('commissionPaidDate', v)} />}
+              {payCommission && form.commissionPaid && <DateField field="commissionPaidDate" label="Fecha de pago" value={form.commissionPaidDate} onChange={(v) => set('commissionPaidDate', v)} />}
             </Group>
 
             {/* ---------------------------- mas detalles ---------------------------- */}
@@ -521,7 +524,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
               <button type="button" className="more-toggle" onClick={() => setMore(true)}>
                 <span>
                   <b>Más detalles</b>
-                  <span className="muted">Fecha de instalación, técnico, dirección{a.costs ? ', proveedores' : ''} y mantenimiento</span>
+                  <span className="muted">Fecha de instalación, técnico, dirección{a.can('money.costs') ? ', proveedores' : ''} y mantenimiento</span>
                 </span>
                 <ChevronDown size={20} />
               </button>
@@ -573,8 +576,8 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
             </Group>
 
             {/* ---------------------------- proveedores ---------------------------- */}
-            {a.costs && <Group field="suppliers" label="Proveedores y costos" footer="Lo que pagaste por equipos y materiales de esta venta. Con eso se calcula la ganancia real.">
-              {form.suppliers.map((line) => (
+            {(a.can('money.costs') || a.can('money.techpay')) && <Group field="suppliers" label={a.can('money.costs') ? 'Proveedores y costos' : 'Pago al técnico'} footer={a.can('money.costs') ? 'Lo que pagaste por equipos y materiales de esta venta. Con eso se calcula la ganancia real.' : undefined}>
+              {a.can('money.costs') && form.suppliers.map((line) => (
                 <SupplierLineRow
                   key={line.key}
                   line={line}
@@ -583,16 +586,16 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
                   onRemove={() => set('suppliers', form.suppliers.filter((s) => s.key !== line.key))}
                 />
               ))}
-              <button
+              {a.can('money.costs') && <button
                 type="button"
                 className="row action"
                 onClick={() => set('suppliers', [...form.suppliers, { key: ++lineKey, supplierId: null, cost: null }])}
               >
                 <Plus size={20} />
                 <span className="row-label">Agregar proveedor</span>
-              </button>
-              <MoneyField field="installerPay" label="Pago al técnico" value={form.installerPay} onChange={(v) => set('installerPay', v)} placeholder="Opcional" />
-              {payEdit && (form.installerPay ?? 0) > 0 && (
+              </button>}
+              {a.can('money.techpay') && <MoneyField field="installerPay" label="Pago al técnico" value={form.installerPay} onChange={(v) => set('installerPay', v)} placeholder="Opcional" />}
+              {payTechnician && (form.installerPay ?? 0) > 0 && (
                 <SwitchRow
                   label="Ya se le pagó al técnico"
                   checked={form.installerPaid}
@@ -603,7 +606,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
 
             {/* ---------------------------- seguimiento ---------------------------- */}
             <Group label="Seguimiento">
-              {id && (
+              {id && a.can('sales.status') && (
                 <SegmentedRow
                   field="status"
                   title="Estado de la venta"

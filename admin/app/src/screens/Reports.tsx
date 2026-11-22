@@ -22,7 +22,7 @@ import {
   Users,
   Wrench,
 } from 'lucide-react';
-import type { Sale, Service } from '../../../shared/domain.ts';
+import type { PermissionFlag, Sale, Service } from '../../../shared/domain.ts';
 import {
   EXPENSE_CATEGORY_LABEL,
   INVENTORY_CATEGORY_LABEL,
@@ -108,7 +108,8 @@ interface Col<T> {
   label: string;
   value: (row: T) => string | number | null;
   kind?: Kind;
-  money?: 'prices' | 'all';
+  /** Columna solo para quien tiene este permiso (un monto). */
+  need?: PermissionFlag;
 }
 interface Kpi {
   label: string;
@@ -202,7 +203,7 @@ const REPORTS: ReportDef[] = [
     text: 'Ventas, ganancia, servicio y gastos del periodo.',
     icon: <BarChart3 size={20} />,
     color: '#0a72c2',
-    show: (a) => a.canSee('sales') || a.canSee('services'),
+    show: (a) => a.can('report.summary'),
     build: ({ data, a, range, sales, allSales, services }) => {
       const sold = sum(sales, (s) => s.price ?? 0);
       const profit = sum(sales, (s) => saleMoney(s).profit);
@@ -231,8 +232,8 @@ const REPORTS: ReportDef[] = [
           columns: [
             { label: 'Periodo', value: (r) => r.label, kind: 'text' },
             { label: 'Ventas', value: (r) => r.count, kind: 'int' },
-            { label: 'Vendido', value: (r) => r.sold, kind: 'money', money: 'prices' },
-            { label: 'Ganancia', value: (r) => r.profit, kind: 'money', money: 'all' },
+            { label: 'Vendido', value: (r) => r.sold, kind: 'money', need: 'money.prices' },
+            { label: 'Ganancia', value: (r) => r.profit, kind: 'money', need: 'money.profit' },
             { label: 'Servicios', value: (r) => r.services, kind: 'int' },
           ],
           rows,
@@ -248,8 +249,8 @@ const REPORTS: ReportDef[] = [
     text: 'Ventas, monto y comisiones de cada vendedor.',
     icon: <Users size={20} />,
     color: '#6a3fdc',
-    show: (a) => a.canSee('sales'),
-    build: ({ data, sales }) => {
+    show: (a) => a.can('report.sellers'),
+    build: ({ data, sales, a }) => {
       const rows = [...groupBy(sales, (s) => s.sellerId).entries()]
         .map(([id, list]) => ({
           name: nameOf(data, id, 'Sin vendedor'),
@@ -265,7 +266,7 @@ const REPORTS: ReportDef[] = [
         kpis: [
           { label: 'Vendedores con ventas', value: rows.filter((r) => r.name !== 'Sin vendedor').length },
           { label: 'Mejor vendedor', value: rows[0]?.name ?? '—', note: rows[0] ? `${rows[0].count} ventas` : undefined },
-          { label: 'Comisiones', value: moneyFit(total.commission), note: `Por pagar ${money(total.owed)}` },
+          ...(a.can('money.commissions') ? [{ label: 'Comisiones', value: moneyFit(total.commission), note: `Por pagar ${money(total.owed)}` }] : []),
         ],
         chart: { title: 'Ventas por vendedor', kind: 'bars', money: false, rows: rows.map((r) => ({ label: r.name, value: r.count })) },
         table: {
@@ -273,10 +274,10 @@ const REPORTS: ReportDef[] = [
           columns: [
             { label: 'Vendedor', value: (r) => r.name, kind: 'text' },
             { label: 'Ventas', value: (r) => r.count, kind: 'int' },
-            { label: 'Vendido', value: (r) => r.sold, kind: 'money', money: 'prices' },
-            { label: 'Promedio', value: (r) => r.avg, kind: 'money', money: 'prices' },
-            { label: 'Comisión', value: (r) => r.commission, kind: 'money', money: 'all' },
-            { label: 'Por pagar', value: (r) => r.owed, kind: 'money', money: 'all' },
+            { label: 'Vendido', value: (r) => r.sold, kind: 'money', need: 'money.prices' },
+            { label: 'Promedio', value: (r) => r.avg, kind: 'money', need: 'money.prices' },
+            { label: 'Comisión', value: (r) => r.commission, kind: 'money', need: 'money.commissions' },
+            { label: 'Por pagar', value: (r) => r.owed, kind: 'money', need: 'money.commissions' },
           ],
           rows,
           total,
@@ -290,7 +291,7 @@ const REPORTS: ReportDef[] = [
     text: 'Infinity Water, Magic Water, 4Elements: cuánto vende cada una.',
     icon: <Tag size={20} />,
     color: '#16a3c4',
-    show: (a) => a.canSee('sales'),
+    show: (a) => a.can('report.brands'),
     build: ({ data, sales }) => {
       const sold = sum(sales, (s) => s.price ?? 0);
       const rows = [...groupBy(sales, (s) => s.brandId).entries()]
@@ -314,8 +315,8 @@ const REPORTS: ReportDef[] = [
             { label: 'Marca', value: (r) => r.name, kind: 'text' },
             { label: 'Ventas', value: (r) => r.count, kind: 'int' },
             { label: '% ventas', value: (r) => r.share, kind: 'pct' },
-            { label: 'Vendido', value: (r) => r.sold, kind: 'money', money: 'prices' },
-            { label: 'Ganancia', value: (r) => r.profit, kind: 'money', money: 'all' },
+            { label: 'Vendido', value: (r) => r.sold, kind: 'money', need: 'money.prices' },
+            { label: 'Ganancia', value: (r) => r.profit, kind: 'money', need: 'money.profit' },
           ],
           rows,
           total: { name: 'Total', count: sales.length, share: 1, sold, profit: sum(rows, (r) => r.profit) },
@@ -329,7 +330,7 @@ const REPORTS: ReportDef[] = [
     text: 'Ósmosis de cocina y de toda la casa, filtros, aireadores, UV.',
     icon: <Droplets size={20} />,
     color: '#0a9396',
-    show: (a) => a.canSee('sales'),
+    show: (a) => a.can('report.equipment'),
     build: ({ sales }) => {
       const items: { name: string; match: (s: Sale) => boolean }[] = [
         { name: 'Ósmosis de cocina · 5 pasos', match: (s) => s.equipment.ro && s.equipment.roType === 'five_stage' },
@@ -362,7 +363,7 @@ const REPORTS: ReportDef[] = [
             { label: 'Equipo', value: (r) => r.name, kind: 'text' },
             { label: 'Ventas', value: (r) => r.count, kind: 'int' },
             { label: '% ventas', value: (r) => r.share, kind: 'pct' },
-            { label: 'Vendido (ventas que lo incluyen)', value: (r) => r.sold, kind: 'money', money: 'prices' },
+            { label: 'Vendido (ventas que lo incluyen)', value: (r) => r.sold, kind: 'money', need: 'money.prices' },
           ],
           rows,
         },
@@ -376,7 +377,7 @@ const REPORTS: ReportDef[] = [
     text: 'Cuánto se financió, cuánto pagaron y su descuento.',
     icon: <Landmark size={20} />,
     color: '#5856d6',
-    show: (a) => a.canSee('sales') && a.costs,
+    show: (a) => a.can('report.financiers'),
     build: ({ data, sales }) => {
       const financed = sales.filter((s) => s.paymentMethod === 'financed');
       const rows = [...groupBy(financed, (s) => s.financierId).entries()]
@@ -409,11 +410,11 @@ const REPORTS: ReportDef[] = [
           columns: [
             { label: 'Financiera', value: (r) => r.name, kind: 'text' },
             { label: 'Ventas', value: (r) => r.count, kind: 'int' },
-            { label: 'Financiado', value: (r) => r.financed, kind: 'money', money: 'all' },
-            { label: 'Pagó', value: (r) => r.funded, kind: 'money', money: 'all' },
-            { label: 'Descuento', value: (r) => r.fee, kind: 'money', money: 'all' },
+            { label: 'Financiado', value: (r) => r.financed, kind: 'money', need: 'money.financier' },
+            { label: 'Pagó', value: (r) => r.funded, kind: 'money', need: 'money.financier' },
+            { label: 'Descuento', value: (r) => r.fee, kind: 'money', need: 'money.financier' },
             { label: '% desc.', value: (r) => r.feePct, kind: 'pct' },
-            { label: 'Por cobrar', value: (r) => r.pending, kind: 'money', money: 'all' },
+            { label: 'Por cobrar', value: (r) => r.pending, kind: 'money', need: 'money.financier' },
           ],
           rows,
           total,
@@ -427,7 +428,7 @@ const REPORTS: ReportDef[] = [
     text: 'Lo que deben financieras y clientes, por antigüedad.',
     icon: <HandCoins size={20} />,
     color: '#f08c00',
-    show: (a) => a.canSee('sales') && a.costs,
+    show: (a) => a.can('report.receivables'),
     build: ({ data }) => {
       // No depende del periodo: es lo que se debe hoy.
       const owed = data.sales
@@ -465,7 +466,7 @@ const REPORTS: ReportDef[] = [
             { label: 'Debe', value: (r) => r.who, kind: 'text' },
             { label: 'Desde', value: (r) => r.date, kind: 'text' },
             { label: 'Días', value: (r) => r.days, kind: 'days' },
-            { label: 'Monto', value: (r) => r.amount, kind: 'money', money: 'all' },
+            { label: 'Monto', value: (r) => r.amount, kind: 'money', need: 'money.financier' },
           ],
           rows: owed,
         },
@@ -479,8 +480,8 @@ const REPORTS: ReportDef[] = [
     text: 'Instalaciones y servicios de cada técnico, y lo que se le paga.',
     icon: <HardHat size={20} />,
     color: '#8e8e93',
-    show: (a) => a.canSee('sales') || a.canSee('services'),
-    build: ({ data, range, services }) => {
+    show: (a) => a.can('report.technicians'),
+    build: ({ data, range, services, a }) => {
       const installs = data.sales.filter((s) => isActiveSale(s) && within(s.installDate, range));
       const ids = new Set<number | null>([...installs.map((s) => s.installerId), ...services.map((s) => s.technicianId)]);
       const rows = [...ids]
@@ -500,7 +501,7 @@ const REPORTS: ReportDef[] = [
         kpis: [
           { label: 'Instalaciones', value: installs.length },
           { label: 'Servicios', value: services.length },
-          { label: 'Pago a técnicos', value: moneyFit(sum(rows, (r) => r.pay)), note: `Por pagar ${money(sum(rows, (r) => r.owed))}` },
+          ...(a.can('money.techpay') ? [{ label: 'Pago a técnicos', value: moneyFit(sum(rows, (r) => r.pay)), note: `Por pagar ${money(sum(rows, (r) => r.owed))}` }] : []),
         ],
         chart: { title: 'Trabajos por técnico', kind: 'bars', money: false, rows: rows.map((r) => ({ label: r.name, value: r.installs + r.services, inner: r.installs })), legend: ['Servicios', 'Instalaciones'] },
         table: {
@@ -509,8 +510,8 @@ const REPORTS: ReportDef[] = [
             { label: 'Técnico', value: (r) => r.name, kind: 'text' },
             { label: 'Instalaciones', value: (r) => r.installs, kind: 'int' },
             { label: 'Servicios', value: (r) => r.services, kind: 'int' },
-            { label: 'A pagar', value: (r) => r.pay, kind: 'money', money: 'all' },
-            { label: 'Pendiente', value: (r) => r.owed, kind: 'money', money: 'all' },
+            { label: 'A pagar', value: (r) => r.pay, kind: 'money', need: 'money.techpay' },
+            { label: 'Pendiente', value: (r) => r.owed, kind: 'money', need: 'money.techpay' },
           ],
           rows,
           total: { name: 'Total', installs: installs.length, services: services.length, pay: sum(rows, (r) => r.pay), owed: sum(rows, (r) => r.owed) },
@@ -525,7 +526,7 @@ const REPORTS: ReportDef[] = [
     text: 'Tipos de servicio, garantías, cobros y tiempo de respuesta.',
     icon: <Wrench size={20} />,
     color: '#e5484d',
-    show: (a) => a.canSee('services'),
+    show: (a) => a.can('report.service'),
     build: ({ services, a }) => {
       const closed = services.filter((s) => s.status === 'closed' && s.closedDate);
       const avgDays = closed.length ? Math.round(sum(closed, (s) => Math.max(daysBetween(s.reportedDate, s.closedDate!), 0)) / closed.length) : null;
@@ -558,7 +559,7 @@ const REPORTS: ReportDef[] = [
             { label: 'Servicios', value: (r) => r.count, kind: 'int' },
             { label: 'Garantía', value: (r) => r.warranty, kind: 'int' },
             { label: 'Cobrados', value: (r) => r.charged, kind: 'int' },
-            { label: 'Cobrado', value: (r) => r.amount, kind: 'money', money: 'prices' },
+            { label: 'Cobrado', value: (r) => r.amount, kind: 'money', need: 'money.prices' },
             { label: 'Abiertos', value: (r) => r.open, kind: 'int' },
           ],
           rows,
@@ -572,7 +573,7 @@ const REPORTS: ReportDef[] = [
     text: 'Dónde se vende más.',
     icon: <MapPin size={20} />,
     color: '#1d9a46',
-    show: (a) => a.canSee('sales'),
+    show: (a) => a.can('report.cities'),
     build: ({ data, sales }) => {
       const cityOf = (s: Sale) => {
         const c = data.clientById.get(s.clientId);
@@ -595,7 +596,7 @@ const REPORTS: ReportDef[] = [
             { label: 'Ciudad', value: (r) => r.name, kind: 'text' },
             { label: 'Ventas', value: (r) => r.count, kind: 'int' },
             { label: '% ventas', value: (r) => r.share, kind: 'pct' },
-            { label: 'Vendido', value: (r) => r.sold, kind: 'money', money: 'prices' },
+            { label: 'Vendido', value: (r) => r.sold, kind: 'money', need: 'money.prices' },
           ],
           rows,
         },
@@ -608,7 +609,7 @@ const REPORTS: ReportDef[] = [
     text: 'En qué se gasta, con qué tarjeta, y lo que se ha pagado.',
     icon: <CreditCard size={20} />,
     color: '#e5484d',
-    show: (a) => a.canSee('payables'),
+    show: (a) => a.can('report.expenses'),
     build: ({ data, range }) => {
       const charges = data.payables.filter((p) => within(p.date, range));
       const payments = data.payablePayments.filter((p) => within(p.date, range));
@@ -637,10 +638,10 @@ const REPORTS: ReportDef[] = [
           title: 'Por cuenta',
           columns: [
             { label: 'Cuenta', value: (r) => r.name, kind: 'text' },
-            { label: 'Gastado', value: (r) => r.charged, kind: 'money', money: 'all' },
-            { label: 'Pagado', value: (r) => r.paid, kind: 'money', money: 'all' },
-            { label: 'Saldo hoy', value: (r) => r.balance, kind: 'money', money: 'all' },
-            { label: 'Vencido', value: (r) => r.overdue, kind: 'money', money: 'all' },
+            { label: 'Gastado', value: (r) => r.charged, kind: 'money', need: 'payables.view' },
+            { label: 'Pagado', value: (r) => r.paid, kind: 'money', need: 'payables.view' },
+            { label: 'Saldo hoy', value: (r) => r.balance, kind: 'money', need: 'payables.view' },
+            { label: 'Vencido', value: (r) => r.overdue, kind: 'money', need: 'payables.view' },
           ],
           rows,
           total: { name: 'Total', charged: sum(rows, (r) => r.charged), paid: sum(rows, (r) => r.paid), balance: sum(rows, (r) => r.balance), overdue: sum(rows, (r) => r.overdue) },
@@ -654,7 +655,7 @@ const REPORTS: ReportDef[] = [
     text: 'Existencias, consumo del periodo y valor en bodega.',
     icon: <Boxes size={20} />,
     color: '#6a3fdc',
-    show: (a) => a.canSee('inventory'),
+    show: (a) => a.can('report.inventory'),
     build: ({ data, range, a }) => {
       const levels = stockLevels(data.inventoryItems, data.inventoryMovements).filter((s) => s.item.active || s.stock !== 0);
       const rows = levels
@@ -677,7 +678,7 @@ const REPORTS: ReportDef[] = [
           { label: 'Productos', value: levels.length },
           { label: 'Salieron en el periodo', value: sum(rows, (r) => r.out), note: 'Unidades' },
           { label: 'Por comprar', value: levels.filter((s) => s.low || s.out).length, tone: levels.some((s) => s.low || s.out) ? 'orange' : undefined },
-          ...(a.costs ? [{ label: 'Valor en bodega', value: moneyFit(sum(rows, (r) => Math.max(r.value, 0))) }] : []),
+          ...(a.can('money.costs') ? [{ label: 'Valor en bodega', value: moneyFit(sum(rows, (r) => Math.max(r.value, 0))) }] : []),
         ],
         chart: { title: 'Lo que más sale', kind: 'bars', money: false, rows: rows.filter((r) => r.out > 0).slice(0, 12).map((r) => ({ label: r.name, value: r.out })) },
         table: {
@@ -690,7 +691,7 @@ const REPORTS: ReportDef[] = [
             { label: 'Ajustes', value: (r) => r.adjust, kind: 'int' },
             { label: 'Hay hoy', value: (r) => r.stock, kind: 'int' },
             { label: 'Mínimo', value: (r) => r.min, kind: 'int' },
-            { label: 'Valor', value: (r) => r.value, kind: 'money', money: 'all' },
+            { label: 'Valor', value: (r) => r.value, kind: 'money', need: 'money.costs' },
           ],
           rows,
         },
@@ -725,7 +726,7 @@ export function Reports({ initial }: { initial: string | null }) {
     const filteredSaleIds = filters.brandId || filters.sellerId ? new Set(data.sales.filter(match).map((s) => s.id)) : null;
     const services = data.services.filter((s) => within(s.reportedDate, range) && (!filteredSaleIds || (s.saleId != null && filteredSaleIds.has(s.saleId))));
     return report.build({ data, a, range, sales: allSales.filter(isActiveSale), allSales, services });
-  }, [report, data, range.from, range.to, filters, a.money]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [report, data, range.from, range.to, filters, a]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!report || !result) {
     return (
@@ -736,7 +737,7 @@ export function Reports({ initial }: { initial: string | null }) {
   }
 
   const periodText = period === 'all' ? 'Todo el historial' : `${dateWithYear(range.from)} – ${dateWithYear(range.to > data.today ? data.today : range.to)}`;
-  const visibleColumns = result.table.columns.filter((c) => !c.money || (c.money === 'prices' ? a.prices : a.costs));
+  const visibleColumns = result.table.columns.filter((c) => !c.need || a.can(c.need));
   const filterText = [filters.brandId && `Marca: ${data.brands.find((b) => b.id === filters.brandId)?.name}`, filters.sellerId && `Vendedor: ${data.personById.get(filters.sellerId)?.name}`].filter(Boolean).join(' · ');
 
   /** Imprimir o guardar en PDF; si los montos estan tapados, pregunta si mostrarlos. */
@@ -755,7 +756,7 @@ export function Reports({ initial }: { initial: string | null }) {
     try {
       const columns: Column<any>[] = result.table.columns.map((c) => ({
         label: c.label,
-        money: c.money,
+        need: c.need,
         value: (row: any) => {
           const v = c.value(row);
           if (v == null) return '';

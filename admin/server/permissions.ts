@@ -14,7 +14,7 @@
  */
 import type { DB } from './db.ts';
 import { HttpError } from './http.ts';
-import type { Permissions, Sale, Service, User } from '../shared/domain.ts';
+import type { Client, Permissions, Sale, Service, User } from '../shared/domain.ts';
 
 export const NO_PERMISSION = 'No tienes permiso para esto. Pídeselo al administrador.';
 
@@ -67,34 +67,41 @@ export const seesClient = (scope: Scope, id: number) => scope.all || scope.clien
 /* Lo que se entrega                                                    */
 /* ------------------------------------------------------------------ */
 
+/** Datos de contacto que se tapan sin "Ver telefono, correo y direccion". */
+export function shapeClient(client: Client, p: Permissions): Client {
+  if (p.flags['clients.contact']) return client;
+  return { ...client, phone: null, phone2: null, email: null, address: null, zip: null };
+}
+
 /** Venta con solo los montos que el usuario puede ver. */
 export function shapeSale(sale: Sale, p: Permissions): Sale {
-  if (p.money === 'all') return sale;
-  const own = p.scope === 'own' && p.personId != null;
-  const out: Sale = {
-    ...sale,
-    fundedAmount: null,
-    // "Solo lo suyo": ve lo que le toca a el (su comision, su pago por instalar).
-    commission: own && sale.sellerId === p.personId ? sale.commission : null,
-    installerPay: own && sale.installerId === p.personId ? sale.installerPay : null,
-    suppliers: [],
-  };
-  if (p.money === 'none') {
+  const f = p.flags;
+  // Lo que le toca a el (su comision, su pago por instalar) lo ve siempre que
+  // este vinculado a una persona del equipo y vea al menos precios.
+  const mine = p.personId != null && f['money.prices'];
+  const out: Sale = { ...sale };
+  if (!f['money.prices']) {
     out.price = null;
     out.cashDown = null;
-    out.commission = null;
-    out.installerPay = null;
+  }
+  if (!f['money.financier']) out.fundedAmount = null;
+  if (!f['money.commissions'] && !(mine && sale.sellerId === p.personId)) out.commission = null;
+  if (!f['money.techpay'] && !(mine && sale.installerId === p.personId)) out.installerPay = null;
+  if (!f['money.costs']) out.suppliers = [];
+  if (!f['clients.contact']) {
+    out.installAddress = null;
+    out.installZip = null;
   }
   return out;
 }
 
 export function shapeService(service: Service, p: Permissions): Service {
-  if (p.money === 'all') return service;
-  const own = p.scope === 'own' && p.personId != null && service.technicianId === p.personId;
+  const f = p.flags;
+  const mine = p.personId != null && f['money.prices'] && service.technicianId === p.personId;
   return {
     ...service,
-    amount: p.money === 'none' ? null : service.amount,
-    technicianPay: own && p.money !== 'none' ? service.technicianPay : null,
+    amount: f['money.prices'] ? service.amount : null,
+    technicianPay: f['money.techpay'] || mine ? service.technicianPay : null,
   };
 }
 
@@ -105,10 +112,6 @@ export function shapeService(service: Service, p: Permissions): Service {
 type Body = Record<string, unknown>;
 const asBody = (body: unknown): Body | null => (body && typeof body === 'object' && !Array.isArray(body) ? { ...(body as Body) } : null);
 
-const SALE_COSTS = ['fundedAmount', 'commission', 'installerPay', 'suppliers'] as const;
-const SALE_PRICES = ['price', 'cashDown'] as const;
-const SALE_PAID = ['fundedPaid', 'fundedDate', 'commissionPaid', 'commissionPaidDate', 'installerPaid', 'installerPaidDate'] as const;
-
 /**
  * Reemplaza en lo que llega de la app los campos que el usuario no puede
  * cambiar: al editar, por lo que ya habia; al crear, por vacio. Se aplica
@@ -118,33 +121,53 @@ const SALE_PAID = ['fundedPaid', 'fundedDate', 'commissionPaid', 'commissionPaid
 export function protectSaleBody(raw: unknown, existing: Sale | null, p: Permissions): unknown {
   const body = asBody(raw);
   if (!body) return raw;
+  const f = p.flags;
   const keep = (fields: readonly string[], blank: (field: string) => unknown) => {
     for (const field of fields) body[field] = existing ? structuredClone((existing as unknown as Body)[field]) : blank(field);
   };
-  if (p.money !== 'all') keep(SALE_COSTS, (f) => (f === 'suppliers' ? [] : null));
-  if (p.money === 'none') keep(SALE_PRICES, () => null);
-  if (p.payments !== 'edit') {
-    // Venta nueva: las de clientes anteriores se dan por pagadas (igual que en el formulario).
-    const legacy = body.isLegacy === true;
-    keep(SALE_PAID, (f) => (f.endsWith('Date') ? null : f === 'fundedPaid' ? legacy && body.paymentMethod === 'financed' : legacy));
-  }
-  // El proximo mantenimiento lo cambia quien edita ventas; el estado, tambien.
+  const legacy = body.isLegacy === true;
+  if (!f['money.prices']) keep(['price', 'cashDown'], () => null);
+  if (!f['money.financier']) keep(['fundedAmount'], () => null);
+  if (!f['money.commissions']) keep(['commission'], () => null);
+  if (!f['money.techpay']) keep(['installerPay'], () => null);
+  if (!f['money.costs']) keep(['suppliers'], () => []);
+  // Venta nueva de un cliente anterior: se da por pagada (igual que en el formulario).
+  if (!f['payments.financiers']) keep(['fundedPaid', 'fundedDate'], (k) => (k === 'fundedPaid' ? legacy && body.paymentMethod === 'financed' : null));
+  if (!f['payments.commissions']) keep(['commissionPaid', 'commissionPaidDate'], (k) => (k === 'commissionPaid' ? legacy : null));
+  if (!f['payments.technicians']) keep(['installerPaid', 'installerPaidDate'], (k) => (k === 'installerPaid' ? legacy : null));
+  if (!f['sales.status']) keep(['status'], () => 'active');
+  if (!f['clients.contact'] && existing) keep(['installAddress', 'installZip'], () => null);
   return body;
 }
 
 export function protectServiceBody(raw: unknown, existing: Service | null, p: Permissions): unknown {
   const body = asBody(raw);
   if (!body) return raw;
+  const f = p.flags;
   const keep = (field: keyof Service, blank: unknown) => {
     body[field] = existing ? existing[field] : blank;
   };
-  if (p.money !== 'all') keep('technicianPay', null);
-  if (p.money === 'none') keep('amount', null);
-  if (p.payments !== 'edit') {
+  if (!f['money.prices']) keep('amount', null);
+  if (!f['money.techpay']) keep('technicianPay', null);
+  if (!f['payments.technicians']) {
     keep('technicianPaid', false);
     keep('technicianPaidDate', null);
   }
   // Cambiar el proximo mantenimiento es cambiar la venta.
-  if (p.sales !== 'edit') delete body.nextServiceDate;
+  if (!f['sales.edit']) delete body.nextServiceDate;
   return body;
+}
+
+/** Al editar un cliente sin ver sus datos de contacto, esos datos no se tocan. */
+export function protectClientBody(raw: unknown, existing: Client | null, p: Permissions): unknown {
+  const body = asBody(raw);
+  if (!body || !existing || p.flags['clients.contact']) return body ?? raw;
+  for (const field of ['phone', 'phone2', 'email', 'address', 'zip'] as const) body[field] = existing[field];
+  return body;
+}
+
+/** Lo que el mismo registro hoy lo puede corregir aunque no tenga permiso de editar. */
+export function createdTodayBy(db: DB, table: 'sales' | 'services', id: number, userId: number) {
+  const row = db.prepare(`SELECT created_by, created_at FROM ${table} WHERE id = ?`).get(id) as { created_by: number | null; created_at: string } | undefined;
+  return Boolean(row && row.created_by === userId && Date.now() - Date.parse(row.created_at.replace(' ', 'T') + 'Z') < 24 * 3600 * 1000);
 }

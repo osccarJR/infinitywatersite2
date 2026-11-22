@@ -74,8 +74,10 @@ export function Payables({ action }: { action: string | null }) {
   const a = useAccess();
   const { reload } = useStore();
   const { toast } = useFeedback();
-  const canEdit = a.canEdit('payables');
-  const [editing, setEditing] = useState<Editing>(() => (canEdit && action === 'cargo' ? { kind: 'charge', payable: null } : canEdit && action === 'pago' ? { kind: 'payment' } : null));
+  const canCharge = a.can('payables.charges');
+  const canPay = a.can('payables.pay');
+  const canAccounts = a.can('payables.accounts');
+  const [editing, setEditing] = useState<Editing>(() => (canCharge && action === 'cargo' ? { kind: 'charge', payable: null } : canPay && action === 'pago' ? { kind: 'payment' } : null));
   const [creating, setCreating] = useState<string | null>(null);
 
   const statuses = useMemo(() => accountStatuses(data.payableAccounts, data.payables, data.payablePayments, data.today), [data]);
@@ -107,14 +109,18 @@ export function Payables({ action }: { action: string | null }) {
       title="Cuentas por pagar"
       subtitle={totals.balance ? `Debes ${moneyRound(totals.balance)} en ${plural(totals.accountsWithDebt, 'cuenta', 'cuentas')}` : 'Todo al día'}
       headerAction={
-        canEdit && data.payableAccounts.length > 0 ? (
+        (canCharge || canPay) && data.payableAccounts.length > 0 ? (
           <span style={{ display: 'flex', gap: 8 }}>
-            <button type="button" className="btn small gray" onClick={() => setEditing({ kind: 'payment' })}>
-              <CircleCheck size={17} /> <span className="add-label">Pagar</span>
-            </button>
-            <button type="button" className="btn small add-btn" onClick={() => setEditing({ kind: 'charge', payable: null })} aria-label="Agregar gasto">
-              <Plus size={18} strokeWidth={2.5} /> <span className="add-label">Gasto</span>
-            </button>
+            {canPay && (
+              <button type="button" className="btn small gray" onClick={() => setEditing({ kind: 'payment' })}>
+                <CircleCheck size={17} /> <span className="add-label">Pagar</span>
+              </button>
+            )}
+            {canCharge && (
+              <button type="button" className="btn small add-btn" onClick={() => setEditing({ kind: 'charge', payable: null })} aria-label="Agregar gasto">
+                <Plus size={18} strokeWidth={2.5} /> <span className="add-label">Gasto</span>
+              </button>
+            )}
           </span>
         ) : undefined
       }
@@ -124,7 +130,7 @@ export function Payables({ action }: { action: string | null }) {
           <span className="onboarding-icon"><CreditCard size={28} /></span>
           <h2>Empieza con tus tarjetas y proveedores</h2>
           <p className="muted">Cada cuenta lleva lo que se debe y lo que se ha pagado. El sistema te avisa lo vencido y lo que vence pronto.</p>
-          {canEdit ? (
+          {canAccounts ? (
             <>
               <div className="suggest-chips">
                 {SUGGESTED.map((s) => (
@@ -172,13 +178,13 @@ export function Payables({ action }: { action: string | null }) {
 
           <Section
             title="Tus cuentas"
-            action={canEdit && <button type="button" className="section-link link-btn" onClick={() => setEditing({ kind: 'account', account: null })}>Agregar</button>}
+            action={canAccounts && <button type="button" className="section-link link-btn" onClick={() => setEditing({ kind: 'account', account: null })}>Agregar</button>}
           >
             <div className="card-wallet">
               {active.map((status) => (
                 <AccountCard key={status.account.id} status={status} />
               ))}
-              {canEdit &&
+              {canAccounts &&
                 missingSuggestions.slice(0, 2).map((s) => (
                   <button key={s.name} type="button" className="wallet-add" disabled={creating != null} onClick={() => quickCreate(s.name, s.kind)}>
                     <Plus size={20} />
@@ -195,7 +201,7 @@ export function Payables({ action }: { action: string | null }) {
                   <Empty inGroup icon={<CircleCheck size={28} />} title="Todo pagado" text="Cuando registres un gasto aparecerá aquí hasta que lo pagues." />
                 ) : (
                   upcoming.slice(0, 8).map((item) => (
-                    <ChargeRow key={item.payable.id} item={item} account={item.status.account} onOpen={() => (canEdit ? setEditing({ kind: 'charge', payable: item.payable }) : navigate(`/pagar/${item.status.account.id}`))} />
+                    <ChargeRow key={item.payable.id} item={item} account={item.status.account} onOpen={() => (canCharge ? setEditing({ kind: 'charge', payable: item.payable }) : navigate(`/pagar/${item.status.account.id}`))} />
                   ))
                 )}
               </Group>
@@ -320,7 +326,9 @@ export function PayableAccountScreen({ id }: { id: number }) {
   const a = useAccess();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
-  const canEdit = a.canEdit('payables');
+  const canCharge = a.can('payables.charges');
+  const canPay = a.can('payables.pay');
+  const canDelete = a.can('payables.delete');
   const [editing, setEditing] = useState<Editing>(null);
   const [tab, setTab] = useState<'pending' | 'all' | 'payments'>('pending');
   const status = useMemo(
@@ -353,21 +361,25 @@ export function PayableAccountScreen({ id }: { id: number }) {
       title={account.name}
       hideTitle
       back={{ label: 'Por pagar', to: '/pagar' }}
-      actions={canEdit ? <button type="button" className="link-btn strong" onClick={() => setEditing({ kind: 'account', account })}>Editar</button> : undefined}
+      actions={a.can('payables.accounts') ? <button type="button" className="link-btn strong" onClick={() => setEditing({ kind: 'account', account })}>Editar</button> : undefined}
       narrow
     >
       <AccountCard status={status} large />
 
-      {canEdit && (
-        <div className="quick-actions two">
-          <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'payment', accountId: account.id })} disabled={status.balance === 0}>
-            <CircleCheck size={22} />
-            Registrar pago
-          </button>
-          <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'charge', payable: null, accountId: account.id })}>
-            <Plus size={22} />
-            Nuevo gasto
-          </button>
+      {(canPay || canCharge) && (
+        <div className={`quick-actions ${canPay && canCharge ? 'two' : 'one'}`}>
+          {canPay && (
+            <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'payment', accountId: account.id })} disabled={status.balance === 0}>
+              <CircleCheck size={22} />
+              Registrar pago
+            </button>
+          )}
+          {canCharge && (
+            <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'charge', payable: null, accountId: account.id })}>
+              <Plus size={22} />
+              Nuevo gasto
+            </button>
+          )}
         </div>
       )}
 
@@ -398,7 +410,7 @@ export function PayableAccountScreen({ id }: { id: number }) {
       </div>
 
       {tab === 'payments' ? (
-        <Group footer={canEdit && status.payments.length ? 'Toca un pago para borrarlo si fue un error.' : undefined}>
+        <Group footer={canDelete && status.payments.length ? 'Toca un pago para borrarlo si fue un error.' : undefined}>
           {status.payments.length === 0 ? (
             <Empty inGroup title="Sin pagos todavía" />
           ) : (
@@ -407,7 +419,7 @@ export function PayableAccountScreen({ id }: { id: number }) {
               return (
                 <Row
                   key={p.id}
-                  onClick={canEdit ? () => removePayment(p) : undefined}
+                  onClick={canDelete ? () => removePayment(p) : undefined}
                   chevron={false}
                   leading={<IconBox icon={<CircleCheck size={16} />} color="#1d9a46" />}
                   title={`${dateWithYear(p.date)}${p.method ? ` · ${SERVICE_PAYMENT_LABEL[p.method]}` : ''}`}
@@ -424,7 +436,7 @@ export function PayableAccountScreen({ id }: { id: number }) {
             <Empty inGroup icon={<CircleCheck size={28} />} title={tab === 'pending' ? 'Nada por pagar' : 'Sin gastos'} />
           ) : (
             items.map((item) => (
-              <ChargeRow key={item.payable.id} item={item} account={account} showAccount={false} onOpen={() => (canEdit ? setEditing({ kind: 'charge', payable: item.payable }) : undefined)} />
+              <ChargeRow key={item.payable.id} item={item} account={account} showAccount={false} onOpen={() => (canCharge ? setEditing({ kind: 'charge', payable: item.payable }) : undefined)} />
             ))
           )}
         </Group>
@@ -547,7 +559,7 @@ function AccountSheet({ open, account, onClose }: { open: boolean; account: Paya
           {account && <SwitchRow label="Activa" subtitle="Inactiva: no aparece al registrar gastos" checked={form.active} onChange={(active) => setForm({ ...form, active })} />}
         </Group>
         {error && <p className="field-error">{error}</p>}
-        {account && a.delete && (
+        {account && a.can('payables.delete') && (
           <div className="group" style={{ marginTop: 22 }}>
             <button type="button" className="row danger" onClick={remove}>Borrar cuenta</button>
           </div>
@@ -670,12 +682,12 @@ function ChargeSheet({ open, payable, accountId, onClose }: { open: boolean; pay
         <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Opcional" multiline />
       </Group>
       {error && <p className="field-error">{error}</p>}
-      {payable && status && status.remaining > 0 && (
+      {payable && status && status.remaining > 0 && a.can('payables.pay') && (
         <div style={{ marginTop: 16 }}>
           <PayNowButton payable={payable} remaining={status.remaining} onDone={onClose} />
         </div>
       )}
-      {payable && a.delete && (
+      {payable && a.can('payables.delete') && (
         <div className="group" style={{ marginTop: 18 }}>
           <button type="button" className="row danger" onClick={remove}>Borrar gasto</button>
         </div>

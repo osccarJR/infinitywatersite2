@@ -102,17 +102,23 @@ const ROUTES: [string, (p: Record<string, string>, q: URLSearchParams) => ReactN
 
 /** Que permiso pide cada parte de la app (el servidor exige lo mismo). */
 const ROUTE_ACCESS: [RegExp, (a: Access) => boolean][] = [
-  [/^\/ventas\/(nueva|\d+\/editar)$/, (a) => a.canEdit('sales')],
+  [/^\/ventas\/nueva$/, (a) => a.can('sales.create')],
+  [/^\/ventas\/\d+\/editar$/, (a) => a.canEdit('sales')],
   [/^\/ventas/, (a) => a.canSee('sales')],
-  [/^\/servicio\/nuevo$/, (a) => a.canEdit('services')],
+  [/^\/servicio\/nuevo$/, (a) => a.can('services.create')],
   [/^\/servicio/, (a) => a.canSee('services')],
-  [/^\/clientes\/(nuevo|\d+\/editar)$/, (a) => a.canEdit('clients')],
+  [/^\/clientes\/nuevo$/, (a) => a.can('clients.create')],
+  [/^\/clientes\/\d+\/editar$/, (a) => a.can('clients.edit')],
+  [/^\/clientes/, (a) => a.can('clients.view')],
   [/^\/pagos/, (a) => a.canSee('payments')],
   [/^\/pagar/, (a) => a.canSee('payables')],
   [/^\/inventario/, (a) => a.canSee('inventory')],
   [/^\/reportes/, (a) => a.reports],
   [/^\/ajustes\/usuarios/, (a) => a.admin],
-  [/^\/ajustes\/(equipo|financieras|proveedores|marcas)/, (a) => a.catalogs],
+  [/^\/ajustes\/equipo/, (a) => a.can('catalogs.team')],
+  [/^\/ajustes\/financieras/, (a) => a.can('catalogs.financiers')],
+  [/^\/ajustes\/proveedores/, (a) => a.can('catalogs.suppliers')],
+  [/^\/ajustes\/marcas/, (a) => a.can('catalogs.brands')],
 ];
 
 function resolve(path: string, query: URLSearchParams, access: Access) {
@@ -160,7 +166,7 @@ type NavItem = { to: string; label: string; short?: string; icon: typeof House; 
 
 const NAV: NavItem[] = [
   { to: '/', label: 'Inicio', icon: House, color: '#0a72c2', show: () => true },
-  { to: '/clientes', label: 'Clientes', icon: Users, color: '#0a72c2', show: () => true },
+  { to: '/clientes', label: 'Clientes', icon: Users, color: '#0a72c2', show: (a) => a.can('clients.view') },
   { to: '/ventas', label: 'Ventas', icon: Receipt, color: '#0a72c2', show: (a) => a.canSee('sales') },
   { to: '/servicio', label: 'Servicio técnico', short: 'Servicio', icon: Wrench, color: '#ff9500', show: (a) => a.canSee('services') },
   { to: '/pagos', label: 'Pagos', icon: HandCoins, color: '#1d9a46', show: (a) => a.canSee('payments') },
@@ -187,7 +193,11 @@ function Shell() {
   const isForm = /^\/(ventas\/(nueva|\d+\/editar)|servicio\/(nuevo|\d+)|clientes\/(nuevo|\d+\/editar))$/.test(path);
 
   const pendingPayments = access.canSee('payments')
-    ? data.sales.filter((s) => s.status === 'active' && (((s.commission ?? 0) > 0 && !s.commissionPaid) || (s.paymentMethod === 'financed' && !s.fundedPaid))).length
+    ? data.sales.filter(
+        (s) =>
+          s.status === 'active' &&
+          ((access.can('money.commissions') && (s.commission ?? 0) > 0 && !s.commissionPaid) || (access.can('money.financier') && s.paymentMethod === 'financed' && !s.fundedPaid))
+      ).length
     : 0;
   const counts: Record<string, number | undefined> = {
     '/clientes': data.clients.length || undefined,
@@ -339,7 +349,7 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
   const all = [
     {
       to: '/ventas/nueva',
-      show: access.canEdit('sales'),
+      show: access.can('sales.create'),
       icon: <Receipt size={22} />,
       color: 'var(--accent)',
       title: 'Venta nueva',
@@ -347,7 +357,7 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
     },
     {
       to: '/ventas/nueva?anterior=1',
-      show: access.canEdit('sales'),
+      show: access.can('sales.create'),
       icon: <History size={22} />,
       color: '#6a3fdc',
       title: 'Cliente anterior',
@@ -355,7 +365,7 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
     },
     {
       to: '/servicio/nuevo',
-      show: access.canEdit('services'),
+      show: access.can('services.create'),
       icon: <Wrench size={22} />,
       color: '#ff9500',
       title: 'Servicio técnico',
@@ -363,7 +373,7 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
     },
     {
       to: '/clientes/nuevo',
-      show: access.canEdit('clients'),
+      show: access.can('clients.create'),
       icon: <UserPlus size={22} />,
       color: '#34c759',
       title: 'Solo el cliente',
@@ -371,7 +381,7 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
     },
     {
       to: '/pagar?nuevo=cargo',
-      show: access.canEdit('payables'),
+      show: access.can('payables.charges'),
       icon: <CreditCard size={22} />,
       color: '#e5484d',
       title: 'Gasto o cuenta por pagar',
@@ -379,7 +389,7 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
     },
     {
       to: '/inventario?nuevo=movimiento',
-      show: access.canEdit('inventory'),
+      show: access.can('inventory.move'),
       icon: <PackagePlus size={22} />,
       color: '#6a3fdc',
       title: 'Inventario',
