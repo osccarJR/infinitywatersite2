@@ -75,6 +75,25 @@ servidor rechaza cualquier guardado durante la vista previa.
 Siempre queda al menos un administrador activo y nadie puede quitarse a sí
 mismo el acceso de administrador.
 
+## Registro de actividad (solo el dueño)
+
+El **dueño** (Oscar; columna `users.is_owner`) ve en *Registro de actividad*
+todo lo que pasa: quién, cuándo, desde qué equipo e IP y **qué cambió** (valor
+anterior → nuevo de cada campo). Incluye ventas, clientes, servicios, pagos,
+cuentas por pagar, inventario, equipo y catálogos, usuarios y permisos,
+entradas, salidas, **intentos fallidos** (con el usuario que se probó),
+vistas previas, descargas a Excel, impresiones y respaldos. Lo borrado queda
+con la foto de cómo era. Se filtra por persona, tipo, periodo y texto, y se
+descarga a Excel.
+
+- La app no puede editarlo ni borrarlo, y `borrar-datos` ya no lo toca (lo anota).
+- **Sellado:** cada fila lleva una firma HMAC encadenada con la anterior
+  (`server/audit.ts`; clave en `data/audit.key`, fuera de la base). Si alguien
+  cambia o borra filas directamente en la base, el panel muestra "el registro
+  fue alterado".
+- Nadie más ve el registro (tampoco desde la vista previa), nadie más puede
+  cambiar la cuenta del dueño ni "verla como" él, y el dueño nunca pierde el acceso.
+
 ## Cuentas por pagar
 
 Cuentas (tarjeta, proveedor, préstamo, persona, otro) con últimos 4 dígitos,
@@ -83,6 +102,12 @@ opcional; cada **pago** puede ir a un gasto concreto o al saldo de la cuenta
 (se aplica a lo que vence antes, como el banco). Saldos, vencido y "vence en
 7 días" se calculan de los movimientos (`app/src/lib/books.ts`). Borrar un
 gasto con pagos los deja como abono a la cuenta.
+
+**Proveedores:** en *Cuentas por pagar → Proveedores*. Cada cuenta de
+proveedor es el mismo proveedor de las ventas y del inventario
+(`payable_accounts.supplier_id`); para ellos se habla de **facturas** (nueva
+factura, pagar factura). Al registrar una compra en el inventario se puede
+marcar "Se le debe al proveedor" y la factura queda anotada sola.
 
 ## Inventario
 
@@ -125,7 +150,7 @@ cd admin
 npm install
 DATA_DIR=data PASSWORD=una-clave-de-prueba node --experimental-strip-types server/cli.ts crear demo "Demo"
 npm run dev        # API en :3042 + Vite en http://localhost:5173/admin/
-npm test           # compila y corre las 49 pruebas
+npm test           # compila y corre las 52 pruebas
 npm run typecheck
 ```
 

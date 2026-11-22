@@ -12,10 +12,10 @@ import { useAccess } from '../lib/access.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
 import { stockLevels, type ItemStock } from '../lib/books.ts';
-import { date, dateWithYear, money, moneyFit, plural } from '../lib/format.ts';
+import { date, dateWithYear, money, moneyFit, plural, moneyPlain } from '../lib/format.ts';
 import { Badge, Chips, Empty, Group, IconBox, MoneyField, Page, Row, Section, SearchBox, Stat, StackField, SwitchRow, TextField } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
-import { PickerRow } from '../ui/pickers.tsx';
+import { PickerRow, useCatalogCreate } from '../ui/pickers.tsx';
 import { Picker, Sheet, useFeedback } from '../ui/sheet.tsx';
 
 const CATEGORY_COLOR: Record<InventoryCategory, string> = {
@@ -364,6 +364,8 @@ function ItemSheet({ open, item, onClose }: { open: boolean; item: InventoryItem
   const blank = { name: '', category: 'part' as InventoryCategory, sku: '', cost: null as number | null, minStock: '0', notes: '', active: true };
   const [form, setForm] = useState(blank);
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -409,7 +411,10 @@ function ItemSheet({ open, item, onClose }: { open: boolean; item: InventoryItem
       onClose={onClose}
       title={item ? 'Editar producto' : 'Nuevo producto'}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={save} disabled={busy}>Guardar</button>}
+      onSubmit={save}
+      busy={busy}
+      error={error}
+      guard
     >
       <Group>
         <TextField label="Nombre" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="Membrana 75 GPD, cartucho 10”…" maxLength={120} autoFocus={!item} />
@@ -431,7 +436,6 @@ function ItemSheet({ open, item, onClose }: { open: boolean; item: InventoryItem
         <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Proveedor habitual, medidas…" multiline />
         {item && <SwitchRow label="Activo" subtitle="Inactivo: ya no se usa; se conserva su historial" checked={form.active} onChange={(active) => setForm({ ...form, active })} />}
       </Group>
-      {error && <p className="field-error">{error}</p>}
       {item && a.can('inventory.delete') && (
         <div className="group" style={{ marginTop: 22 }}>
           <button type="button" className="row danger" onClick={remove}><Trash2 size={17} /> Borrar producto</button>
@@ -461,9 +465,14 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
   const { reload } = useStore();
   const { toast } = useFeedback();
   const [kind, setKind] = useState<MovementKind>('in');
-  const [form, setForm] = useState({ itemId: null as number | null, quantity: 1, counted: 0, unitCost: null as number | null, supplierId: null as number | null, link: null as string | null, date: data.today, notes: '' });
+  const [form, setForm] = useState({ itemId: null as number | null, quantity: 1, counted: 0, unitCost: null as number | null, supplierId: null as number | null, link: null as string | null, date: data.today, notes: '', owe: false, billRef: '', billDue: '' });
+  const createSupplier = useCatalogCreate('suppliers');
+  // Compra a credito: la factura se anota sola en cuentas por pagar.
+  const canBill = a.can('payables.charges') && a.can('money.costs');
   const [picker, setPicker] = useState<'item' | 'supplier' | 'link' | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form, kind]);
   const [busy, setBusy] = useState(false);
   const levels = useMemo(() => stockLevels(data.inventoryItems, data.inventoryMovements), [data]);
   const current = levels.find((s) => s.item.id === form.itemId);
@@ -473,7 +482,7 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
     setError(null);
     setKind(initialKind ?? (a.can('inventory.move') ? 'in' : 'adjust'));
     const s = levels.find((x) => x.item.id === itemId);
-    setForm({ itemId: itemId ?? null, quantity: 1, counted: Math.max(s?.stock ?? 0, 0), unitCost: s?.item.cost ?? null, supplierId: null, link: null, date: data.today, notes: '' });
+    setForm({ itemId: itemId ?? null, quantity: 1, counted: Math.max(s?.stock ?? 0, 0), unitCost: s?.item.cost ?? null, supplierId: null, link: null, date: data.today, notes: '', owe: false, billRef: '', billDue: '' });
   }, [open, itemId, initialKind]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Instalaciones y servicios recientes a los que se puede cargar la salida.
@@ -499,6 +508,7 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
     if (kind !== 'adjust' && form.quantity <= 0) return setError('La cantidad debe ser mayor que cero.');
     if (kind === 'adjust' && delta === 0) return setError('El conteo es igual a lo que dice el sistema: no hay nada que ajustar.');
     if (kind === 'out' && current && form.quantity > current.stock) return setError(`Solo hay ${current.stock}. Registra primero la entrada o haz un conteo.`);
+    if (kind === 'in' && form.owe && form.supplierId && !form.unitCost) return setError('Pon el costo por unidad para anotar la factura del proveedor.');
     setBusy(true);
     try {
       await api('/inventory-movements', {
@@ -510,13 +520,14 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
           quantity: kind === 'adjust' ? delta : form.quantity,
           unitCost: kind === 'in' ? form.unitCost : null,
           supplierId: kind === 'in' ? form.supplierId : null,
+          bill: kind === 'in' && form.owe && form.supplierId ? { dueDate: form.billDue || null, reference: form.billRef || null } : null,
           saleId: kind === 'out' && form.link?.startsWith('s') ? Number(form.link.slice(1)) : null,
           serviceId: kind === 'out' && form.link?.startsWith('v') ? Number(form.link.slice(1)) : null,
           notes: form.notes || null,
         },
       });
       await reload();
-      toast(kind === 'in' ? `Entraron ${form.quantity}` : kind === 'out' ? `Salieron ${form.quantity}` : 'Conteo ajustado');
+      toast(kind === 'in' ? `Entraron ${form.quantity}${form.owe && form.supplierId ? ' · factura anotada en cuentas por pagar' : ''}` : kind === 'out' ? `Salieron ${form.quantity}` : 'Conteo ajustado');
       onClose();
     } catch (err: any) {
       setError(err.message);
@@ -531,7 +542,10 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
       onClose={onClose}
       title="Movimiento"
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={save} disabled={busy}>Guardar</button>}
+      onSubmit={save}
+      busy={busy}
+      error={error}
+      guard
     >
       <div className="move-kinds" role="radiogroup" aria-label="Tipo de movimiento">
         {(['in', 'out', 'adjust'] as MovementKind[]).filter((k) => (k === 'adjust' ? a.can('inventory.count') : a.can('inventory.move'))).map((k) => (
@@ -563,8 +577,22 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
 
       {kind === 'in' && (
         <Group>
-          {a.can('money.costs') && <MoneyField label="Costo por unidad" value={form.unitCost} onChange={(unitCost) => setForm({ ...form, unitCost })} placeholder="Opcional" hint={form.unitCost && form.quantity > 1 ? `Total ${money(form.unitCost * form.quantity)}` : undefined} />}
+          {a.can('money.costs') && <MoneyField label="Costo por unidad" value={form.unitCost} onChange={(unitCost) => setForm({ ...form, unitCost })} placeholder="Opcional" hint={form.unitCost && form.quantity > 1 ? `Total ${moneyPlain(form.unitCost * form.quantity)}` : undefined} />}
           <PickerRow label="Proveedor" value={form.supplierId ? data.supplierById.get(form.supplierId)?.name : null} placeholder="Opcional" onOpen={() => setPicker('supplier')} />
+          {canBill && form.supplierId && (
+            <SwitchRow
+              label="Se le debe al proveedor"
+              subtitle={form.unitCost ? `Anota la factura de ${moneyPlain(form.unitCost * form.quantity)} en cuentas por pagar` : 'Pon el costo por unidad para anotar la factura'}
+              checked={form.owe}
+              onChange={(owe) => setForm({ ...form, owe })}
+            />
+          )}
+          {canBill && form.supplierId && form.owe && (
+            <>
+              <TextField label="Número de factura" value={form.billRef} onChange={(billRef) => setForm({ ...form, billRef })} placeholder="Opcional" maxLength={80} />
+              <DateField label="Vence la factura" value={form.billDue} onChange={(billDue) => setForm({ ...form, billDue })} min={form.date} quick="future" />
+            </>
+          )}
         </Group>
       )}
       {kind === 'out' && (a.canSee('sales') || a.canSee('services')) && (
@@ -574,10 +602,9 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
       )}
 
       <Group>
-        <DateField label="Fecha" value={form.date} onChange={(v) => setForm({ ...form, date: v || data.today })} max={data.today} />
+        <DateField required label="Fecha" value={form.date} onChange={(v) => setForm({ ...form, date: v || data.today })} max={data.today} />
         <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Factura, motivo del ajuste…" multiline />
       </Group>
-      {error && <p className="field-error">{error}</p>}
 
       <Picker
         open={picker === 'item'}
@@ -597,7 +624,9 @@ function MoveSheet({ open, itemId, initialKind, onClose }: { open: boolean; item
         title="Proveedor"
         options={data.suppliers.map((s) => ({ id: s.id, label: s.name, inactive: !s.active }))}
         value={form.supplierId}
-        onSelect={(supplierId) => setForm({ ...form, supplierId })}
+        onSelect={(supplierId) => setForm({ ...form, supplierId, owe: supplierId ? form.owe : false })}
+        onCreate={a.can('inventory.move') ? createSupplier : undefined}
+        createLabel="Agregar proveedor"
         allowNone="Sin proveedor"
       />
       <Picker

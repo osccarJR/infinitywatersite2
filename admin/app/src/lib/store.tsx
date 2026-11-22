@@ -98,6 +98,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setUnauthorizedHandler(() => {
+      // Si estaba dentro, se avisa por que volvio a pedir la clave.
+      if (statusRef.current === 'ready') {
+        try {
+          sessionStorage.setItem('iw-session-ended', '1');
+        } catch {
+          /* sin almacenamiento */
+        }
+      }
       setStatus('login');
       setRaw(null);
     });

@@ -54,6 +54,11 @@ export function SaleDetail({ id }: { id: number }) {
   const e = sale.equipment;
 
   const mark = async (field: 'fundedPaid' | 'commissionPaid', paid: boolean) => {
+    if (!paid) {
+      const what = field === 'fundedPaid' ? 'el pago de la financiera' : 'el pago de la comisión';
+      const ok = await confirm({ title: `¿Deshacer ${what}?`, message: 'Vuelve a quedar como pendiente y se borra la fecha del pago.', confirm: 'Deshacer', danger: true });
+      if (!ok) return;
+    }
     try {
       await api(`/sales/${id}/mark`, { method: 'POST', body: { field, paid, date: paid ? data.today : null } });
       await reload();

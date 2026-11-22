@@ -80,6 +80,7 @@ export function Services({ initialFilter }: { initialFilter: string | null }) {
                 onClick={() => {
                   try {
                     exportServices(list, data, a);
+                    toast('Descargado. Ábrelo con Excel o Google Sheets (está en Descargas).');
                   } catch (err: any) {
                     toast(err.message, 'error');
                   }

@@ -7,7 +7,7 @@ import type { PermissionFlag, Sale, Service } from '../../../shared/domain.ts';
 import { SALE_STATUS_LABEL, SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, WATER_LABEL, equipmentSummary, formatAddress, saleMoney } from '../../../shared/domain.ts';
 import type { Data } from './store.tsx';
 import type { Access } from './access.ts';
-import { saveFile } from './api.ts';
+import { logEvent, saveFile } from './api.ts';
 import { previewBlockedMessage, previewTarget } from './preview.ts';
 
 type Cell = string | number | null | undefined;
@@ -30,10 +30,11 @@ export function toCsv(header: string[], rows: Cell[][]) {
   return '﻿' + [header, ...rows].map((row) => row.map(cell).join(',')).join('\r\n') + '\r\n';
 }
 
-export function exportRows<T>(name: string, rows: T[], columns: Column<T>[], access: Access, today: string) {
+export function exportRows<T>(name: string, rows: T[], columns: Column<T>[], access: Access, today: string, what = name) {
   const preview = previewTarget();
   if (preview) throw new Error(previewBlockedMessage(preview.name));
   const visible = columns.filter((c) => !c.need || access.can(c.need));
+  logEvent('export', what, rows.length);
   saveFile(`infinitywater-${name}-${today}.csv`, toCsv(visible.map((c) => c.label), rows.map((row) => visible.map((c) => c.value(row)))));
 }
 
@@ -75,7 +76,8 @@ export function exportSales(sales: Sale[], data: Data, access: Access) {
       { label: 'Notas', value: (s) => s.notes },
     ],
     access,
-    data.today
+    data.today,
+    'la lista de ventas'
   );
 }
 
@@ -101,6 +103,7 @@ export function exportServices(services: Service[], data: Data, access: Access) 
       { label: 'Pago al técnico', value: (s) => dollars(s.technicianPay), need: 'money.techpay' },
     ],
     access,
-    data.today
+    data.today,
+    'la lista de servicio técnico'
   );
 }

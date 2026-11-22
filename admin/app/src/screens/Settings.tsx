@@ -3,10 +3,11 @@
  * respaldo.
  */
 import { useEffect, useState, type FormEvent } from 'react';
-import { DatabaseBackup, Download, KeyRound, Landmark, LogOut, Package, Plus, Smartphone, Tag, UserCog, Users } from 'lucide-react';
+import { DatabaseBackup, Download, KeyRound, ShieldCheck, Landmark, LogOut, Package, Plus, Smartphone, Tag, UserCog, Users } from 'lucide-react';
 import type { CatalogItem, Person } from '../../../shared/domain.ts';
 import { permissionsSummary } from '../../../shared/domain.ts';
 import { useAccess } from '../lib/access.ts';
+import { PhotoEditor } from '../ui/photo.tsx';
 import { useData, useStore } from '../lib/store.tsx';
 import { api, download } from '../lib/api.ts';
 import { plural } from '../lib/format.ts';
@@ -28,6 +29,7 @@ export function Settings() {
   const safeDownload = (path: string) => {
     try {
       download(path);
+      toast(path === '/backup' ? 'Descargando la copia completa…' : 'Descargado. Ábrelo con Excel o Google Sheets.');
     } catch (err: any) {
       toast(err.message, 'error');
     }
@@ -38,7 +40,7 @@ export function Settings() {
       <Group>
         <Row
           to="/ajustes/cuenta"
-          leading={<Avatar name={data.me.name} />}
+          leading={<Avatar name={data.me.name} photo={data.me.avatar} />}
           title={<span style={{ fontWeight: 600 }}>{data.me.name}</span>}
           subtitle={access.admin ? `Usuario: ${data.me.username}` : permissionsSummary(data.me.permissions)}
         />
@@ -54,6 +56,7 @@ export function Settings() {
       )}
 
       <Group label="Acceso">
+        {access.owner && <Row to="/actividad" leading={<IconBox icon={<ShieldCheck size={17} />} color="#1d1d1f" />} title="Registro de actividad" subtitle="Quién hizo qué, cuándo y desde dónde. Solo lo ves tú." />}
         {access.admin && <Row to="/ajustes/usuarios" leading={<IconBox icon={<UserCog size={17} />} color="#8e8e93" />} title="Usuarios y permisos" subtitle="Quién entra y qué puede ver cada uno" />}
         <Row to="/ajustes/cuenta" leading={<IconBox icon={<KeyRound size={17} />} color="#34c759" />} title="Cambiar mi contraseña" />
       </Group>
@@ -152,6 +155,8 @@ function PersonSheet({ person, onClose }: { person: Person | 'new' | null; onClo
   const { toast, confirm } = useFeedback();
   const [form, setForm] = useState({ name: '', phone: '', isSeller: true, isInstaller: false, active: true });
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -196,9 +201,12 @@ function PersonSheet({ person, onClose }: { person: Person | 'new' | null; onClo
       onClose={onClose}
       title={person === 'new' ? 'Nueva persona' : 'Editar'}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={() => save()} disabled={busy}>Guardar</button>}
+      onSubmit={() => save()}
+      busy={busy}
+      error={error}
+      guard
     >
-      <form onSubmit={save}>
+      <>
         <Group>
           <TextField label="Nombre" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="Nombre" autoFocus={person === 'new'} maxLength={80} />
           <TextField label="Teléfono" type="tel" inputMode="tel" value={form.phone} onChange={(phone) => setForm({ ...form, phone })} placeholder="Opcional" />
@@ -212,14 +220,12 @@ function PersonSheet({ person, onClose }: { person: Person | 'new' | null; onClo
             <SwitchRow label="Activo" checked={form.active} onChange={(active) => setForm({ ...form, active })} />
           </Group>
         )}
-        {error && <p className="field-error">{error}</p>}
         {person !== 'new' && (
           <div className="group" style={{ marginTop: 22 }}>
             <button type="button" className="row danger" onClick={remove}>Borrar</button>
           </div>
         )}
-        <button type="submit" hidden />
-      </form>
+      </>
     </Sheet>
   );
 }
@@ -285,6 +291,8 @@ function CatalogSheet({ table, item, onClose }: { table: 'financiers' | 'supplie
   const [name, setName] = useState('');
   const [active, setActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [name, active]);
 
   useEffect(() => {
     if (!item) return;
@@ -326,21 +334,21 @@ function CatalogSheet({ table, item, onClose }: { table: 'financiers' | 'supplie
       onClose={onClose}
       title={item === 'new' ? 'Agregar' : 'Editar'}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={() => save()}>Guardar</button>}
+      onSubmit={() => save()}
+      error={error}
+      guard
     >
-      <form onSubmit={save}>
+      <>
         <Group>
           <TextField label="Nombre" value={name} onChange={setName} placeholder="Nombre" autoFocus={item === 'new'} maxLength={80} />
           {item !== 'new' && <SwitchRow label="Activa" checked={active} onChange={setActive} />}
         </Group>
-        {error && <p className="field-error">{error}</p>}
         {item !== 'new' && (
           <div className="group" style={{ marginTop: 22 }}>
             <button type="button" className="row danger" onClick={remove}>Borrar</button>
           </div>
         )}
-        <button type="submit" hidden />
-      </form>
+      </>
     </Sheet>
   );
 }
@@ -384,9 +392,10 @@ export function AccountScreen() {
   return (
     <Page title="Mi cuenta" back={{ label: 'Inicio', to: '/' }} narrow>
       <div className="hero-head">
-        <Avatar name={data.me.name} size="lg" />
+        <Avatar name={data.me.name} size="lg" photo={data.me.avatar} />
         <h1 className="large-title">{data.me.name}</h1>
         <p className="muted">Usuario: {data.me.username}</p>
+        {!data.viewer && <PhotoEditor hasPhoto={Boolean(data.me.avatar)} />}
       </div>
       <Group>
         <Row to="/ajustes" leading={<IconBox icon={<UserCog size={17} />} color="#8e8e93" />} title="Ajustes" subtitle={data.me.permissions.admin ? 'Equipo, financieras, proveedores, usuarios, exportar' : permissionsSummary(data.me.permissions)} />
@@ -406,7 +415,7 @@ export function AccountScreen() {
             <input type="password" value={repeat} onChange={(e) => setRepeat(e.target.value)} autoComplete="new-password" />
           </label>
         </Group>
-        {error && <p className="field-error">{error}</p>}
+        {error && <p className="sheet-error" role="alert">{error}</p>}
         <div style={{ marginTop: 18 }}>
           <button type="submit" className="btn block" disabled={busy || !current || !next || !repeat}>
             {busy ? 'Guardando…' : 'Cambiar contraseña'}

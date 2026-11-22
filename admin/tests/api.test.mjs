@@ -492,7 +492,7 @@ test('cuentas por pagar: cuenta, gasto, pago parcial y validaciones', async () =
   const pay = await call('POST', '/payable-payments', { accountId: visa.id, payableId: charge.data.payable.id, date: '2026-11-12', amount: 30_000, method: 'zelle' });
   assert.equal(pay.status, 200);
   assert.equal((await call('POST', '/payable-payments', { accountId: master.id, payableId: charge.data.payable.id, date: '2026-11-12', amount: 1 })).status, 400, 'pago a un gasto de otra cuenta');
-  assert.match((await call('DELETE', `/payable-accounts/${visa.id}`)).data.error, /Desactívala/);
+  assert.match((await call('DELETE', `/payable-accounts/${visa.id}`)).data.error, /Confirma/, 'con movimientos pide confirmar');
   const boot = (await call('GET', '/bootstrap')).data;
   assert.equal(boot.payables.length, 1);
   assert.equal(boot.payablePayments[0].amount, 30_000);
@@ -500,6 +500,55 @@ test('cuentas por pagar: cuenta, gasto, pago parcial y validaciones', async () =
   await call('DELETE', `/payables/${charge.data.payable.id}`);
   const after = (await call('GET', '/bootstrap')).data;
   assert.equal(after.payablePayments[0].payableId, null);
+});
+
+test('cuentas por pagar: color y red elegidos para la tarjeta', async () => {
+  const acc = (await call('POST', '/payable-accounts', { name: 'BANK OF AMERICA', kind: 'card', last4: '1111', color: 'gold', network: 'mastercard' })).data.account;
+  assert.equal(acc.color, 'gold');
+  assert.equal(acc.network, 'mastercard');
+  assert.equal((await call('POST', '/payable-accounts', { name: 'Mala', kind: 'card', color: 'arcoiris' })).status, 400);
+  const updated = (await call('PUT', `/payable-accounts/${acc.id}`, { ...acc, color: null, network: 'none' })).data.account;
+  assert.equal(updated.color, null);
+  assert.equal(updated.network, 'none');
+  const log = (await call('GET', '/audit?group=payables&limit=3')).data.entries.find((e) => e.action === 'update');
+  assert.ok(log.changes.some((c) => c.f === 'Color' && c.a === 'Dorado'));
+  await call('DELETE', `/payable-accounts/${acc.id}`);
+});
+
+test('proveedores: la cuenta es el mismo proveedor y una compra a crédito anota la factura', async () => {
+  const acc = (await call('POST', '/payable-accounts', { name: 'Aguas del Sur', kind: 'supplier' })).data.account;
+  assert.ok(acc.supplierId, 'quedó ligado a un proveedor del catálogo');
+  const boot = (await call('GET', '/bootstrap')).data;
+  assert.ok(boot.suppliers.some((x) => x.id === acc.supplierId && x.name === 'Aguas del Sur'));
+  // Cambiar el nombre de la cuenta cambia el del proveedor.
+  await call('PUT', `/payable-accounts/${acc.id}`, { ...acc, name: 'Aguas del Sur LLC' });
+  assert.ok((await call('GET', '/bootstrap')).data.suppliers.some((x) => x.id === acc.supplierId && x.name === 'Aguas del Sur LLC'));
+  // Compra de inventario que se le debe al proveedor.
+  const item = (await call('POST', '/inventory-items', { name: 'Cartucho PP 10"', category: 'filter', minStock: 5 })).data.item;
+  const r = await call('POST', '/inventory-movements', { itemId: item.id, date: '2026-11-20', kind: 'in', quantity: 20, unitCost: 450, supplierId: acc.supplierId, bill: { dueDate: '2026-12-20', reference: '#7781' } });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  const bill = (await call('GET', '/bootstrap')).data.payables.find((p) => p.accountId === acc.id);
+  assert.ok(bill, 'factura anotada');
+  assert.equal(bill.amount, 9_000);
+  assert.equal(bill.dueDate, '2026-12-20');
+  assert.match(bill.description, /#7781/);
+  // Sin costo no se puede anotar la factura.
+  assert.equal((await call('POST', '/inventory-movements', { itemId: item.id, date: '2026-11-20', kind: 'in', quantity: 1, supplierId: acc.supplierId, bill: { dueDate: null } })).status, 400);
+});
+
+test('cuentas por pagar: borrar una cuenta creada por error, con todo lo suyo', async () => {
+  const acc = (await call('POST', '/payable-accounts', { name: 'Cuenta por error', kind: 'card' })).data.account;
+  await call('POST', '/payables', { accountId: acc.id, date: '2026-11-20', description: 'Mal anotado', amount: 5_000 });
+  await call('POST', '/payable-payments', { accountId: acc.id, date: '2026-11-20', amount: 1_000 });
+  assert.equal((await call('DELETE', `/payable-accounts/${acc.id}`)).status, 409);
+  assert.equal((await call('DELETE', `/payable-accounts/${acc.id}?todo=1`)).status, 200);
+  const boot = (await call('GET', '/bootstrap')).data;
+  assert.ok(!boot.payableAccounts.some((a) => a.id === acc.id));
+  assert.ok(!boot.payables.some((p) => p.accountId === acc.id));
+  assert.ok(!boot.payablePayments.some((p) => p.accountId === acc.id));
+  const log = (await call('GET', '/audit?group=payables&limit=5')).data.entries[0];
+  assert.equal(log.action, 'delete');
+  assert.ok(log.changes.some((c) => /1 gastos .* 1 pagos/.test(c.b)), JSON.stringify(log.changes));
 });
 
 /* ----------------------------- inventario ----------------------------- */
@@ -580,6 +629,74 @@ test('permisos detallados: cuentas por pagar solo de las tarjetas asignadas', as
   assert.equal((await call('POST', '/payable-accounts', { name: 'Nueva', kind: 'card' }, { as })).status, 403);
 });
 
+
+test('foto de perfil: se sube, se ve y no acepta cualquier archivo', async () => {
+  const fakeJpeg = Buffer.concat([Buffer.from([0xff, 0xd8, 0xff, 0xe0]), Buffer.alloc(200, 7)]).toString('base64');
+  const r = await call('PUT', '/auth/avatar', { image: `data:image/jpeg;base64,${fakeJpeg}` }, { as: sellerCookie });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.match(r.data.user.avatar, /^\/admin\/api\/avatars\/\d+\?v=/);
+  const img = await fetch(BASE + r.data.user.avatar, { headers: { Cookie: cookie } });
+  assert.equal(img.status, 200);
+  assert.equal(img.headers.get('content-type'), 'image/jpeg');
+  assert.equal((await call('PUT', '/auth/avatar', { image: 'data:image/jpeg;base64,' + Buffer.from('<script>').toString('base64') }, { as: sellerCookie })).status, 400);
+  assert.equal((await call('PUT', '/auth/avatar', { image: 'https://otro.sitio/foto.jpg' }, { as: sellerCookie })).status, 400);
+  assert.equal((await call('DELETE', '/auth/avatar', undefined, { as: sellerCookie })).data.user.avatar, null);
+});
+
+/* ------------------------- registro de actividad ------------------------- */
+
+test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {
+  assert.equal((await call('GET', '/audit', undefined, { as: sellerCookie })).status, 403);
+  assert.equal((await call('GET', '/audit', undefined, { viewAs: sellerUserId })).status, 403, 'tampoco en la vista previa');
+  // Un cambio de precio queda con el valor anterior y el nuevo.
+  const sale = (await call('GET', '/bootstrap')).data.sales.find((s) => s.id === saleId);
+  await call('PUT', `/sales/${saleId}`, { ...sale, client: { id: sale.clientId }, price: sale.price + 10_000, expectedUpdatedAt: sale.updatedAt });
+  const log = (await call('GET', '/audit?group=sales&limit=5')).data;
+  const entry = log.entries.find((e) => e.action === 'update' && e.entityId === saleId);
+  assert.ok(entry, 'quedó registrado');
+  assert.equal(entry.userName, 'Papá Albornoz');
+  assert.match(entry.label, /la venta de .+ \(#\d+\)/);
+  const price = entry.changes.find((c) => c.f === 'Valor de la venta');
+  assert.ok(price && price.a && price.b && price.a !== price.b, JSON.stringify(entry.changes));
+  // Accesos: entradas e intentos fallidos con el usuario que se probó.
+  await call('POST', '/auth/login', { username: 'angie', password: 'no-es-esta' }, { auth: false, ip: '192.0.2.77' });
+  const access = (await call('GET', '/audit?group=access&limit=20')).data.entries;
+  const failed = access.find((e) => e.action === 'login-failed' && e.label === 'angie');
+  assert.ok(failed);
+  assert.equal(failed.ip, '192.0.2.77');
+  assert.ok(access.some((e) => e.action === 'login'));
+  // Descargas hechas en la app.
+  await call('POST', '/audit/event', { kind: 'export', what: 'la lista de ventas', rows: 12 }, { as: sellerCookie });
+  const downloads = (await call('GET', '/audit?group=downloads')).data.entries;
+  assert.ok(downloads.some((e) => e.action === 'export' && e.userName === 'Angie' && /12 filas/.test(e.label)));
+  const summary = (await call('GET', '/audit/summary')).data;
+  assert.equal(summary.integrity.ok, true);
+  assert.ok(summary.integrity.count > 10);
+});
+
+test('dueño: otro administrador no toca su cuenta ni lo ve en vista previa', async () => {
+  const r = await call('POST', '/users', { username: 'otroadmin', name: 'Otro Admin', password: 'clave-otro-1234', role: 'admin' });
+  assert.equal(r.status, 200);
+  const owner = r.data.users.find((u) => u.owner);
+  assert.equal(owner.username, 'papa', 'el primer usuario es el dueño');
+  const as = await loginAs('otroadmin', 'clave-otro-1234');
+  assert.equal((await call('PUT', `/users/${owner.id}`, { password: 'clave-nueva-12345' }, { as })).status, 403);
+  assert.equal((await call('PUT', `/users/${owner.id}`, { name: 'Otro nombre' }, { as })).status, 403);
+  assert.equal((await call('GET', '/bootstrap', undefined, { as, viewAs: owner.id })).status, 403);
+  assert.equal((await call('GET', '/audit', undefined, { as })).status, 403, 'el registro es solo del dueño');
+  // El dueño tampoco puede quitarse el acceso.
+  assert.equal((await call('PUT', `/users/${owner.id}`, { active: false })).status, 400);
+});
+
+test('registro sellado: si se altera desde la base, se detecta', async () => {
+  const db = new Database(path.join(dataDir, 'admin.db'));
+  db.prepare(`UPDATE audit SET label = 'cambiado a mano' WHERE id = (SELECT MIN(id) + 3 FROM audit)`).run();
+  db.close();
+  const summary = (await call('GET', '/audit/summary')).data;
+  assert.equal(summary.integrity.ok, false);
+  assert.ok(summary.integrity.brokenAt);
+});
+
 test('bootstrap: 304 si nada cambio, 200 despues de guardar algo', async () => {
   const first = await fetch(BASE + '/admin/api/bootstrap', { headers: { 'X-IW-Admin': '1', Cookie: cookie } });
   const etag = first.headers.get('etag');
@@ -631,4 +748,10 @@ test('borrar-datos deja el sistema en cero y conserva los usuarios', async () =>
   assert.match(out, /Datos borrados: \d+ clientes/);
   const users = execFileSync('node', ['dist/server/cli.js', 'lista'], { cwd: root, env }).toString();
   assert.match(users, /papa/);
+  // El registro de actividad se conserva y anota el borrado.
+  const db = new Database(path.join(dataDir, 'admin.db'), { readonly: true });
+  const last = db.prepare('SELECT action, entity, device FROM audit ORDER BY id DESC LIMIT 1').get();
+  assert.deepEqual(last, { action: 'delete', entity: 'database', device: 'Servidor (terminal)' });
+  assert.ok(db.prepare('SELECT COUNT(*) AS n FROM audit').get().n > 20);
+  db.close();
 });

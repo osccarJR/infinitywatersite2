@@ -41,7 +41,17 @@ export function Login() {
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [caps, setCaps] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(() => {
+    try {
+      if (sessionStorage.getItem('iw-session-ended')) {
+        sessionStorage.removeItem('iw-session-ended');
+        return 'Tu sesión se cerró (por seguridad o porque cambió la contraseña). Entra otra vez.';
+      }
+    } catch {
+      /* sin almacenamiento */
+    }
+    return null;
+  });
   const [state, setState] = useState<'idle' | 'busy' | 'ok'>('idle');
   const passwordRef = useRef<HTMLInputElement>(null);
   const formRef = useRef<HTMLFormElement>(null);

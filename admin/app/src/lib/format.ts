@@ -61,8 +61,8 @@ export function parseMoney(text: string): number | null | undefined {
     // Coma de miles: "1,500" o "1,500.50".
     clean = clean.replace(/,/g, '');
   } else if (/^\d{1,3}(\.\d{3})+$/.test(clean)) {
-    // "1.500" puede ser mil quinientos o uno con cincuenta: no se adivina.
-    return undefined;
+    // "1.500" o "22.384": punto de miles, como se escribe en espanol.
+    clean = clean.replace(/\./g, '');
   }
   if (!/^\d+(\.\d{0,2})?$/.test(clean) && !/^\.\d{1,2}$/.test(clean)) return undefined;
   return Math.round(parseFloat(clean) * 100);

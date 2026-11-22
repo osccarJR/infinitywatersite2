@@ -3,7 +3,7 @@
  * pestanas abajo en el telefono), boton "+" y rutas.
  */
 import { Suspense, lazy, useState, type ReactNode } from 'react';
-import { BarChart3, Boxes, ChevronRight, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
+import { BarChart3, Boxes, ChevronRight, ShieldCheck, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
 import { StoreProvider, useData, useStore } from './lib/store.tsx';
 import { accessOf, type Access } from './lib/access.ts';
 import { permissionsSummary } from '../../shared/domain.ts';
@@ -32,6 +32,7 @@ const PayableAccountScreen = lazy(() => import('./screens/Payables.tsx').then((m
 const Inventory = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.Inventory })));
 const InventoryItemScreen = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.InventoryItemScreen })));
 const Reports = lazy(() => import('./screens/Reports.tsx').then((m) => ({ default: m.Reports })));
+const Audit = lazy(() => import('./screens/Audit.tsx').then((m) => ({ default: m.Audit })));
 
 export function App() {
   return (
@@ -90,6 +91,7 @@ const ROUTES: [string, (p: Record<string, string>, q: URLSearchParams) => ReactN
   ['/inventario', (_, q) => <Inventory action={q.get('nuevo')} />],
   ['/inventario/:id', (p) => <InventoryItemScreen id={Number(p.id)} />],
   ['/reportes', (_, q) => <Reports initial={q.get('r')} />],
+  ['/actividad', (_, q) => <Audit initialUser={Number(q.get('usuario')) || null} />],
   ['/ajustes', () => <SettingsScreen />],
   ['/ajustes/equipo', () => <PeopleScreen />],
   ['/ajustes/financieras', () => <CatalogScreen table="financiers" />],
@@ -114,6 +116,7 @@ const ROUTE_ACCESS: [RegExp, (a: Access) => boolean][] = [
   [/^\/pagar/, (a) => a.canSee('payables')],
   [/^\/inventario/, (a) => a.canSee('inventory')],
   [/^\/reportes/, (a) => a.reports],
+  [/^\/actividad/, (a) => a.owner],
   [/^\/ajustes\/usuarios/, (a) => a.admin],
   [/^\/ajustes\/equipo/, (a) => a.can('catalogs.team')],
   [/^\/ajustes\/financieras/, (a) => a.can('catalogs.financiers')],
@@ -173,6 +176,7 @@ const NAV: NavItem[] = [
   { to: '/pagar', label: 'Cuentas por pagar', short: 'Por pagar', icon: CreditCard, color: '#e5484d', show: (a) => a.canSee('payables') },
   { to: '/inventario', label: 'Inventario', icon: Boxes, color: '#6a3fdc', show: (a) => a.canSee('inventory') },
   { to: '/reportes', label: 'Reportes', icon: BarChart3, color: '#16a3c4', show: (a) => a.reports },
+  { to: '/actividad', label: 'Registro de actividad', short: 'Actividad', icon: ShieldCheck, color: '#1d1d1f', show: (a) => a.owner },
   { to: '/ajustes', label: 'Ajustes', icon: Settings, color: '#8e8e93', show: () => true },
 ];
 
@@ -181,7 +185,7 @@ const isActive = (to: string, path: string) => (to === '/' ? path === '/' : path
 function Shell() {
   const { path, query } = useLocation();
   const data = useData();
-  const access = accessOf(data.me.permissions);
+  const access = accessOf(data.me.permissions, data.me.owner && !data.viewer);
   // Al tapar o destapar los montos se vuelve a pintar todo con el formato nuevo.
   useAmountsHidden();
   const [plusOpen, setPlusOpen] = useState(false);
@@ -207,7 +211,13 @@ function Shell() {
 
   const nav = NAV.filter((item) => item.show(access));
   // Telefono: Inicio + dos secciones principales + "Mas" con el resto.
-  const primary = nav.filter((item) => ['/clientes', '/ventas', '/servicio'].includes(item.to)).slice(0, 2);
+  // Primero lo que puede registrar (un tecnico ve Servicio, no Ventas).
+  const createsIn: Record<string, boolean> = { '/clientes': access.can('clients.create'), '/ventas': access.can('sales.create'), '/servicio': access.can('services.create') };
+  const primary = nav
+    .filter((item) => ['/clientes', '/ventas', '/servicio'].includes(item.to))
+    .sort((x, y) => Number(createsIn[y.to]) - Number(createsIn[x.to]))
+    .slice(0, 2)
+    .sort((x, y) => ['/clientes', '/ventas', '/servicio'].indexOf(x.to) - ['/clientes', '/ventas', '/servicio'].indexOf(y.to));
   const more = nav.filter((item) => item.to !== '/' && !primary.includes(item));
 
   return (
@@ -239,7 +249,7 @@ function Shell() {
         {access.prices && <PrivacyToggle />}
         <div className="sidebar-foot">
           <Link to="/ajustes/cuenta" className={`account-card${path === '/ajustes/cuenta' ? ' active' : ''}`} aria-label={`Mi cuenta: ${data.me.name}`}>
-            <Avatar name={data.me.name} />
+            <Avatar name={data.me.name} photo={data.me.avatar} />
             <span className="account-text">
               <span className="account-name">{data.me.name}</span>
               <span className="account-sub">Mi cuenta · {data.me.username}</span>
@@ -320,7 +330,7 @@ function MoreSheet({ open, onClose, items, counts }: { open: boolean; onClose: (
         ))}
       </div>
       <button type="button" className="account-card more-account" onClick={() => go('/ajustes/cuenta')}>
-        <Avatar name={data.me.name} />
+        <Avatar name={data.me.name} photo={data.me.avatar} />
         <span className="account-text">
           <span className="account-name">{data.me.name}</span>
           <span className="account-sub">Mi cuenta · {data.me.username}</span>

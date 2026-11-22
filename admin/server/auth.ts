@@ -54,6 +54,8 @@ type UserRow = {
   last_login_at: string | null;
   password_hash: string;
   permissions: string | null;
+  is_owner?: number;
+  avatar_at?: string | null;
 };
 
 function readPermissions(json: string | null) {
@@ -69,8 +71,10 @@ export const toUser = (row: UserRow): User => ({
   username: row.username,
   name: row.name,
   role: row.role === 'admin' ? 'admin' : 'member',
+  owner: Boolean(row.is_owner),
   active: Boolean(row.active),
   lastLoginAt: row.last_login_at,
+  avatar: row.avatar_at ? `/admin/api/avatars/${row.id}?v=${encodeURIComponent(row.avatar_at)}` : null,
   permissions: normalizePermissions(readPermissions(row.permissions), row.role === 'admin'),
 });
 

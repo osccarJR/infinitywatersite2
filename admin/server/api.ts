@@ -35,7 +35,7 @@ import {
 } from './schemas.ts';
 import * as books from './books.ts';
 import { createdTodayBy, need, protectClientBody, protectSaleBody, protectServiceBody, scopeOf, seesClient, seesSale, seesService, shapeClient, shapeSale, shapeService } from './permissions.ts';
-import { normalizePermissions, type PermissionFlag, type User } from '../shared/domain.ts';
+import { normalizePermissions, permissionsSummary, type PermissionFlag, type User } from '../shared/domain.ts';
 import {
   SESSION_COOKIE,
   SESSION_DAYS,
@@ -58,6 +58,7 @@ import { addressById, geoEnabled, searchAddresses, searchCities, zipLookup } fro
 import { todayISO } from '../shared/domain.ts';
 import { dataVersion } from './version.ts';
 import { createHash } from 'node:crypto';
+import { AUDIT_GROUPS, auditStats, deviceOf, diff, initAudit, listAudit, permissionChanges, snapshot, verifyAudit, writeAudit, type AuditEntry, type Change } from './audit.ts';
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
   const result = schema.safeParse(data);
@@ -114,16 +115,56 @@ function friendly<T>(fn: () => T): T {
 export function buildApi(db: DB, dataDir: string) {
   const addressesEnabled = () => geoEnabled(dataDir) || placesEnabled();
   const api = new Router();
+  initAudit(db, dataDir);
+
+  /* ------------------------- registro de actividad ------------------------- */
+
+  /** Anota un movimiento con quien, IP y equipo. */
+  const log = (ctx: Ctx, entry: AuditEntry, userId?: number | null) =>
+    writeAudit(db, { userId: userId === undefined ? ctx.user?.id ?? null : userId, ip: ctx.ip, device: deviceOf(String(ctx.req.headers['user-agent'] ?? '')) }, entry);
+  const clientName = (id: number | null | undefined) => (id ? repo.getClient(db, id)?.name ?? `cliente #${id}` : 'sin cliente');
+  const saleLabel = (s: { id: number; clientId: number } | null | undefined) => (s ? `la venta de ${clientName(s.clientId)} (#${s.id})` : 'una venta');
+  const serviceLabel = (s: { id: number; clientId: number } | null | undefined) => (s ? `el servicio de ${clientName(s.clientId)} (#${s.id})` : 'un servicio');
+  const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+  const dollars = (cents: number) => usd.format(cents / 100);
+  /** "Oscar vio el sistema como Adriana": una vez cada 30 minutos por pareja. */
+  const previewSeen = new Map<string, number>();
+  const logPreview = (ctx: Ctx, target: User) => {
+    const key = `${ctx.viewer!.id}:${target.id}`;
+    if (Date.now() - (previewSeen.get(key) ?? 0) < 30 * 60 * 1000) return;
+    previewSeen.set(key, Date.now());
+    log(ctx, { action: 'preview', entity: 'user', entityId: target.id, label: target.name }, ctx.viewer!.id);
+  };
+  const accountName = (id: number) => books.listPayableAccounts(db).find((a) => a.id === id)?.name ?? `cuenta #${id}`;
+  const payableLabel = (p: { description: string; accountId: number; amount: number } | null | undefined) =>
+    p ? `el gasto «${p.description}» de ${accountName(p.accountId)} (${dollars(p.amount)})` : 'un gasto';
+  const paymentLabel = (p: { accountId: number; amount: number }) => `un pago de ${dollars(p.amount)} a ${accountName(p.accountId)}`;
+  const paymentChanges = (p: { payableId: number | null; date: string; method: string | null; notes: string | null }): Change[] => [
+    { f: 'Fecha', b: p.date.split('-').reverse().join('/') },
+    ...(p.payableId ? [{ f: 'Para', b: books.getPayable(db, p.payableId)?.description ?? `gasto #${p.payableId}` }] : []),
+    ...(p.method ? [{ f: 'Medio', b: p.method }] : []),
+    ...(p.notes ? [{ f: 'Notas', b: p.notes }] : []),
+  ];
+  const itemName = (id: number) => books.getInventoryItem(db, id)?.name ?? `producto #${id}`;
+  const movementLabel = (m: { kind: string; quantity: number; itemId: number }) =>
+    `${m.kind === 'in' ? 'una entrada' : m.kind === 'out' ? 'una salida' : 'un conteo'} de ${Math.abs(m.quantity)} ${itemName(m.itemId)}`;
+  const movementChanges = (m: { kind: string; quantity: number; date: string; saleId: number | null; serviceId: number | null; notes: string | null }): Change[] => [
+    { f: 'Fecha', b: m.date.split('-').reverse().join('/') },
+    { f: 'Cantidad', b: m.kind === 'out' ? `−${m.quantity}` : m.quantity > 0 ? `+${m.quantity}` : String(m.quantity) },
+    ...(m.saleId ? [{ f: 'Para', b: saleLabel(repo.getSale(db, m.saleId)) }] : []),
+    ...(m.serviceId ? [{ f: 'Para', b: serviceLabel(repo.getService(db, m.serviceId)) }] : []),
+    ...(m.notes ? [{ f: 'Notas', b: m.notes }] : []),
+  ];
 
   /** Resuelve el cliente de una venta o servicio: existente o nuevo. */
-  const resolveClient = (ref: SaleInput['client'], userId: number, user?: User) => {
+  const resolveClient = (ctx: Ctx, ref: SaleInput['client'], userId: number, user?: User) => {
     if ('id' in ref) {
       if (!repo.getClient(db, ref.id)) throw new HttpError(400, 'El cliente elegido ya no existe');
       if (user) need(seesClient(scopeOf(db, user), ref.id), 'No tienes acceso a ese cliente.');
       return ref.id;
     }
     const id = repo.insertClient(db, ref.create, userId);
-    repo.audit(db, userId, 'create', 'client', id);
+    log(ctx, { action: 'create', entity: 'client', entityId: id, label: `al cliente ${ref.create.name}`, changes: snapshot(db, 'client', repo.getClient(db, id)) });
     return id;
   };
 
@@ -141,12 +182,13 @@ export function buildApi(db: DB, dataDir: string) {
       const ok = await verifyPassword(password, row?.password_hash ?? (await getDummyHash()));
       if (!row || !ok || !row.active) {
         recordLoginFailure(ctx.ip, username);
+        log(ctx, { action: 'login-failed', entity: 'user', entityId: row?.id ?? null, label: username.slice(0, 60), extra: { reason: !row ? 'usuario no existe' : !ok ? 'contraseña incorrecta' : 'usuario sin acceso' } }, row?.id ?? null);
         throw new HttpError(401, 'Usuario o contraseña incorrectos');
       }
       clearLoginFailures(ctx.ip, username);
       const token = createSession(db, row.id, ctx.ip, String(ctx.req.headers['user-agent'] ?? ''));
       ctx.res.setHeader('Set-Cookie', sessionCookie(SESSION_COOKIE, token, SESSION_DAYS * 86400, ctx.secure));
-      repo.audit(db, row.id, 'login', 'user', row.id, { ip: ctx.ip });
+      log(ctx, { action: 'login', entity: 'user', entityId: row.id, label: row.name }, row.id);
       return { user: toUser(row) };
     },
     { public: true }
@@ -156,6 +198,7 @@ export function buildApi(db: DB, dataDir: string) {
     'POST',
     '/auth/logout',
     (ctx) => {
+      if (ctx.user && !ctx.viewer) log(ctx, { action: 'logout', entity: 'user', entityId: ctx.user.id, label: ctx.user.name });
       deleteSession(db, ctx.token);
       ctx.res.setHeader('Set-Cookie', sessionCookie(SESSION_COOKIE, '', 0, ctx.secure));
       // Los datos se guardan en la cache del navegador para responder 304:
@@ -178,8 +221,54 @@ export function buildApi(db: DB, dataDir: string) {
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(await hashPassword(next), user.id);
     // Cierra las demas sesiones abiertas con la clave anterior.
     deleteUserSessions(db, user.id, ctx.token);
-    repo.audit(db, user.id, 'password', 'user', user.id);
+    log(ctx, { action: 'password', entity: 'user', entityId: user.id, label: 'su propia contraseña' });
     return { ok: true };
+  });
+
+  /* --------------------------- foto de perfil --------------------------- */
+
+  /** Cada uno pone su propia foto (ya recortada en la app: cuadrada y liviana). */
+  api.add('PUT', '/auth/avatar', (ctx) => {
+    const user = me(ctx);
+    const image = (ctx.body as { image?: unknown })?.image;
+    const match = typeof image === 'string' ? /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(image) : null;
+    if (!match) throw new HttpError(400, 'La foto no es válida. Prueba con otra.');
+    const data = Buffer.from(match[2], 'base64');
+    if (data.length > 400_000) throw new HttpError(400, 'La foto es demasiado pesada.');
+    // Que de verdad sea una imagen (cabecera del archivo).
+    const isJpeg = data[0] === 0xff && data[1] === 0xd8;
+    const isPng = data.subarray(0, 4).toString('hex') === '89504e47';
+    const isWebp = data.subarray(0, 4).toString() === 'RIFF' && data.subarray(8, 12).toString() === 'WEBP';
+    if (!isJpeg && !isPng && !isWebp) throw new HttpError(400, 'La foto no es válida. Prueba con otra.');
+    db.transaction(() => {
+      db.prepare(`INSERT INTO user_avatars (user_id, mime, data, updated_at) VALUES (?, ?, ?, datetime('now'))
+                  ON CONFLICT(user_id) DO UPDATE SET mime = excluded.mime, data = excluded.data, updated_at = excluded.updated_at`).run(user.id, match[1], data);
+      db.prepare(`UPDATE users SET avatar_at = datetime('now') WHERE id = ?`).run(user.id);
+    })();
+    log(ctx, { action: 'avatar', entity: 'user', entityId: user.id, label: 'su foto de perfil' });
+    return { user: toUser(findUserById(db, user.id)!) };
+  });
+
+  api.add('DELETE', '/auth/avatar', (ctx) => {
+    const user = me(ctx);
+    db.prepare('DELETE FROM user_avatars WHERE user_id = ?').run(user.id);
+    db.prepare('UPDATE users SET avatar_at = NULL WHERE id = ?').run(user.id);
+    log(ctx, { action: 'avatar', entity: 'user', entityId: user.id, label: 'su foto de perfil (la quitó)' });
+    return { user: toUser(findUserById(db, user.id)!) };
+  });
+
+  api.add('GET', '/avatars/:id', (ctx) => {
+    me(ctx);
+    const row = db.prepare('SELECT mime, data FROM user_avatars WHERE user_id = ?').get(num(ctx)) as { mime: string; data: Buffer } | undefined;
+    notFound(row ? 1 : 0, 'La foto');
+    ctx.res.writeHead(200, {
+      'Content-Type': row!.mime,
+      'Content-Length': row!.data.length,
+      // La URL cambia con cada foto nueva (?v=...): se puede guardar mucho tiempo.
+      'Cache-Control': 'private, max-age=31536000, immutable',
+    });
+    ctx.res.end(row!.data);
+    return undefined;
   });
 
   /* ------------------------------ datos ------------------------------ */
@@ -196,6 +285,7 @@ export function buildApi(db: DB, dataDir: string) {
       ctx.res.end();
       return undefined;
     }
+    if (ctx.viewer) logPreview(ctx, user);
     const body = JSON.stringify(bootstrapData(user, ctx.viewer));
     ctx.res.writeHead(200, {
       'Content-Type': 'application/json; charset=utf-8',
@@ -294,27 +384,38 @@ export function buildApi(db: DB, dataDir: string) {
     const user = allowed(ctx, can('clients.create'));
     const input = parse(ClientInput, ctx.body);
     const id = repo.insertClient(db, input, user.id);
-    repo.audit(db, user.id, 'create', 'client', id);
+    log(ctx, { action: 'create', entity: 'client', entityId: id, label: `al cliente ${input.name}`, changes: snapshot(db, 'client', repo.getClient(db, id)) });
     return { client: shapeClient(repo.getClient(db, id)!, user.permissions) };
   });
 
   api.add('PUT', '/clients/:id', (ctx) => {
     const user = allowed(ctx, can('clients.edit'));
     need(seesClient(scopeOf(db, user), num(ctx)), 'No tienes acceso a este cliente.');
-    const input = parse(ClientInput, protectClientBody(ctx.body, repo.getClient(db, num(ctx)), user.permissions));
+    const before = repo.getClient(db, num(ctx));
+    const input = parse(ClientInput, protectClientBody(ctx.body, before, user.permissions));
     checkVersion(db, 'clients', num(ctx), input.expectedUpdatedAt);
     notFound(repo.updateClient(db, num(ctx), input, user.id), 'El cliente');
-    repo.audit(db, user.id, 'update', 'client', num(ctx));
+    const after = repo.getClient(db, num(ctx));
+    const changes = diff(db, 'client', before, after);
+    if (changes.length) log(ctx, { action: 'update', entity: 'client', entityId: num(ctx), label: `al cliente ${after?.name}`, changes });
     return { client: shapeClient(repo.getClient(db, num(ctx))!, user.permissions) };
   });
 
   api.add('DELETE', '/clients/:id', (ctx) => {
     // Borrar un cliente borra todas sus ventas y servicios: solo con alcance total.
-    const user = allowed(ctx, (p) => p.flags['clients.delete'] && p.scope === 'all');
+    allowed(ctx, (p) => p.flags['clients.delete'] && p.scope === 'all');
     const client = repo.getClient(db, num(ctx));
     notFound(client ? 1 : 0, 'El cliente');
+    const sales = (db.prepare('SELECT COUNT(*) AS n FROM sales WHERE client_id = ?').get(num(ctx)) as { n: number }).n;
+    const services = (db.prepare('SELECT COUNT(*) AS n FROM services WHERE client_id = ?').get(num(ctx)) as { n: number }).n;
+    log(ctx, {
+      action: 'delete',
+      entity: 'client',
+      entityId: num(ctx),
+      label: `al cliente ${client!.name}`,
+      changes: [...snapshot(db, 'client', client), { f: 'Se borraron también', b: `${sales} ventas y ${services} servicios` }],
+    });
     repo.deleteClient(db, num(ctx));
-    repo.audit(db, user.id, 'delete', 'client', num(ctx), { name: client!.name });
     return { ok: true };
   });
 
@@ -325,9 +426,10 @@ export function buildApi(db: DB, dataDir: string) {
     const input = parse(SaleInput, protectSaleBody(ctx.body, null, user.permissions));
     const id = friendly(() =>
       db.transaction(() => {
-        const clientId = resolveClient(input.client, user.id, user);
+        const clientId = resolveClient(ctx, input.client, user.id, user);
         const saleId = repo.insertSale(db, input, clientId, user.id);
-        repo.audit(db, user.id, 'create', 'sale', saleId);
+        const sale = repo.getSale(db, saleId);
+        log(ctx, { action: 'create', entity: 'sale', entityId: saleId, label: saleLabel(sale), changes: snapshot(db, 'sale', sale) });
         return saleId;
       })()
     );
@@ -346,9 +448,11 @@ export function buildApi(db: DB, dataDir: string) {
       db.transaction(() => {
         checkVersion(db, 'sales', num(ctx), input.expectedUpdatedAt);
         const sameClient = 'id' in input.client && input.client.id === existing!.clientId;
-        const clientId = resolveClient(input.client, user.id, sameClient ? undefined : user);
+        const clientId = resolveClient(ctx, input.client, user.id, sameClient ? undefined : user);
         notFound(repo.updateSale(db, num(ctx), input, clientId, user.id), 'La venta');
-        repo.audit(db, user.id, 'update', 'sale', num(ctx));
+        const after = repo.getSale(db, num(ctx));
+        const changes = diff(db, 'sale', existing, after);
+        if (changes.length) log(ctx, { action: 'update', entity: 'sale', entityId: num(ctx), label: saleLabel(after), changes });
       })()
     );
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
@@ -362,8 +466,15 @@ export function buildApi(db: DB, dataDir: string) {
     const { field, paid, date } = parse(MarkInput, ctx.body);
     need(user.permissions.flags[markFlag(field)]);
     need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
+    const before = repo.getSale(db, num(ctx));
     notFound(repo.markSale(db, num(ctx), field, paid, date, user.id), 'La venta');
-    repo.audit(db, user.id, 'mark', 'sale', num(ctx), { field, paid });
+    log(ctx, {
+      action: 'mark',
+      entity: 'sale',
+      entityId: num(ctx),
+      label: `${field === 'fundedPaid' ? 'el pago de la financiera' : 'la comisión'} de ${saleLabel(before)} como ${paid ? 'pagado' : 'pendiente'}`,
+      changes: diff(db, 'sale', before, repo.getSale(db, num(ctx))),
+    });
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
   });
 
@@ -382,7 +493,15 @@ export function buildApi(db: DB, dataDir: string) {
             throw new HttpError(409, 'Una de las ventas cambió o ya no aplica. Recarga e intenta de nuevo.');
           }
         }
-        repo.audit(db, user.id, 'mark-batch', 'sale', null, { field, paid, ids: unique });
+        const list = unique.map((id) => repo.getSale(db, id)!);
+        const amount = list.reduce((n, s) => n + (field === 'commissionPaid' ? s.commission ?? 0 : s.fundedAmount ?? s.price ?? 0), 0);
+        log(ctx, {
+          action: 'mark-batch',
+          entity: 'sale',
+          label: `${field === 'fundedPaid' ? 'como recibido el pago de la financiera en' : 'como pagada la comisión de'} ${unique.length} ${unique.length === 1 ? 'venta' : 'ventas'} (${dollars(amount)})`,
+          changes: list.map((s) => ({ f: saleLabel(s), b: field === 'commissionPaid' ? `${dollars(s.commission ?? 0)} · ${s.sellerId ? repo.listPeople(db).find((p) => p.id === s.sellerId)?.name ?? '' : ''}` : dollars(s.fundedAmount ?? 0) })),
+          extra: { ids: unique, date },
+        });
       })()
     );
     return { updated: unique.length };
@@ -398,7 +517,21 @@ export function buildApi(db: DB, dataDir: string) {
       db.transaction(() => {
         const changed = repo.payTechnician(db, [...new Set(saleIds)], [...new Set(serviceIds)], date, user.id);
         if (changed !== total) throw new HttpError(409, 'Uno de los trabajos cambió o ya no aplica. Recarga e intenta de nuevo.');
-        repo.audit(db, user.id, 'tech-payment', 'technician', null, { saleIds, serviceIds, date });
+        const sales = [...new Set(saleIds)].map((id) => repo.getSale(db, id)!);
+        const services = [...new Set(serviceIds)].map((id) => repo.getService(db, id)!);
+        const amount = sales.reduce((n, s) => n + (s.installerPay ?? 0), 0) + services.reduce((n, s) => n + (s.technicianPay ?? 0), 0);
+        const techId = sales[0]?.installerId ?? services[0]?.technicianId ?? null;
+        log(ctx, {
+          action: 'tech-payment',
+          entity: 'technician',
+          entityId: techId,
+          label: `a ${techId ? repo.listPeople(db).find((p) => p.id === techId)?.name ?? 'un técnico' : 'un técnico'}: ${total} ${total === 1 ? 'trabajo' : 'trabajos'} por ${dollars(amount)}`,
+          changes: [
+            ...sales.map((s) => ({ f: `Instalación · ${saleLabel(s)}`, b: dollars(s.installerPay ?? 0) })),
+            ...services.map((s) => ({ f: `Servicio · ${serviceLabel(s)}`, b: dollars(s.technicianPay ?? 0) })),
+          ],
+          extra: { date },
+        });
       })()
     );
     return { updated: total };
@@ -407,8 +540,10 @@ export function buildApi(db: DB, dataDir: string) {
   api.add('DELETE', '/sales/:id', (ctx) => {
     const user = allowed(ctx, can('sales.delete'));
     need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
+    const sale = repo.getSale(db, num(ctx));
+    notFound(sale ? 1 : 0, 'La venta');
+    log(ctx, { action: 'delete', entity: 'sale', entityId: num(ctx), label: saleLabel(sale), changes: snapshot(db, 'sale', sale) });
     notFound(repo.deleteSale(db, num(ctx)), 'La venta');
-    repo.audit(db, user.id, 'delete', 'sale', num(ctx));
     return { ok: true };
   });
 
@@ -429,7 +564,7 @@ export function buildApi(db: DB, dataDir: string) {
     return friendly(() =>
       db.transaction(() => {
         const sameClient = existing != null && 'id' in input.client && input.client.id === existing.clientId;
-        const clientId = resolveClient(input.client, user.id, sameClient ? undefined : user);
+        const clientId = resolveClient(ctx, input.client, user.id, sameClient ? undefined : user);
         if (input.saleId) {
           const sale = repo.getSale(db, input.saleId);
           if (!sale || sale.clientId !== clientId) throw new HttpError(400, 'La venta elegida es de otro cliente');
@@ -439,12 +574,15 @@ export function buildApi(db: DB, dataDir: string) {
         }
         if (id == null) {
           const newId = repo.insertService(db, input, clientId, user.id);
-          repo.audit(db, user.id, 'create', 'service', newId);
+          const created = repo.getService(db, newId);
+          log(ctx, { action: 'create', entity: 'service', entityId: newId, label: serviceLabel(created), changes: snapshot(db, 'service', created) });
           return newId;
         }
         checkVersion(db, 'services', id, input.expectedUpdatedAt);
         notFound(repo.updateService(db, id, input, clientId, user.id), 'El servicio');
-        repo.audit(db, user.id, 'update', 'service', id);
+        const after = repo.getService(db, id);
+        const changes = diff(db, 'service', existing, after);
+        if (changes.length) log(ctx, { action: 'update', entity: 'service', entityId: id, label: serviceLabel(after), changes });
         return id;
       })()
     );
@@ -456,8 +594,10 @@ export function buildApi(db: DB, dataDir: string) {
   api.add('DELETE', '/services/:id', (ctx) => {
     const user = allowed(ctx, can('services.delete'));
     need(seesService(scopeOf(db, user), num(ctx)), 'No tienes acceso a este servicio.');
+    const service = repo.getService(db, num(ctx));
+    notFound(service ? 1 : 0, 'El servicio');
+    log(ctx, { action: 'delete', entity: 'service', entityId: num(ctx), label: serviceLabel(service), changes: snapshot(db, 'service', service) });
     notFound(repo.deleteService(db, num(ctx)), 'El servicio');
-    repo.audit(db, user.id, 'delete', 'service', num(ctx));
     return { ok: true };
   });
 
@@ -472,16 +612,28 @@ export function buildApi(db: DB, dataDir: string) {
   };
   const editsCatalog = (kind: keyof typeof CATALOG_FLAG) => can(CATALOG_FLAG[kind]);
 
+  const CATALOG_NOUN = { people: 'del equipo a', financiers: 'la financiera', suppliers: 'el proveedor', brands: 'la marca' } as const;
+  const ENTITY_OF = { people: 'person', financiers: 'financier', suppliers: 'supplier', brands: 'brand' } as const;
+  const catalogLabel = (kind: keyof typeof CATALOG_NOUN, name: string) => (kind === 'people' ? `a ${name} en el equipo` : `${CATALOG_NOUN[kind]} ${name}`);
+  const catalogItem = (kind: keyof typeof CATALOG_NOUN, id: number) =>
+    kind === 'people' ? repo.listPeople(db).find((p) => p.id === id) : repo.listCatalog(db, kind).find((i) => i.id === id);
+
   api.add('POST', '/people', (ctx) => {
     allowed(ctx, createsCatalog('people'));
     const id = repo.insertPerson(db, parse(PersonInput, ctx.body));
-    return { person: repo.listPeople(db).find((p) => p.id === id) };
+    const person = repo.listPeople(db).find((p) => p.id === id);
+    log(ctx, { action: 'create', entity: 'person', entityId: id, label: catalogLabel('people', person!.name), changes: snapshot(db, 'person', person) });
+    return { person };
   });
 
   api.add('PUT', '/people/:id', (ctx) => {
     allowed(ctx, editsCatalog('people'));
+    const before = repo.listPeople(db).find((p) => p.id === num(ctx));
     notFound(repo.updatePerson(db, num(ctx), parse(PersonInput, ctx.body)), 'La persona');
-    return { person: repo.listPeople(db).find((p) => p.id === num(ctx)) };
+    const person = repo.listPeople(db).find((p) => p.id === num(ctx));
+    const changes = diff(db, 'person', before, person);
+    if (changes.length) log(ctx, { action: 'update', entity: 'person', entityId: num(ctx), label: catalogLabel('people', person!.name), changes });
+    return { person };
   });
 
   for (const table of ['financiers', 'suppliers', 'brands'] as const) {
@@ -489,16 +641,21 @@ export function buildApi(db: DB, dataDir: string) {
       allowed(ctx, createsCatalog(table));
       const { name } = parse(CatalogInput, ctx.body);
       const id = friendly(() => repo.insertCatalog(db, table, name));
+      log(ctx, { action: 'create', entity: ENTITY_OF[table], entityId: id, label: catalogLabel(table, name) });
       return { item: repo.listCatalog(db, table).find((i) => i.id === id) };
     });
     api.add('PUT', `/${table}/:id`, (ctx) => {
       allowed(ctx, editsCatalog(table));
       const { name, active } = parse(CatalogInput, ctx.body);
+      const before = catalogItem(table, num(ctx));
       notFound(
         friendly(() => repo.updateCatalog(db, table, num(ctx), name, active)),
         'El elemento'
       );
-      return { item: repo.listCatalog(db, table).find((i) => i.id === num(ctx)) };
+      const item = repo.listCatalog(db, table).find((i) => i.id === num(ctx));
+      const changes = diff(db, 'catalog', before, item);
+      if (changes.length) log(ctx, { action: 'update', entity: ENTITY_OF[table], entityId: num(ctx), label: catalogLabel(table, item!.name), changes });
+      return { item };
     });
   }
 
@@ -509,7 +666,9 @@ export function buildApi(db: DB, dataDir: string) {
       if (used > 0) {
         throw new HttpError(409, `Se usa en ${used} ${used === 1 ? 'registro' : 'registros'}. Desactívalo en vez de borrarlo.`);
       }
+      const item = catalogItem(kind, num(ctx));
       notFound(repo.deleteCatalog(db, kind, num(ctx)), 'El elemento');
+      log(ctx, { action: 'delete', entity: ENTITY_OF[kind], entityId: num(ctx), label: catalogLabel(kind, item?.name ?? `#${num(ctx)}`) });
       return { ok: true };
     });
   }
@@ -542,7 +701,7 @@ export function buildApi(db: DB, dataDir: string) {
   };
 
   api.add('POST', '/users', async (ctx) => {
-    const user = allowed(ctx, isAdmin);
+    allowed(ctx, isAdmin);
     const input = parse(UserCreateInput, ctx.body);
     checkPerson(input.permissions?.personId);
     const hash = await hashPassword(input.password);
@@ -553,7 +712,14 @@ export function buildApi(db: DB, dataDir: string) {
           .run(input.username, input.name, hash, input.role, storedPermissions(input.role, input.permissions)).lastInsertRowid
       )
     );
-    repo.audit(db, user.id, 'create', 'user', id, { role: input.role });
+    const created = toUser(findUserById(db, id)!);
+    log(ctx, {
+      action: 'create',
+      entity: 'user',
+      entityId: id,
+      label: `al usuario ${created.name} (${created.username})`,
+      changes: [{ f: 'Permisos', b: permissionsSummary(created.permissions) }],
+    });
     return { users: listUsers(), id };
   });
 
@@ -565,6 +731,12 @@ export function buildApi(db: DB, dataDir: string) {
     if (target === user.id && input.role === 'member') throw new HttpError(400, 'No puedes quitarte a ti mismo el acceso de administrador', 'role');
     const row = findUserById(db, target);
     notFound(row ? 1 : 0, 'El usuario');
+    // La cuenta del dueno solo la toca el dueno, y nunca pierde el acceso.
+    if (row!.is_owner) {
+      if (!user.owner) throw new HttpError(403, `Solo ${row!.name} puede cambiar su propia cuenta.`);
+      if (input.role === 'member' || input.active === false) throw new HttpError(400, 'La cuenta del dueño siempre es administrador y siempre tiene acceso.', 'role');
+    }
+    const before = toUser(row!);
     // Siempre tiene que quedar al menos un administrador que pueda entrar.
     const losesAdmin = row!.role === 'admin' && (input.role === 'member' || input.active === false);
     if (losesAdmin) {
@@ -577,18 +749,65 @@ export function buildApi(db: DB, dataDir: string) {
       const role = input.role ?? row!.role;
       const current = row!.permissions ? JSON.parse(row!.permissions) : null;
       db.prepare('UPDATE users SET role = ?, permissions = ? WHERE id = ?').run(role, storedPermissions(role, input.permissions ?? current), target);
-      repo.audit(db, user.id, 'permissions', 'user', target, { role, permissions: input.permissions ?? null });
+      const changes = permissionChanges(before.permissions, toUser(findUserById(db, target)!).permissions);
+      if (changes.length) log(ctx, { action: 'permissions', entity: 'user', entityId: target, label: before.name, changes });
     }
-    if (input.active !== undefined) {
+    if (input.name && input.name !== before.name) log(ctx, { action: 'update', entity: 'user', entityId: target, label: `al usuario ${before.name}`, changes: [{ f: 'Nombre', a: before.name, b: input.name }] });
+    if (input.active !== undefined && input.active !== before.active) {
       db.prepare('UPDATE users SET active = ? WHERE id = ?').run(input.active ? 1 : 0, target);
       if (!input.active) deleteUserSessions(db, target);
+      log(ctx, { action: input.active ? 'activate' : 'deactivate', entity: 'user', entityId: target, label: before.name });
     }
     if (input.password) {
       db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(await hashPassword(input.password), target);
       if (target !== user.id) deleteUserSessions(db, target);
+      log(ctx, { action: 'password', entity: 'user', entityId: target, label: target === user.id ? 'su propia contraseña' : `la contraseña de ${before.name}` });
     }
-    repo.audit(db, user.id, 'update', 'user', target);
     return { users: listUsers() };
+  });
+
+  /* ------------------------- registro de actividad ------------------------- */
+
+  /** Solo el dueno, y nunca desde la vista previa. */
+  const ownerOnly = (ctx: Ctx) => {
+    const user = me(ctx);
+    if (ctx.viewer || !user.owner) throw new HttpError(403, 'Solo el dueño puede ver el registro de actividad.');
+    return user;
+  };
+  const auditQuery = (ctx: Ctx) => {
+    const q = ctx.query;
+    const isDate = (v: string | null) => (v && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : undefined);
+    const group = q.get('group') ?? '';
+    return {
+      before: Number(q.get('before')) || undefined,
+      limit: Number(q.get('limit')) || 80,
+      userId: Number(q.get('user')) || undefined,
+      group: group in AUDIT_GROUPS ? group : undefined,
+      from: isDate(q.get('from')),
+      to: isDate(q.get('to')),
+      q: (q.get('q') ?? '').trim().slice(0, 80) || undefined,
+    };
+  };
+
+  api.add('GET', '/audit', (ctx) => {
+    ownerOnly(ctx);
+    return listAudit(db, auditQuery(ctx));
+  });
+
+  api.add('GET', '/audit/summary', (ctx) => {
+    ownerOnly(ctx);
+    return { integrity: verifyAudit(db), stats: auditStats(db) };
+  });
+
+  /** Descargas e impresiones hechas en la app (Excel de una lista, PDF de un reporte). */
+  api.add('POST', '/audit/event', (ctx) => {
+    me(ctx);
+    const body = (ctx.body ?? {}) as { kind?: unknown; what?: unknown; rows?: unknown };
+    const kind = body.kind === 'print' ? 'print' : 'export';
+    const what = typeof body.what === 'string' ? body.what.slice(0, 120) : 'datos';
+    const rows = typeof body.rows === 'number' && Number.isInteger(body.rows) ? body.rows : null;
+    log(ctx, { action: kind, entity: 'app', label: rows != null ? `${what} (${rows} filas)` : what });
+    return { ok: true };
   });
 
   /* ------------------------- cuentas por pagar ------------------------- */
@@ -601,25 +820,74 @@ export function buildApi(db: DB, dataDir: string) {
   };
 
   api.add('POST', '/payable-accounts', (ctx) => {
-    const user = allowed(ctx, can('payables.accounts'));
-    const id = friendly(() => books.insertPayableAccount(db, parse(PayableAccountInput, ctx.body)));
-    repo.audit(db, user.id, 'create', 'payable-account', id);
-    return { account: books.listPayableAccounts(db).find((a) => a.id === id) };
+    allowed(ctx, can('payables.accounts'));
+    const input = parse(PayableAccountInput, ctx.body);
+    const id = friendly(() =>
+      db.transaction(() => {
+        const newId = books.insertPayableAccount(db, input);
+        // Un proveedor de cuentas por pagar es el mismo de ventas e inventario.
+        if (input.kind === 'supplier') books.linkSupplier(db, newId, input.name);
+        return newId;
+      })()
+    );
+    const account = books.listPayableAccounts(db).find((a) => a.id === id);
+    log(ctx, { action: 'create', entity: 'payable-account', entityId: id, label: `la cuenta ${account!.name}`, changes: snapshot(db, 'payable-account', account) });
+    return { account };
   });
 
   api.add('PUT', '/payable-accounts/:id', (ctx) => {
-    const user = allowed(ctx, can('payables.accounts'));
-    notFound(friendly(() => books.updatePayableAccount(db, num(ctx), parse(PayableAccountInput, ctx.body))), 'La cuenta');
-    repo.audit(db, user.id, 'update', 'payable-account', num(ctx));
-    return { account: books.listPayableAccounts(db).find((a) => a.id === num(ctx)) };
+    allowed(ctx, can('payables.accounts'));
+    const before = books.listPayableAccounts(db).find((a) => a.id === num(ctx));
+    const input = parse(PayableAccountInput, ctx.body);
+    notFound(
+      friendly(() =>
+        db.transaction(() => {
+          const changed = books.updatePayableAccount(db, num(ctx), input);
+          if (changed && input.kind === 'supplier') {
+            // Si cambia el nombre, el proveedor del catalogo tambien.
+            if (before?.supplierId) db.prepare('UPDATE suppliers SET name = ? WHERE id = ?').run(input.name, before.supplierId);
+            else books.linkSupplier(db, num(ctx), input.name);
+          }
+          return changed;
+        })()
+      ),
+      'La cuenta'
+    );
+    const account = books.listPayableAccounts(db).find((a) => a.id === num(ctx));
+    const changes = diff(db, 'payable-account', before, account);
+    if (changes.length) log(ctx, { action: 'update', entity: 'payable-account', entityId: num(ctx), label: `la cuenta ${account!.name}`, changes });
+    return { account };
   });
 
   api.add('DELETE', '/payable-accounts/:id', (ctx) => {
-    const user = allowed(ctx, (p) => p.flags['payables.accounts'] && p.flags['payables.delete']);
-    const used = books.payableAccountUsage(db, num(ctx));
-    if (used > 0) throw new HttpError(409, `Tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. Desactívala en vez de borrarla.`);
-    notFound(books.deletePayableAccount(db, num(ctx)), 'La cuenta');
-    repo.audit(db, user.id, 'delete', 'payable-account', num(ctx));
+    allowed(ctx, (p) => p.flags['payables.accounts'] && p.flags['payables.delete']);
+    const account = books.listPayableAccounts(db).find((a) => a.id === num(ctx));
+    notFound(account ? 1 : 0, 'La cuenta');
+    // Con movimientos, solo si se pide expresamente borrar todo (la app lo confirma antes).
+    const charges = books.listPayables(db).filter((p) => p.accountId === num(ctx));
+    const payments = books.listPayablePayments(db).filter((p) => p.accountId === num(ctx));
+    if ((charges.length || payments.length) && ctx.query.get('todo') !== '1') {
+      throw new HttpError(409, `Tiene ${charges.length} gastos y ${payments.length} pagos. Confirma que quieres borrarla con todo.`);
+    }
+    friendly(() =>
+      db.transaction(() => {
+        db.prepare('DELETE FROM payable_payments WHERE account_id = ?').run(num(ctx));
+        db.prepare('DELETE FROM payables WHERE account_id = ?').run(num(ctx));
+        books.deletePayableAccount(db, num(ctx));
+        log(ctx, {
+          action: 'delete',
+          entity: 'payable-account',
+          entityId: num(ctx),
+          label: `la cuenta ${account!.name}`,
+          changes: [
+            ...snapshot(db, 'payable-account', account),
+            ...(charges.length || payments.length ? [{ f: 'Se borraron también', b: `${charges.length} gastos (${dollars(charges.reduce((n, p) => n + p.amount, 0))}) y ${payments.length} pagos (${dollars(payments.reduce((n, p) => n + p.amount, 0))})` }] : []),
+            ...charges.map((p) => ({ f: `Gasto ${p.date.split('-').reverse().join('/')}`, b: `${p.description} · ${dollars(p.amount)}` })),
+            ...payments.map((p) => ({ f: `Pago ${p.date.split('-').reverse().join('/')}`, b: dollars(p.amount) })),
+          ],
+        });
+      })()
+    );
     return { ok: true };
   });
 
@@ -628,7 +896,8 @@ export function buildApi(db: DB, dataDir: string) {
     const input = parse(PayableInput, ctx.body);
     accountExists(input.accountId, user);
     const id = friendly(() => books.insertPayable(db, input, user.id));
-    repo.audit(db, user.id, 'create', 'payable', id);
+    const created = books.getPayable(db, id);
+    log(ctx, { action: 'create', entity: 'payable', entityId: id, label: payableLabel(created), changes: snapshot(db, 'payable', created) });
     return { payable: books.getPayable(db, id) };
   });
 
@@ -637,10 +906,11 @@ export function buildApi(db: DB, dataDir: string) {
     const input = parse(PayableInput, ctx.body);
     accountExists(input.accountId, user);
     const current = books.payableVersion(db, num(ctx));
-    notFound(current ? 1 : 0, 'El cargo');
-    accountExists(books.getPayable(db, num(ctx))!.accountId, user);
+    notFound(current ? 1 : 0, 'El gasto');
+    const beforePayable = books.getPayable(db, num(ctx));
+    accountExists(beforePayable!.accountId, user);
     if (input.expectedUpdatedAt && current !== input.expectedUpdatedAt) {
-      throw new HttpError(409, 'Alguien cambió este cargo mientras lo editabas. Vuelve a abrirlo.');
+      throw new HttpError(409, 'Alguien cambió este gasto mientras lo editabas. Vuelve a abrirlo.');
     }
     friendly(() =>
       db.transaction(() => {
@@ -649,14 +919,16 @@ export function buildApi(db: DB, dataDir: string) {
         db.prepare('UPDATE payable_payments SET account_id = ? WHERE payable_id = ?').run(input.accountId, num(ctx));
       })()
     );
-    repo.audit(db, user.id, 'update', 'payable', num(ctx));
-    return { payable: books.getPayable(db, num(ctx)) };
+    const afterPayable = books.getPayable(db, num(ctx));
+    const changes = diff(db, 'payable', beforePayable, afterPayable);
+    if (changes.length) log(ctx, { action: 'update', entity: 'payable', entityId: num(ctx), label: payableLabel(afterPayable), changes });
+    return { payable: afterPayable };
   });
 
   api.add('DELETE', '/payables/:id', (ctx) => {
     const user = allowed(ctx, can('payables.delete'));
     const payable = books.getPayable(db, num(ctx));
-    notFound(payable ? 1 : 0, 'El cargo');
+    notFound(payable ? 1 : 0, 'El gasto');
     accountExists(payable!.accountId, user);
     friendly(() =>
       db.transaction(() => {
@@ -665,7 +937,7 @@ export function buildApi(db: DB, dataDir: string) {
         books.deletePayable(db, num(ctx));
       })()
     );
-    repo.audit(db, user.id, 'delete', 'payable', num(ctx), { description: payable!.description, amount: payable!.amount });
+    log(ctx, { action: 'delete', entity: 'payable', entityId: num(ctx), label: payableLabel(payable), changes: snapshot(db, 'payable', payable) });
     return { ok: true };
   });
 
@@ -675,11 +947,11 @@ export function buildApi(db: DB, dataDir: string) {
     accountExists(input.accountId, user);
     if (input.payableId) {
       const payable = books.getPayable(db, input.payableId);
-      if (!payable) throw new HttpError(400, 'El cargo elegido ya no existe', 'payableId');
-      if (payable.accountId !== input.accountId) throw new HttpError(400, 'El cargo es de otra cuenta', 'payableId');
+      if (!payable) throw new HttpError(400, 'El gasto elegido ya no existe', 'payableId');
+      if (payable.accountId !== input.accountId) throw new HttpError(400, 'El gasto es de otra cuenta', 'payableId');
     }
     const id = friendly(() => books.insertPayablePayment(db, input, user.id));
-    repo.audit(db, user.id, 'create', 'payable-payment', id, { amount: input.amount });
+    log(ctx, { action: 'create', entity: 'payable-payment', entityId: id, label: paymentLabel(input), changes: paymentChanges(input) });
     return { payment: books.getPayablePayment(db, id) };
   });
 
@@ -689,7 +961,7 @@ export function buildApi(db: DB, dataDir: string) {
     notFound(payment ? 1 : 0, 'El pago');
     accountExists(payment!.accountId, user);
     books.deletePayablePayment(db, num(ctx));
-    repo.audit(db, user.id, 'delete', 'payable-payment', num(ctx), { amount: payment!.amount, date: payment!.date });
+    log(ctx, { action: 'delete', entity: 'payable-payment', entityId: num(ctx), label: paymentLabel(payment!), changes: paymentChanges(payment!) });
     return { ok: true };
   });
 
@@ -700,7 +972,7 @@ export function buildApi(db: DB, dataDir: string) {
     const input = parse(InventoryItemInput, ctx.body);
     if (!user.permissions.flags['money.costs']) input.cost = null;
     const id = friendly(() => books.insertInventoryItem(db, input));
-    repo.audit(db, user.id, 'create', 'inventory-item', id);
+    log(ctx, { action: 'create', entity: 'inventory-item', entityId: id, label: `el producto ${input.name}`, changes: snapshot(db, 'inventory-item', books.getInventoryItem(db, id)) });
     return { item: books.getInventoryItem(db, id) };
   });
 
@@ -712,16 +984,19 @@ export function buildApi(db: DB, dataDir: string) {
     // Quien no ve costos no los cambia.
     if (!user.permissions.flags['money.costs']) input.cost = existing!.cost;
     friendly(() => books.updateInventoryItem(db, num(ctx), input));
-    repo.audit(db, user.id, 'update', 'inventory-item', num(ctx));
+    const afterItem = books.getInventoryItem(db, num(ctx));
+    const changes = diff(db, 'inventory-item', existing, afterItem);
+    if (changes.length) log(ctx, { action: 'update', entity: 'inventory-item', entityId: num(ctx), label: `el producto ${afterItem!.name}`, changes });
     return { item: books.getInventoryItem(db, num(ctx)) };
   });
 
   api.add('DELETE', '/inventory-items/:id', (ctx) => {
-    const user = allowed(ctx, can('inventory.delete'));
+    allowed(ctx, can('inventory.delete'));
     const used = books.inventoryItemUsage(db, num(ctx));
     if (used > 0) throw new HttpError(409, `Tiene ${used} ${used === 1 ? 'movimiento' : 'movimientos'}. Desactívalo en vez de borrarlo.`);
+    const item = books.getInventoryItem(db, num(ctx));
     notFound(books.deleteInventoryItem(db, num(ctx)), 'El producto');
-    repo.audit(db, user.id, 'delete', 'inventory-item', num(ctx));
+    log(ctx, { action: 'delete', entity: 'inventory-item', entityId: num(ctx), label: `el producto ${item?.name ?? ''}` });
     return { ok: true };
   });
 
@@ -746,23 +1021,43 @@ export function buildApi(db: DB, dataDir: string) {
         }
         // Una salida sin costo propio toma el costo actual del producto (para saber cuanto se gasto).
         if (input.kind === 'out' && input.unitCost == null) input.unitCost = item.cost;
-        return books.insertInventoryMovement(db, input, user.id);
+        const movementId = books.insertInventoryMovement(db, input, user.id);
+        // Compra a credito: la factura queda en la cuenta del proveedor.
+        if (input.bill && input.supplierId && input.unitCost) {
+          need(p.flags['payables.charges'] && p.payableAccounts === null, 'No tienes permiso para anotar facturas de proveedores.');
+          const accountId = books.accountForSupplier(db, input.supplierId);
+          const payableId = books.insertPayable(
+            db,
+            {
+              accountId,
+              date: input.date,
+              description: `${input.bill.reference ? `Factura ${input.bill.reference} · ` : 'Compra: '}${input.quantity} × ${item.name}`,
+              category: 'equipment',
+              amount: input.quantity * input.unitCost,
+              dueDate: input.bill.dueDate && input.bill.dueDate >= input.date ? input.bill.dueDate : null,
+              notes: null,
+            },
+            user.id
+          );
+          log(ctx, { action: 'create', entity: 'payable', entityId: payableId, label: payableLabel(books.getPayable(db, payableId)), changes: snapshot(db, 'payable', books.getPayable(db, payableId)) });
+        }
+        return movementId;
       })()
     );
-    repo.audit(db, user.id, 'create', 'inventory-movement', id, { itemId: input.itemId, kind: input.kind, quantity: input.quantity });
+    log(ctx, { action: 'create', entity: 'inventory-movement', entityId: id, label: movementLabel(input), changes: movementChanges(input) });
     const movement = books.getInventoryMovement(db, id)!;
     return { movement: p.flags['money.costs'] ? movement : { ...movement, unitCost: null } };
   });
 
   api.add('DELETE', '/inventory-movements/:id', (ctx) => {
-    const user = allowed(ctx, can('inventory.delete'));
+    allowed(ctx, can('inventory.delete'));
     const movement = books.getInventoryMovement(db, num(ctx));
     notFound(movement ? 1 : 0, 'El movimiento');
     if (books.stockOf(db, movement!.itemId) - (movement!.kind === 'out' ? -movement!.quantity : movement!.quantity) < 0) {
       throw new HttpError(409, 'Si se borra este movimiento la existencia quedaría en negativo. Borra antes las salidas posteriores.');
     }
     books.deleteInventoryMovement(db, num(ctx));
-    repo.audit(db, user.id, 'delete', 'inventory-movement', num(ctx), { itemId: movement!.itemId, kind: movement!.kind, quantity: movement!.quantity });
+    log(ctx, { action: 'delete', entity: 'inventory-movement', entityId: num(ctx), label: movementLabel(movement!), changes: movementChanges(movement!) });
     return { ok: true };
   });
 
@@ -771,8 +1066,8 @@ export function buildApi(db: DB, dataDir: string) {
   for (const kind of ['sales', 'clients', 'services'] as const satisfies readonly ExportKind[]) {
     api.add('GET', `/export/${kind}`, (ctx) => {
       // El Excel completo del servidor lleva todos los montos de todo el negocio.
-      const user = allowed(ctx, (p) => p.flags.export && p.scope === 'all' && p.flags['money.profit'] && p.flags['clients.contact'] && p.flags[`${kind}.view`]);
-      repo.audit(db, user.id, 'export', kind, null);
+      allowed(ctx, (p) => p.flags.export && p.scope === 'all' && p.flags['money.profit'] && p.flags['clients.contact'] && p.flags[`${kind}.view`]);
+      log(ctx, { action: 'export', entity: kind, label: { sales: 'todas las ventas', clients: 'todos los clientes', services: 'todo el servicio técnico' }[kind] });
       const csv = exportCsv(db, kind);
       const stamp = todayISO();
       ctx.res.writeHead(200, {
@@ -786,14 +1081,14 @@ export function buildApi(db: DB, dataDir: string) {
   }
 
   api.add('GET', '/backup', async (ctx) => {
-    const user = allowed(ctx, isAdmin, 'Solo un administrador puede descargar el respaldo completo.');
+    allowed(ctx, isAdmin, 'Solo un administrador puede descargar el respaldo completo.');
     const dir = mkdtempSync(path.join(tmpdir(), 'iw-backup-'));
     try {
       const file = path.join(dir, 'admin.db');
       await db.backup(file);
       const data = readFileSync(file);
       const stamp = todayISO();
-      repo.audit(db, user.id, 'backup', 'database', null);
+      log(ctx, { action: 'backup', entity: 'database', label: 'la copia completa de la base' });
       ctx.res.writeHead(200, {
         'Content-Type': 'application/vnd.sqlite3',
         'Content-Disposition': `attachment; filename="infinitywater-respaldo-${stamp}.db"`,

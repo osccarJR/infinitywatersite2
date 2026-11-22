@@ -9,6 +9,8 @@ type Section = 'clients' | 'sales' | 'services' | 'payments' | 'payables' | 'inv
 
 export interface Access {
   admin: boolean;
+  /** Dueno: ve el registro de actividad (nunca en la vista previa). */
+  owner: boolean;
   scope: 'all' | 'own';
   personId: number | null;
   /** El permiso detallado, p. ej. can('sales.create'). */
@@ -38,11 +40,12 @@ const EDIT_FLAGS: Record<Section, PermissionFlag[]> = {
   inventory: ['inventory.move', 'inventory.count', 'inventory.products'],
 };
 
-export function accessOf(p: Permissions): Access {
+export function accessOf(p: Permissions, owner = false): Access {
   const f = p.flags;
   const can = (flag: PermissionFlag) => Boolean(f[flag]);
   return {
     admin: p.admin,
+    owner,
     scope: p.scope,
     personId: p.personId,
     can,
@@ -57,7 +60,10 @@ export function accessOf(p: Permissions): Access {
   };
 }
 
-export const useAccess = () => accessOf(useData().me.permissions);
+export const useAccess = () => {
+  const data = useData();
+  return accessOf(data.me.permissions, data.me.owner && !data.viewer);
+};
 
 /** Datos que faltan en una venta, sin pedir lo que este usuario no ve. */
 export function visibleMissing(missing: string[], access: Pick<Access, 'can'>) {

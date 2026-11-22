@@ -107,7 +107,9 @@ test('montos: coma decimal, coma de miles y casos ambiguos', async () => {
   assert.equal(parseMoney('2500,50'), 250_050); // coma decimal (forma latina)
   assert.equal(parseMoney('2.500,50'), 250_050);
   assert.equal(parseMoney('1.5'), 150);
-  assert.equal(parseMoney('1.500'), undefined); // ambiguo: no se adivina
+  assert.equal(parseMoney('1.500'), 150_000); // punto de miles, como se escribe en espanol
+  assert.equal(parseMoney('22.384'), 2_238_400);
+  assert.equal(parseMoney('1.50'), 150);
   assert.equal(parseMoney('12a'), undefined);
   assert.equal(parseMoney(''), null);
 });

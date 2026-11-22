@@ -388,11 +388,15 @@ export function MoneyField({
           />
         </span>
       </label>
-      {invalid && !focused && <div className="field-error">Monto no válido. Escríbelo así: 1500 o 1500.50</div>}
+      {invalid && <div className="field-error">Monto no válido. Escríbelo así: 1500 o 1500.50</div>}
+      {focused && !invalid && value != null && value >= 100000 && <div className="money-live num">= {moneyPlainLocal(value)}</div>}
       {hint && !(invalid && !focused) && <div className="row-block" style={{ paddingTop: 0, fontSize: 13, color: 'var(--text-2)' }}>{hint}</div>}
     </>
   );
 }
+
+const usdLive = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
+const moneyPlainLocal = (cents: number) => usdLive.format(cents / 100);
 
 /** true si algun monto del formulario esta mal escrito. */
 export const hasInvalidMoney = (form: HTMLFormElement | null) => Boolean(form?.querySelector('[aria-invalid="true"]'));
@@ -495,7 +499,14 @@ export function SegmentedRow<T extends string | number>(props: {
 /* Varios                                                               */
 /* ------------------------------------------------------------------ */
 
-export function Avatar({ name, size }: { name: string; size?: 'lg' | 'sm' }) {
+export function Avatar({ name, size, photo }: { name: string; size?: 'lg' | 'sm'; photo?: string | null }) {
+  if (photo) {
+    return (
+      <span className={`avatar photo${size ? ' ' + size : ''}`} aria-hidden="true">
+        <img src={photo} alt="" loading="lazy" decoding="async" />
+      </span>
+    );
+  }
   return (
     <span className={`avatar${size ? ' ' + size : ''}`} style={avatarStyle(name)} aria-hidden="true">
       {initials(name)}

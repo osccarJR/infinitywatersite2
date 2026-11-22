@@ -30,8 +30,12 @@ export interface User {
   name: string;
   /** admin: todo (incluidos usuarios y respaldo). member: lo que digan sus permisos. */
   role: 'admin' | 'member';
+  /** Dueno del negocio: el unico que ve el registro de actividad; nadie mas toca su cuenta. */
+  owner: boolean;
   active: boolean;
   lastLoginAt: string | null;
+  /** Foto de perfil (URL), o null para mostrar las iniciales. */
+  avatar: string | null;
   /** Ya resueltos: para un administrador, todo permitido. */
   permissions: Permissions;
 }
@@ -187,7 +191,18 @@ export interface PayableAccount {
   creditLimit: number | null;
   notes: string | null;
   active: boolean;
+  /** Color elegido para la tarjeta (null = automatico segun la red). */
+  color: CardColor | null;
+  /** Red elegida (null = se adivina por el nombre; 'none' = sin logo). */
+  network: CardNetwork | null;
+  /** Proveedor del catalogo (ventas e inventario) al que corresponde esta cuenta. */
+  supplierId: number | null;
 }
+
+export const CARD_COLORS = ['black', 'silver', 'gold', 'blue', 'navy', 'green', 'teal', 'purple', 'red', 'pink', 'orange'] as const;
+export type CardColor = (typeof CARD_COLORS)[number];
+export const CARD_NETWORKS = ['visa', 'mastercard', 'amex', 'discover', 'none'] as const;
+export type CardNetwork = (typeof CARD_NETWORKS)[number];
 
 export type ExpenseCategory = 'equipment' | 'materials' | 'fuel' | 'vehicle' | 'marketing' | 'office' | 'payroll' | 'other';
 

@@ -52,7 +52,7 @@ export function Home() {
       subtitle={capitalize(longDate(data.today))}
       actions={
         <Link to="/ajustes" className="icon-btn mobile-only" aria-label="Ajustes y mi cuenta">
-          <Avatar name={data.me.name} size="sm" />
+          <Avatar name={data.me.name} size="sm" photo={data.me.avatar} />
         </Link>
       }
     >

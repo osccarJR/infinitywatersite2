@@ -423,12 +423,3 @@ export function currentVersion(db: DB, table: 'clients' | 'sales' | 'services', 
 /* Auditoria                                                            */
 /* ------------------------------------------------------------------ */
 
-export function audit(db: DB, userId: number, action: string, entity: string, entityId: number | null, detail?: unknown) {
-  db.prepare('INSERT INTO audit (user_id, action, entity, entity_id, detail) VALUES (?, ?, ?, ?, ?)').run(
-    userId,
-    action,
-    entity,
-    entityId,
-    detail === undefined ? null : JSON.stringify(detail).slice(0, 4000)
-  );
-}

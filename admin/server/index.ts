@@ -156,6 +156,8 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     if (!user.permissions.admin) throw new HttpError(403, 'Solo un administrador puede usar la vista previa.');
     const target = /^\d{1,9}$/.test(viewAs) ? findUserById(db, Number(viewAs)) : undefined;
     if (!target) throw new HttpError(404, 'Ese usuario ya no existe. Sal de la vista previa.');
+    // Solo se ve como un usuario con permisos (nunca como otro administrador o el dueno).
+    if (target.role === 'admin' || target.is_owner) throw new HttpError(403, 'La vista previa es solo para usuarios con permisos.');
     if (req.method !== 'GET' && req.method !== 'HEAD') {
       throw new HttpError(403, `Estás viendo el sistema como ${target.name}: en la vista previa no se guarda nada.`);
     }

@@ -38,6 +38,7 @@ import { useData, type Data } from '../lib/store.tsx';
 import { useAccess, type Access } from '../lib/access.ts';
 import { setAmountsHidden, useAmountsHidden } from '../lib/privacy.ts';
 import { dollars, exportRows, type Column } from '../lib/exports.ts';
+import { logEvent } from '../lib/api.ts';
 import { accountStatuses, stockLevels } from '../lib/books.ts';
 import { dateWithYear, daysBetween, money, moneyFit, monthAbbr, percentText } from '../lib/format.ts';
 import { Empty, Page, PrivacyToggle } from '../ui/kit.tsx';
@@ -749,6 +750,7 @@ export function Reports({ initial }: { initial: string | null }) {
         await new Promise((r) => setTimeout(r, 120));
       }
     }
+    logEvent('print', `el reporte «${report.label}» (${periodText})`);
     window.print();
   };
 
@@ -765,7 +767,8 @@ export function Reports({ initial }: { initial: string | null }) {
           return v;
         },
       }));
-      exportRows(`reporte-${report.key}-${range.from}-a-${range.to > data.today ? data.today : range.to}`, [...result.table.rows, ...(result.table.total ? [result.table.total] : [])], columns, a, data.today);
+      exportRows(`reporte-${report.key}-${range.from}-a-${range.to > data.today ? data.today : range.to}`, [...result.table.rows, ...(result.table.total ? [result.table.total] : [])], columns, a, data.today, `el reporte «${report.label}» (${periodText})`);
+      toast('Descargado. Ábrelo con Excel o Google Sheets (está en Descargas).');
     } catch (err: any) {
       toast(err.message, 'error');
     }
@@ -891,8 +894,8 @@ export function Reports({ initial }: { initial: string | null }) {
 
       <Sheet open={customOpen} onClose={() => setCustomOpen(false)} title="Elegir fechas" right={<button type="button" className="link-btn strong" onClick={() => { setPeriod('custom'); setCustomOpen(false); }}>Listo</button>}>
         <div className="group">
-          <DateField label="Desde" value={custom.from} onChange={(from) => setCustom((c) => ({ ...c, from: from || c.from }))} max={data.today} />
-          <DateField label="Hasta" value={custom.to} onChange={(to) => setCustom((c) => ({ ...c, to: to || c.to }))} min={custom.from} />
+          <DateField required label="Desde" value={custom.from} onChange={(from) => setCustom((c) => ({ from: from || c.from, to: (from || c.from) > c.to ? from || c.from : c.to }))} max={data.today} />
+          <DateField required label="Hasta" value={custom.to} onChange={(to) => setCustom((c) => ({ ...c, to: to || c.to }))} min={custom.from} />
         </div>
       </Sheet>
       <Picker

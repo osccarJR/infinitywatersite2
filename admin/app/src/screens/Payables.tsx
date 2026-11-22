@@ -4,15 +4,16 @@
  * saldo, lo vencido y lo proximo a vencer se calculan solos.
  */
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { AlertTriangle, CalendarClock, CircleCheck, CreditCard, Landmark, Plus, Receipt, Store, User, Wallet } from 'lucide-react';
-import type { ExpenseCategory, Payable, PayableAccount, PayableAccountKind, PayablePayment, ServicePayment } from '../../../shared/domain.ts';
-import { EXPENSE_CATEGORY_LABEL, PAYABLE_KIND_LABEL, SERVICE_PAYMENT_LABEL } from '../../../shared/domain.ts';
+import { AlertTriangle, CalendarClock, CircleCheck, CreditCard, Plus, Receipt, Trash2, Wallet } from 'lucide-react';
+import type { CardColor, CardNetwork, ExpenseCategory, Payable, PayableAccount, PayableAccountKind, PayablePayment, ServicePayment } from '../../../shared/domain.ts';
+import { CARD_COLORS, EXPENSE_CATEGORY_LABEL, PAYABLE_KIND_LABEL, SERVICE_PAYMENT_LABEL } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { useAccess } from '../lib/access.ts';
-import { Link, navigate } from '../lib/router.tsx';
+import { navigate } from '../lib/router.tsx';
+import { CARD_THEMES, PaymentCard, cardTheme } from '../ui/card.tsx';
 import { api } from '../lib/api.ts';
 import { accountStatuses, payablesTotals, type AccountStatus, type PayableStatus } from '../lib/books.ts';
-import { date, dateWithYear, money, moneyFit, moneyRound, plural, relativeDay } from '../lib/format.ts';
+import { date, dateWithYear, money, moneyFit, moneyRound, plural, relativeDay, moneyPlain } from '../lib/format.ts';
 import { Badge, Empty, Group, IconBox, MoneyField, Page, Row, Section, SegmentedRow, Stat, StackField, SwitchRow, TextField } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
 import { PickerRow } from '../ui/pickers.tsx';
@@ -22,29 +23,6 @@ import { Picker, Sheet, useFeedback } from '../ui/sheet.tsx';
 /* Aspecto de cada cuenta                                               */
 /* ------------------------------------------------------------------ */
 
-const KIND_ICON: Record<PayableAccountKind, typeof CreditCard> = { card: CreditCard, supplier: Store, loan: Landmark, person: User, other: Wallet };
-
-/** Degradado de la tarjeta: reconoce Visa, Mastercard, Amex; si no, por tipo. */
-export function cardTheme(account: PayableAccount): string {
-  const name = account.name.toLowerCase();
-  if (/visa/.test(name)) return 'linear-gradient(135deg, #1a1f71 0%, #2b5cd6 100%)';
-  if (/master/.test(name)) return 'linear-gradient(135deg, #1f1f1f 0%, #3a3a3a 55%, #eb5f1a 140%)';
-  if (/amex|american/.test(name)) return 'linear-gradient(135deg, #0b6e8a 0%, #2fb3c9 100%)';
-  if (/discover/.test(name)) return 'linear-gradient(135deg, #2a2a2a 0%, #f58220 160%)';
-  if (/personal/.test(name)) return 'linear-gradient(135deg, #5b2bd1 0%, #a35cf0 100%)';
-  switch (account.kind) {
-    case 'card':
-      return 'linear-gradient(135deg, #0a4f8c 0%, #0a72c2 100%)';
-    case 'supplier':
-      return 'linear-gradient(135deg, #0f5e45 0%, #22a06b 100%)';
-    case 'loan':
-      return 'linear-gradient(135deg, #3b4252 0%, #69758a 100%)';
-    case 'person':
-      return 'linear-gradient(135deg, #7a2e8c 0%, #c25bd6 100%)';
-    default:
-      return 'linear-gradient(135deg, #47505e 0%, #8e97a6 100%)';
-  }
-}
 
 const SUGGESTED: { name: string; kind: PayableAccountKind }[] = [
   { name: 'Visa', kind: 'card' },
@@ -64,7 +42,7 @@ function dueLabel(iso: string | null, today: string) {
 /* ------------------------------------------------------------------ */
 
 type Editing =
-  | { kind: 'account'; account: PayableAccount | null }
+  | { kind: 'account'; account: PayableAccount | null; initialKind?: PayableAccountKind }
   | { kind: 'charge'; payable: Payable | null; accountId?: number }
   | { kind: 'payment'; accountId?: number; payableId?: number }
   | null;
@@ -102,7 +80,8 @@ export function Payables({ action }: { action: string | null }) {
       setCreating(null);
     }
   };
-  const missingSuggestions = SUGGESTED.filter((s) => !data.payableAccounts.some((x) => x.name.toLowerCase() === s.name.toLowerCase()));
+  // "Mastercard" ya esta si hay una "Mastercard BANK OF AMERICA".
+  const missingSuggestions = SUGGESTED.filter((s) => !data.payableAccounts.some((x) => x.name.toLowerCase().includes(s.name.toLowerCase())));
 
   return (
     <Page
@@ -177,11 +156,11 @@ export function Payables({ action }: { action: string | null }) {
           </div>
 
           <Section
-            title="Tus cuentas"
+            title="Tarjetas y préstamos"
             action={canAccounts && <button type="button" className="section-link link-btn" onClick={() => setEditing({ kind: 'account', account: null })}>Agregar</button>}
           >
             <div className="card-wallet">
-              {active.map((status) => (
+              {active.filter((x) => x.account.kind !== 'supplier').map((status) => (
                 <AccountCard key={status.account.id} status={status} />
               ))}
               {canAccounts &&
@@ -194,11 +173,39 @@ export function Payables({ action }: { action: string | null }) {
             </div>
           </Section>
 
+          <Section
+            title="Proveedores"
+            action={canAccounts && <button type="button" className="section-link link-btn" onClick={() => setEditing({ kind: 'account', account: null, initialKind: 'supplier' })}>Agregar</button>}
+          >
+            <div className="card-wallet">
+              {active.filter((x) => x.account.kind === 'supplier').map((status) => (
+                <AccountCard key={status.account.id} status={status} />
+              ))}
+              {canAccounts &&
+                data.suppliers
+                  .filter((sup) => sup.active && !data.payableAccounts.some((x) => x.supplierId === sup.id || x.name.toLowerCase() === sup.name.toLowerCase()))
+                  .slice(0, 4)
+                  .map((sup) => (
+                    <button key={sup.id} type="button" className="wallet-add" disabled={creating != null} onClick={() => quickCreate(sup.name, 'supplier')}>
+                      <Plus size={20} />
+                      {creating === sup.name ? 'Creando…' : sup.name}
+                    </button>
+                  ))}
+              {canAccounts && (
+                <button type="button" className="wallet-add supplier" onClick={() => setEditing({ kind: 'account', account: null, initialKind: 'supplier' })}>
+                  <Plus size={20} />
+                  Agregar proveedor
+                  <span className="wallet-add-sub">Para anotar sus facturas y pagarlas</span>
+                </button>
+              )}
+            </div>
+          </Section>
+
           <div className="grid-2" style={{ marginTop: 10 }}>
             <Section title="Por pagar">
               <Group>
                 {upcoming.length === 0 ? (
-                  <Empty inGroup icon={<CircleCheck size={28} />} title="Todo pagado" text="Cuando registres un gasto aparecerá aquí hasta que lo pagues." />
+                  <Empty inGroup icon={<CircleCheck size={28} />} title="Todo pagado" text={canCharge ? 'Cuando registres un gasto aparecerá aquí hasta que lo pagues.' : 'No hay nada pendiente.'} />
                 ) : (
                   upcoming.slice(0, 8).map((item) => (
                     <ChargeRow key={item.payable.id} item={item} account={item.status.account} onOpen={() => (canCharge ? setEditing({ kind: 'charge', payable: item.payable }) : navigate(`/pagar/${item.status.account.id}`))} />
@@ -221,39 +228,37 @@ export function Payables({ action }: { action: string | null }) {
 export function AccountCard({ status, large }: { status: AccountStatus; large?: boolean }) {
   const data = useData();
   const { account } = status;
-  const Icon = KIND_ICON[account.kind];
-  const content = (
-    <>
-      <span className="wallet-top">
-        <span className="wallet-kind">
-          <Icon size={16} /> {PAYABLE_KIND_LABEL[account.kind]}
-        </span>
-        {!account.active && <span className="wallet-off">Inactiva</span>}
-      </span>
-      <span className="wallet-name">{account.name}</span>
-      <span className="wallet-balance">
-        <span className="wallet-label">{status.credit > 0 ? 'A favor' : 'Saldo'}</span>
-        <span className="wallet-amount num">{status.credit > 0 ? money(status.credit) : money(status.balance)}</span>
-      </span>
-      {status.usage != null && (
-        <span className="wallet-usage" aria-label={`Uso del cupo ${Math.round(status.usage * 100)}%`}>
-          <span style={{ width: `${Math.min(status.usage, 1) * 100}%` }} className={status.usage > 0.9 ? 'hot' : ''} />
-        </span>
-      )}
-      <span className="wallet-foot">
-        <span className="num">{account.last4 ? `•••• ${account.last4}` : account.creditLimit ? `Cupo ${moneyRound(account.creditLimit)}` : ' '}</span>
-        <span className={status.overdue > 0 ? 'wallet-alert' : ''}>
-          {status.overdue > 0 ? `Vencido ${moneyRound(status.overdue)}` : status.nextDue ? dueLabel(status.nextDue, data.today) : status.balance === 0 ? 'Al día' : ''}
-        </span>
-      </span>
-    </>
-  );
-  if (large) return <div className="wallet-card large" style={{ background: cardTheme(account) }}>{content}</div>;
+  const credit = status.credit > 0;
   return (
-    <Link to={`/pagar/${account.id}`} className="wallet-card" style={{ background: cardTheme(account) }}>
-      {content}
-    </Link>
+    <PaymentCard
+      account={account}
+      to={large ? undefined : `/pagar/${account.id}`}
+      large={large}
+      amountLabel={credit ? 'A favor' : 'Saldo'}
+      amount={money(credit ? status.credit : status.balance)}
+      dueLabel={status.overdue > 0 ? 'Vencido' : status.nextDue ? shortDue(status.nextDue, data.today) : status.balance === 0 ? 'Al día' : '—'}
+      dueTone={status.overdue > 0 ? 'alert' : undefined}
+      usage={status.usage}
+      footnote={[
+        status.overdue > 0 ? `Vencido ${moneyRound(status.overdue)}` : null,
+        account.creditLimit
+          ? `Cupo ${moneyRound(account.creditLimit)} · ${status.usage != null && status.usage > 1 ? 'pasado del cupo' : `usado ${Math.round((status.usage ?? 0) * 100)}%`}`
+          : null,
+      ]
+        .filter(Boolean)
+        .join(' · ') || undefined}
+    />
   );
+}
+
+/** "16 dic" o "en 3 días" para la tarjeta. */
+function shortDue(iso: string, today: string) {
+  const days = Math.round((Date.parse(iso) - Date.parse(today)) / 86400000);
+  if (days < 0) return `Venció ${date(iso, today)}`;
+  if (days === 0) return 'Hoy';
+  if (days === 1) return 'Mañana';
+  if (days <= 7) return `En ${days} días`;
+  return date(iso, today);
 }
 
 function ChargeRow({ item, account, onOpen, showAccount = true }: { item: PayableStatus; account: PayableAccount; onOpen: () => void; showAccount?: boolean }) {
@@ -346,7 +351,7 @@ export function PayableAccountScreen({ id }: { id: number }) {
   const items = tab === 'pending' ? status.items.filter((i) => i.remaining > 0) : status.items;
 
   const removePayment = async (payment: PayablePayment) => {
-    if (!(await confirm({ title: `¿Borrar el pago de ${money(payment.amount)}?`, message: `Del ${dateWithYear(payment.date)}. El saldo de la cuenta vuelve a subir.`, confirm: 'Borrar pago', danger: true }))) return;
+    if (!(await confirm({ title: `¿Borrar el pago de ${moneyPlain(payment.amount)}?`, message: `Del ${dateWithYear(payment.date)}. El saldo de la cuenta vuelve a subir.`, confirm: 'Borrar pago', danger: true }))) return;
     try {
       await api(`/payable-payments/${payment.id}`, { method: 'DELETE' });
       await reload();
@@ -371,13 +376,13 @@ export function PayableAccountScreen({ id }: { id: number }) {
           {canPay && (
             <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'payment', accountId: account.id })} disabled={status.balance === 0}>
               <CircleCheck size={22} />
-              Registrar pago
+              {account.kind === 'supplier' ? 'Pagar factura' : 'Registrar pago'}
             </button>
           )}
           {canCharge && (
             <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'charge', payable: null, accountId: account.id })}>
               <Plus size={22} />
-              Nuevo gasto
+              {account.kind === 'supplier' ? 'Nueva factura' : 'Nuevo gasto'}
             </button>
           )}
         </div>
@@ -403,7 +408,7 @@ export function PayableAccountScreen({ id }: { id: number }) {
           onChange={setTab}
           options={[
             { value: 'pending', label: `Por pagar (${status.items.filter((i) => i.remaining > 0).length})` },
-            { value: 'all', label: 'Todos los gastos' },
+            { value: 'all', label: account.kind === 'supplier' ? 'Todas las facturas' : 'Todos los gastos' },
             { value: 'payments', label: `Pagos (${status.payments.length})` },
           ]}
         />
@@ -466,20 +471,23 @@ function SegmentedRowless<T extends string>({ value, onChange, options }: { valu
 function PayablesSheets({ editing, onClose }: { editing: Editing; onClose: () => void }) {
   return (
     <>
-      <AccountSheet open={editing?.kind === 'account'} account={editing?.kind === 'account' ? editing.account : null} onClose={onClose} />
+      <AccountSheet open={editing?.kind === 'account'} account={editing?.kind === 'account' ? editing.account : null} initialKind={editing?.kind === 'account' ? editing.initialKind : undefined} onClose={onClose} />
       <ChargeSheet open={editing?.kind === 'charge'} payable={editing?.kind === 'charge' ? editing.payable : null} accountId={editing?.kind === 'charge' ? editing.accountId : undefined} onClose={onClose} />
       <PaymentSheet open={editing?.kind === 'payment'} accountId={editing?.kind === 'payment' ? editing.accountId : undefined} payableId={editing?.kind === 'payment' ? editing.payableId : undefined} onClose={onClose} />
     </>
   );
 }
 
-function AccountSheet({ open, account, onClose }: { open: boolean; account: PayableAccount | null; onClose: () => void }) {
+function AccountSheet({ open, account, initialKind, onClose }: { open: boolean; account: PayableAccount | null; initialKind?: PayableAccountKind; onClose: () => void }) {
+  const data = useData();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
   const a = useAccess();
-  const blank = { name: '', kind: 'card' as PayableAccountKind, last4: '', dueDay: '', creditLimit: null as number | null, notes: '', active: true };
+  const blank = { name: '', kind: 'card' as PayableAccountKind, last4: '', dueDay: '', creditLimit: null as number | null, notes: '', active: true, color: null as CardColor | null, network: null as CardNetwork | null };
   const [form, setForm] = useState(blank);
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -487,8 +495,8 @@ function AccountSheet({ open, account, onClose }: { open: boolean; account: Paya
     setError(null);
     setForm(
       account
-        ? { name: account.name, kind: account.kind, last4: account.last4 ?? '', dueDay: account.dueDay ? String(account.dueDay) : '', creditLimit: account.creditLimit, notes: account.notes ?? '', active: account.active }
-        : blank
+        ? { name: account.name, kind: account.kind, last4: account.last4 ?? '', dueDay: account.dueDay ? String(account.dueDay) : '', creditLimit: account.creditLimit, notes: account.notes ?? '', active: account.active, color: account.color, network: account.network }
+        : { ...blank, kind: initialKind ?? 'card' }
     );
   }, [open, account]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -499,7 +507,7 @@ function AccountSheet({ open, account, onClose }: { open: boolean; account: Paya
     if (dueDay != null && !(Number.isInteger(dueDay) && dueDay >= 1 && dueDay <= 31)) return setError('El día de pago va del 1 al 31.');
     setBusy(true);
     try {
-      const body = { name: form.name, kind: form.kind, last4: form.last4 || null, dueDay, creditLimit: form.creditLimit, notes: form.notes || null, active: form.active };
+      const body = { name: form.name, kind: form.kind, last4: form.last4 || null, dueDay, creditLimit: form.creditLimit, notes: form.notes || null, active: form.active, color: form.color, network: form.kind === 'card' ? form.network : null };
       const { account: saved } = await api<{ account: PayableAccount }>(account ? `/payable-accounts/${account.id}` : '/payable-accounts', { method: account ? 'PUT' : 'POST', body });
       await reload();
       toast(account ? 'Cuenta guardada' : 'Cuenta agregada');
@@ -514,9 +522,20 @@ function AccountSheet({ open, account, onClose }: { open: boolean; account: Paya
 
   const remove = async () => {
     if (!account) return;
-    if (!(await confirm({ title: `¿Borrar ${account.name}?`, confirm: 'Borrar', danger: true }))) return;
+    const charges = data.payables.filter((p) => p.accountId === account.id);
+    const payments = data.payablePayments.filter((p) => p.accountId === account.id);
+    const withAll = charges.length + payments.length > 0;
+    const ok = await confirm({
+      title: `¿Borrar ${account.name}?`,
+      message: withAll
+        ? `Se borran también sus ${plural(charges.length, 'gasto', 'gastos')} (${moneyPlain(charges.reduce((n, p) => n + p.amount, 0))}) y ${plural(payments.length, 'pago', 'pagos')}. Queda anotado en el registro de actividad. Si solo ya no la usas, mejor desactívala.`
+        : 'No tiene gastos ni pagos.',
+      confirm: withAll ? 'Borrar con todo' : 'Borrar',
+      danger: true,
+    });
+    if (!ok) return;
     try {
-      await api(`/payable-accounts/${account.id}`, { method: 'DELETE' });
+      await api(`/payable-accounts/${account.id}${withAll ? '?todo=1' : ''}`, { method: 'DELETE' });
       await reload();
       toast('Cuenta borrada');
       onClose();
@@ -527,15 +546,77 @@ function AccountSheet({ open, account, onClose }: { open: boolean; account: Paya
   };
 
   const isCard = form.kind === 'card';
+  // Vista previa en vivo de la tarjeta mientras se edita.
+  const preview: PayableAccount = {
+    id: account?.id ?? 0,
+    name: form.name.trim() || (isCard ? 'Nueva tarjeta' : 'Nueva cuenta'),
+    kind: form.kind,
+    last4: form.last4.length === 4 ? form.last4 : null,
+    dueDay: null,
+    creditLimit: form.creditLimit,
+    notes: null,
+    active: form.active,
+    color: form.color,
+    network: form.network,
+    supplierId: account?.supplierId ?? null,
+  };
+  const status = account ? accountStatuses(data.payableAccounts, data.payables, data.payablePayments, data.today).find((x) => x.account.id === account.id) : undefined;
   return (
     <Sheet
       open={open}
       onClose={onClose}
       title={account ? 'Editar cuenta' : 'Nueva cuenta'}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={() => save()} disabled={busy}>Guardar</button>}
+      right={
+        <span className="sheet-actions">
+          {account && a.can('payables.delete') && (
+            <button type="button" className="icon-btn danger-icon" onClick={remove} aria-label="Borrar cuenta" title="Borrar cuenta">
+              <Trash2 size={19} />
+            </button>
+          )}
+        </span>
+      }
+      onSubmit={() => save()}
+      busy={busy}
+      error={error}
+      guard
     >
-      <form onSubmit={save}>
+      <>
+        {/* Fija arriba: al elegir color o red se ve el cambio al instante. */}
+        <div className="card-preview">
+          <PaymentCard
+            account={preview}
+            large
+            amountLabel="Saldo"
+            amount={money(status?.balance ?? 0)}
+            dueLabel={form.dueDay ? `El ${form.dueDay}` : '—'}
+            usage={status?.usage ?? (form.creditLimit ? 0 : null)}
+          />
+        </div>
+        <div className="group-label">Color</div>
+        <div className="swatches" role="radiogroup" aria-label="Color de la tarjeta">
+          <button type="button" role="radio" aria-checked={form.color === null} className={`swatch auto${form.color === null ? ' on' : ''}`} style={{ background: cardTheme({ ...preview, color: null }) }} onClick={() => setForm({ ...form, color: null })} title="Automático">
+            <span>Auto</span>
+          </button>
+          {CARD_COLORS.map((c) => (
+            <button key={c} type="button" role="radio" aria-checked={form.color === c} aria-label={CARD_THEMES[c].label} title={CARD_THEMES[c].label} className={`swatch${form.color === c ? ' on' : ''}`} style={{ background: CARD_THEMES[c].background }} onClick={() => setForm({ ...form, color: c })} />
+          ))}
+        </div>
+        {isCard && (
+          <>
+            <div className="group-label">Red de la tarjeta</div>
+            <div className="chip-grid">
+              {([['auto', 'Automática'], ['visa', 'Visa'], ['mastercard', 'Mastercard'], ['amex', 'American Express'], ['discover', 'Discover'], ['none', 'Sin logo']] as const).map(([k, label]) => {
+                const on = (form.network ?? 'auto') === k;
+                return (
+                  <button key={k} type="button" className={`chip-choice${on ? ' on' : ''}`} aria-pressed={on} onClick={() => setForm({ ...form, network: k === 'auto' ? null : k })}>
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
         <Group>
           <TextField label="Nombre" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder={isCard ? 'Visa, Mastercard, Tarjeta personal…' : 'Nombre'} maxLength={80} autoFocus={!account} />
         </Group>
@@ -558,14 +639,12 @@ function AccountSheet({ open, account, onClose }: { open: boolean; account: Paya
           <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Banco, a nombre de quién, etc." multiline />
           {account && <SwitchRow label="Activa" subtitle="Inactiva: no aparece al registrar gastos" checked={form.active} onChange={(active) => setForm({ ...form, active })} />}
         </Group>
-        {error && <p className="field-error">{error}</p>}
         {account && a.can('payables.delete') && (
           <div className="group" style={{ marginTop: 22 }}>
             <button type="button" className="row danger" onClick={remove}>Borrar cuenta</button>
           </div>
         )}
-        <button type="submit" hidden />
-      </form>
+      </>
     </Sheet>
   );
 }
@@ -596,6 +675,8 @@ function ChargeSheet({ open, payable, accountId, onClose }: { open: boolean; pay
   const { toast, confirm } = useFeedback();
   const [form, setForm] = useState({ accountId: null as number | null, description: '', category: null as ExpenseCategory | null, amount: null as number | null, date: data.today, dueDate: '', notes: '' });
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form]);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
@@ -612,16 +693,24 @@ function ChargeSheet({ open, payable, accountId, onClose }: { open: boolean; pay
   const save = async () => {
     setError(null);
     if (!form.accountId) return setError('Elige la cuenta (la tarjeta o el proveedor).');
-    if (!form.description.trim()) return setError('Escribe qué se compró o qué se debe.');
     if (!form.amount) return setError('Pon el monto.');
+    // "Que es" es opcional: si se deja vacio se nombra solo.
+    const account = data.payableAccounts.find((x) => x.id === form.accountId);
+    const description =
+      form.description.trim() ||
+      (account?.kind === 'supplier'
+        ? `Factura de ${account.name}`
+        : form.category
+          ? `Compra de ${EXPENSE_CATEGORY_LABEL[form.category].toLowerCase()}`
+          : `Saldo de ${account?.name ?? 'la cuenta'}`);
     setBusy(true);
     try {
       await api(payable ? `/payables/${payable.id}` : '/payables', {
         method: payable ? 'PUT' : 'POST',
-        body: { ...form, dueDate: form.dueDate || null, notes: form.notes || null, ...(payable ? { expectedUpdatedAt: payable.updatedAt } : {}) },
+        body: { ...form, description, dueDate: form.dueDate || null, notes: form.notes || null, ...(payable ? { expectedUpdatedAt: payable.updatedAt } : {}) },
       });
       await reload();
-      toast(payable ? 'Gasto guardado' : 'Gasto registrado');
+      toast(account?.kind === 'supplier' ? (payable ? 'Factura guardada' : 'Factura registrada') : payable ? 'Gasto guardado' : 'Gasto registrado');
       onClose();
     } catch (err: any) {
       setError(err.message);
@@ -644,14 +733,28 @@ function ChargeSheet({ open, payable, accountId, onClose }: { open: boolean; pay
   };
 
   const status = payable ? accountStatuses(data.payableAccounts, data.payables, data.payablePayments, data.today).flatMap((s) => s.items).find((i) => i.payable.id === payable.id) : null;
+  // Con un proveedor se habla de facturas.
+  const isSupplier = data.payableAccounts.find((x) => x.id === form.accountId)?.kind === 'supplier';
 
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title={payable ? 'Gasto' : 'Nuevo gasto'}
+      title={isSupplier ? (payable ? 'Factura' : 'Nueva factura') : payable ? 'Gasto' : 'Nuevo gasto'}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={save} disabled={busy}>Guardar</button>}
+      right={
+        <span className="sheet-actions">
+          {payable && a.can('payables.delete') && (
+            <button type="button" className="icon-btn danger-icon" onClick={remove} aria-label="Borrar gasto" title="Borrar gasto">
+              <Trash2 size={19} />
+            </button>
+          )}
+        </span>
+      }
+      onSubmit={save}
+      busy={busy}
+      error={error}
+      guard
     >
       {status && status.state !== 'open' && (
         <div className={`banner ${status.state === 'paid' ? 'green' : 'blue'}`}>
@@ -663,9 +766,25 @@ function ChargeSheet({ open, payable, accountId, onClose }: { open: boolean; pay
       )}
       <Group>
         <AccountPicker value={form.accountId} onChange={(id) => setForm({ ...form, accountId: id })} />
-        <TextField field="description" label="Qué es" value={form.description} onChange={(description) => setForm({ ...form, description })} placeholder="Membranas, gasolina, factura #123…" maxLength={200} />
+        <TextField
+          field="description"
+          label={isSupplier ? 'Factura' : 'Qué es'}
+          value={form.description}
+          onChange={(description) => setForm({ ...form, description })}
+          placeholder={isSupplier ? 'Número o detalle: Factura #1234' : 'Opcional: saldo, compra, factura…'}
+          maxLength={200}
+        />
         <MoneyField field="amount" label="Monto" value={form.amount} onChange={(amount) => setForm({ ...form, amount })} />
       </Group>
+      {!payable && (
+        <div className="amount-chips after-group">
+          {isSupplier ? (
+            <button type="button" onClick={() => setForm({ ...form, description: 'Saldo pendiente con el proveedor', category: null })}>Saldo que ya le debo</button>
+          ) : (
+            <button type="button" onClick={() => setForm({ ...form, description: 'Saldo actual de la tarjeta', category: null })}>Saldo actual de la tarjeta</button>
+          )}
+        </div>
+      )}
       <div className="group-label">Categoría</div>
       <div className="chip-grid">
         {(Object.keys(EXPENSE_CATEGORY_LABEL) as ExpenseCategory[]).map((k) => (
@@ -675,13 +794,12 @@ function ChargeSheet({ open, payable, accountId, onClose }: { open: boolean; pay
         ))}
       </div>
       <Group footer="El vencimiento es opcional: con él, el sistema te avisa antes de que se pase.">
-        <DateField field="date" label="Fecha" value={form.date} onChange={(v) => setForm({ ...form, date: v || data.today })} />
+        <DateField required field="date" label="Fecha" value={form.date} onChange={(v) => setForm({ ...form, date: v || data.today })} />
         <DateField field="dueDate" label="Vence" value={form.dueDate} onChange={(dueDate) => setForm({ ...form, dueDate })} min={form.date} quick="future" />
       </Group>
       <Group>
         <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Opcional" multiline />
       </Group>
-      {error && <p className="field-error">{error}</p>}
       {payable && status && status.remaining > 0 && a.can('payables.pay') && (
         <div style={{ marginTop: 16 }}>
           <PayNowButton payable={payable} remaining={status.remaining} onDone={onClose} />
@@ -703,7 +821,7 @@ function PayNowButton({ payable, remaining, onDone }: { payable: Payable; remain
   const { toast, confirm } = useFeedback();
   const data = useData();
   const pay = async () => {
-    if (!(await confirm({ title: `¿Pagar ${money(remaining)}?`, message: `${payable.description} · con fecha de hoy`, confirm: 'Registrar pago' }))) return;
+    if (!(await confirm({ title: `¿Pagar ${moneyPlain(remaining)}?`, message: `${payable.description} · con fecha de hoy`, confirm: 'Registrar pago' }))) return;
     try {
       await api('/payable-payments', { method: 'POST', body: { accountId: payable.accountId, payableId: payable.id, date: data.today, amount: remaining, method: null, notes: null } });
       await reload();
@@ -715,7 +833,7 @@ function PayNowButton({ payable, remaining, onDone }: { payable: Payable; remain
   };
   return (
     <button type="button" className="btn success block" onClick={pay}>
-      <CircleCheck size={18} /> Marcar pagado · {money(remaining)}
+      <CircleCheck size={18} /> Marcar pagado · {moneyPlain(remaining)}
     </button>
   );
 }
@@ -726,6 +844,8 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
   const { toast } = useFeedback();
   const [form, setForm] = useState({ accountId: null as number | null, payableId: null as number | null, amount: null as number | null, date: data.today, method: null as ServicePayment | null, notes: '' });
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form]);
   const [busy, setBusy] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const statuses = useMemo(() => accountStatuses(data.payableAccounts, data.payables, data.payablePayments, data.today), [data]);
@@ -758,13 +878,18 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
   };
 
   const target = pending.find((i) => i.payable.id === form.payableId);
+  const isSupplier = status?.account.kind === 'supplier';
   return (
     <Sheet
       open={open}
       onClose={onClose}
-      title="Registrar pago"
+      title={isSupplier ? "Pagar factura" : "Registrar pago"}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={save} disabled={busy}>Guardar</button>}
+      onSubmit={save}
+      submitLabel="Registrar pago"
+      busy={busy}
+      error={error}
+      guard
     >
       <Group footer={status ? `Saldo de ${status.account.name}: ${money(status.balance)}${status.overdue ? ` · vencido ${money(status.overdue)}` : ''}` : undefined}>
         <AccountPicker value={form.accountId} onChange={(id) => { const s = statuses.find((x) => x.account.id === id); setForm({ ...form, accountId: id, payableId: null, amount: s?.balance || null }); }} />
@@ -778,13 +903,13 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
       )}
       {pending.length > 0 && (
         <Group footer="Si no eliges un gasto, el pago se aplica a lo más antiguo primero.">
-          <PickerRow label="Para" value={target ? `${target.payable.description} (${money(target.remaining)})` : null} placeholder="Saldo de la cuenta" onOpen={() => setChargeOpen(true)} />
+          <PickerRow label={isSupplier ? 'Qué factura' : 'Para'} value={target ? `${target.payable.description} (${money(target.remaining)})` : null} placeholder="Saldo de la cuenta" onOpen={() => setChargeOpen(true)} />
         </Group>
       )}
       <Picker
         open={chargeOpen}
         onClose={() => setChargeOpen(false)}
-        title="¿Qué gasto pagas?"
+        title={isSupplier ? '¿Qué factura pagas?' : '¿Qué gasto pagas?'}
         options={pending.map((i) => ({ id: i.payable.id, label: i.payable.description, sublabel: `${money(i.remaining)} · ${date(i.payable.date, data.today)}${i.payable.dueDate ? ` · vence ${date(i.payable.dueDate, data.today)}` : ''}` }))}
         value={form.payableId}
         onSelect={(id) => { const i = pending.find((x) => x.payable.id === id); setForm({ ...form, payableId: id, amount: i ? i.remaining : form.amount }); }}
@@ -799,10 +924,9 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
         ))}
       </div>
       <Group>
-        <DateField label="Fecha del pago" value={form.date} onChange={(v) => setForm({ ...form, date: v || data.today })} max={data.today} />
+        <DateField required label="Fecha del pago" value={form.date} onChange={(v) => setForm({ ...form, date: v || data.today })} max={data.today} />
         <StackField label="Notas" value={form.notes} onChange={(notes) => setForm({ ...form, notes })} placeholder="Confirmación, desde qué cuenta…" multiline />
       </Group>
-      {error && <p className="field-error">{error}</p>}
     </Sheet>
   );
 }

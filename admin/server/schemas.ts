@@ -253,6 +253,8 @@ export const PayableAccountInput = z.object({
   creditLimit: money,
   notes: text(1000),
   active: z.boolean().default(true),
+  color: z.enum(['black', 'silver', 'gold', 'blue', 'navy', 'green', 'teal', 'purple', 'red', 'pink', 'orange']).nullish().transform((v) => v ?? null),
+  network: z.enum(['visa', 'mastercard', 'amex', 'discover', 'none']).nullish().transform((v) => v ?? null),
 });
 export type PayableAccountInput = z.infer<typeof PayableAccountInput>;
 
@@ -269,7 +271,7 @@ export const PayableInput = z
     notes: text(2000),
     expectedUpdatedAt: z.string().max(40).optional(),
   })
-  .refine((v) => !v.dueDate || v.dueDate >= v.date, { message: 'El vencimiento no puede ser antes de la fecha del cargo', path: ['dueDate'] });
+  .refine((v) => !v.dueDate || v.dueDate >= v.date, { message: 'El vencimiento no puede ser antes de la fecha del gasto', path: ['dueDate'] });
 export type PayableInput = z.infer<typeof PayableInput>;
 
 export const PayablePaymentInput = z.object({
@@ -308,7 +310,14 @@ export const InventoryMovementInput = z
     saleId: id.nullish().transform((v) => v ?? null),
     serviceId: id.nullish().transform((v) => v ?? null),
     notes: text(1000),
+    /** Compra que se le debe al proveedor: se anota la factura en cuentas por pagar. */
+    bill: z
+      .object({ dueDate: optionalDate, reference: text(80) })
+      .nullish()
+      .transform((v) => v ?? null),
   })
+  .refine((v) => !v.bill || (v.kind === 'in' && v.supplierId != null), { message: 'Para anotar la factura elige el proveedor', path: ['supplierId'] })
+  .refine((v) => !v.bill || (v.unitCost != null && v.unitCost > 0), { message: 'Para anotar la factura pon el costo por unidad', path: ['unitCost'] })
   .refine((v) => v.kind === 'adjust' || v.quantity > 0, { message: 'La cantidad debe ser mayor que cero', path: ['quantity'] })
   .refine((v) => v.kind !== 'adjust' || v.quantity !== 0, { message: 'El ajuste no puede ser cero', path: ['quantity'] });
 export type InventoryMovementInput = z.infer<typeof InventoryMovementInput>;

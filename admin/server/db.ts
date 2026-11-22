@@ -260,6 +260,38 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX inventory_movements_item ON inventory_movements(item_id);
   `,
+  /* 7: dueno (Oscar: solo el ve el registro de actividad y nadie mas toca su
+        cuenta) y registro de actividad con IP, equipo, nombre del registro y
+        firma encadenada. */ `
+  ALTER TABLE users ADD COLUMN is_owner INTEGER NOT NULL DEFAULT 0;
+  UPDATE users SET is_owner = 1 WHERE id = COALESCE(
+    (SELECT id FROM users WHERE username = 'oscar' AND role = 'admin'),
+    (SELECT MIN(id) FROM users WHERE role = 'admin')
+  );
+  ALTER TABLE audit ADD COLUMN ip TEXT;
+  ALTER TABLE audit ADD COLUMN device TEXT;
+  ALTER TABLE audit ADD COLUMN label TEXT;
+  ALTER TABLE audit ADD COLUMN hash TEXT;
+  CREATE INDEX audit_at ON audit(at);
+  CREATE INDEX audit_user ON audit(user_id);
+  `,
+  /* 8: color y red (Visa, Mastercard...) elegidos para cada tarjeta. */ `
+  ALTER TABLE payable_accounts ADD COLUMN color TEXT;
+  ALTER TABLE payable_accounts ADD COLUMN network TEXT;
+  `,
+  /* 9: cada cuenta de proveedor es el mismo proveedor del catalogo (el de las
+        ventas y el inventario): asi sus facturas, costos y compras van juntos. */ `
+  ALTER TABLE payable_accounts ADD COLUMN supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL;
+  `,
+  /* 10: foto de perfil de cada usuario (aparte, para no cargarla en cada peticion). */ `
+  CREATE TABLE user_avatars (
+    user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+    mime TEXT NOT NULL,
+    data BLOB NOT NULL,
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  ALTER TABLE users ADD COLUMN avatar_at TEXT;
+  `,
 ];
 
 export type DB = Database.Database;

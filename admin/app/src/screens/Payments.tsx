@@ -9,9 +9,9 @@ import type { Sale, Service } from '../../../shared/domain.ts';
 import { isActiveSale, saleMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { api } from '../lib/api.ts';
-import { date, daysBetween, money, plural } from '../lib/format.ts';
+import { date, daysBetween, money, plural, moneyPlain } from '../lib/format.ts';
 import { technicianDebts } from '../lib/stats.ts';
-import { Avatar, Badge, Empty, Group, IconBox, Page, Row, Segmented } from '../ui/kit.tsx';
+import { Avatar, Badge, Empty, Group, IconBox, Page, Row, Chips } from '../ui/kit.tsx';
 import { useAccess } from '../lib/access.ts';
 import { DateField } from '../ui/date.tsx';
 import { useFeedback } from '../ui/sheet.tsx';
@@ -78,24 +78,23 @@ export function Payments({ initialTab }: { initialTab: string | null }) {
   return (
     <Page title="Pagos" subtitle="Lo que debes pagar y lo que te deben" narrow>
       <div style={{ marginBottom: 16 }}>
-        <Segmented<Tab>
+        <Chips<Tab>
           options={(
             [
-              { value: 'comisiones', label: `Comisiones${counts.comisiones ? ` · ${counts.comisiones}` : ''}` },
-              { value: 'tecnicos', label: `Técnicos${counts.tecnicos ? ` · ${counts.tecnicos}` : ''}` },
-              { value: 'financieras', label: `Financieras${counts.financieras ? ` · ${counts.financieras}` : ''}` },
-              { value: 'clientes', label: `Clientes${counts.clientes ? ` · ${counts.clientes}` : ''}` },
-            ] as { value: Tab; label: string }[]
-          ).filter((o) => tabs.includes(o.value))}
+              { key: 'comisiones', label: 'Comisiones', count: counts.comisiones || undefined },
+              { key: 'tecnicos', label: 'Técnicos', count: counts.tecnicos || undefined },
+              { key: 'financieras', label: 'Financieras', count: counts.financieras || undefined },
+              { key: 'clientes', label: 'Clientes', count: counts.clientes || undefined },
+            ] as { key: Tab; label: string; count?: number }[]
+          ).filter((o) => tabs.includes(o.key))}
           value={tab}
           onChange={setTab}
-          label="Tipo de pago"
         />
       </div>
 
       {tab !== 'clientes' && canPay && (
         <Group footer="Se usa al marcar como pagado.">
-          <DateField label="Fecha del pago" value={payDate} onChange={(v) => setPayDate(v || data.today)} max={data.today} />
+          <DateField required label="Fecha del pago" value={payDate} onChange={(v) => setPayDate(v || data.today)} max={data.today} />
         </Group>
       )}
 
@@ -189,7 +188,7 @@ function TechGroup({ personId, debt, payDate }: { personId: number; debt: { sale
   const total = chosen.reduce((n, i) => n + i.amount, 0);
 
   const submit = async () => {
-    const ok = await confirm({ title: `¿Pagarle a ${name}?`, message: `${plural(chosen.length, 'trabajo', 'trabajos')} · ${money(total)} · fecha ${date(payDate, data.today)}`, confirm: 'Registrar pago' });
+    const ok = await confirm({ title: `¿Pagarle a ${name}?`, message: `${plural(chosen.length, 'trabajo', 'trabajos')} · ${moneyPlain(total)} · fecha ${date(payDate, data.today)}`, confirm: 'Registrar pago' });
     if (!ok) return;
     setBusy(true);
     try {
@@ -256,7 +255,7 @@ function TechGroup({ personId, debt, payDate }: { personId: number; debt: { sale
       </div>
       <div style={{ marginTop: 12 }} hidden={!canPay}>
         <button type="button" className="btn block" disabled={!chosen.length || busy} onClick={submit}>
-          {busy ? 'Guardando…' : chosen.length ? `Pagarle a ${name.split(' ')[0]} · ${money(total)}` : 'Elige al menos uno'}
+          {busy ? 'Guardando…' : chosen.length ? `Pagarle a ${name.split(' ')[0]} · ${moneyPlain(total)}` : 'Elige al menos uno'}
         </button>
       </div>
     </section>
@@ -305,7 +304,7 @@ function PayGroup({
   const submit = async () => {
     const ok = await confirm({
       title: `¿${action} ${plural(chosen.length, 'venta', 'ventas')}?`,
-      message: `${title} · ${money(total)} · fecha ${date(payDate, data.today)}`,
+      message: `${title} · ${moneyPlain(total)} · fecha ${date(payDate, data.today)}`,
       confirm: action,
     });
     if (!ok) return;
@@ -362,7 +361,7 @@ function PayGroup({
       </div>
       <div style={{ marginTop: 12 }} hidden={!canPay}>
         <button type="button" className="btn block" disabled={!chosen.length || busy} onClick={submit}>
-          {busy ? 'Guardando…' : chosen.length ? `${action} · ${money(total)}` : 'Elige al menos una'}
+          {busy ? 'Guardando…' : chosen.length ? `${action} · ${moneyPlain(total)}` : 'Elige al menos una'}
         </button>
       </div>
     </section>

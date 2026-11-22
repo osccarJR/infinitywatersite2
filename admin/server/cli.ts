@@ -7,9 +7,10 @@
  *   node dist/server/cli.js lista
  *   node dist/server/cli.js borrar-datos --confirmar          # deja el sistema en cero
  *
- * `borrar-datos` elimina clientes, ventas, servicios, equipo, financieras y
- * proveedores (para quitar los datos de ejemplo antes de empezar de verdad).
- * Conserva los usuarios y guarda antes una copia en data/backups.
+ * `borrar-datos` elimina clientes, ventas, servicios, equipo, financieras,
+ * proveedores, cuentas por pagar e inventario. Conserva los usuarios y el
+ * registro de actividad (que anota el borrado) y guarda antes una copia en
+ * data/backups. Todo lo que se hace aqui queda en el registro de actividad.
  *
  * Usa DATA_DIR igual que el servidor.
  */
@@ -18,9 +19,12 @@ import path from 'node:path';
 import { mkdirSync } from 'node:fs';
 import { openDatabase } from './db.ts';
 import { deleteUserSessions, hashPassword } from './auth.ts';
+import { initAudit, writeAudit, type AuditEntry } from './audit.ts';
 
 const dataDir = path.resolve(process.env.DATA_DIR ?? 'data');
 const db = openDatabase(dataDir);
+initAudit(db, dataDir);
+const log = (entry: AuditEntry) => writeAudit(db, { userId: null, ip: null, device: 'Servidor (terminal)' }, entry);
 const [command, username, name] = process.argv.slice(2);
 
 /** Clave facil de dictar por telefono: 4 grupos sin letras ambiguas. */
@@ -35,7 +39,10 @@ async function main() {
   if (command === 'crear' && username && name) {
     if (!/^[a-z0-9._-]{3,40}$/.test(username)) throw new Error('Usuario: de 3 a 40 letras minusculas, numeros, punto o guion');
     const password = process.env.PASSWORD || generatePassword();
-    db.prepare('INSERT INTO users (username, name, password_hash) VALUES (?, ?, ?)').run(username, name, await hashPassword(password));
+    const id = Number(db.prepare('INSERT INTO users (username, name, password_hash) VALUES (?, ?, ?)').run(username, name, await hashPassword(password)).lastInsertRowid);
+    // El primer usuario es el dueno.
+    if (!db.prepare('SELECT id FROM users WHERE is_owner = 1').get()) db.prepare('UPDATE users SET is_owner = 1 WHERE id = ?').run(id);
+    log({ action: 'create', entity: 'user', entityId: id, label: `al usuario ${name} (${username}) desde el servidor` });
     console.log(`Usuario creado.\n  usuario:    ${username}\n  contrasena: ${password}`);
   } else if (command === 'clave' && username) {
     const user = db.prepare('SELECT id FROM users WHERE username = ?').get(username) as { id: number } | undefined;
@@ -43,6 +50,7 @@ async function main() {
     const password = process.env.PASSWORD || generatePassword();
     db.prepare('UPDATE users SET password_hash = ?, active = 1 WHERE id = ?').run(await hashPassword(password), user.id);
     deleteUserSessions(db, user.id);
+    log({ action: 'password', entity: 'user', entityId: user.id, label: `la contraseña de ${username} desde el servidor` });
     console.log(`Contrasena nueva para ${username}: ${password}\n(se cerraron sus sesiones abiertas)`);
   } else if (command === 'borrar-datos') {
     if (process.argv[3] !== '--confirmar') {
@@ -55,10 +63,11 @@ async function main() {
     const count = (table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     const before = { clientes: count('clients'), ventas: count('sales'), servicios: count('services') };
     db.transaction(() => {
-      for (const table of ['inventory_movements', 'inventory_items', 'payable_payments', 'payables', 'payable_accounts', 'services', 'sale_suppliers', 'sales', 'clients', 'people', 'financiers', 'suppliers', 'audit']) {
+      for (const table of ['inventory_movements', 'inventory_items', 'payable_payments', 'payables', 'payable_accounts', 'services', 'sale_suppliers', 'sales', 'clients', 'people', 'financiers', 'suppliers']) {
         db.prepare(`DELETE FROM ${table}`).run();
       }
     })();
+    log({ action: 'delete', entity: 'database', label: 'todos los datos del negocio desde el servidor', changes: [{ f: 'Se borraron', b: `${before.clientes} clientes, ${before.ventas} ventas, ${before.servicios} servicios` }] });
     db.exec('VACUUM');
     console.log(`Datos borrados: ${before.clientes} clientes, ${before.ventas} ventas, ${before.servicios} servicios.`);
     console.log(`Los usuarios se conservan. Copia previa en ${file}`);

@@ -66,10 +66,10 @@ export function UsersScreen() {
             <Row
               key={user.id}
               to={`/ajustes/usuarios/${user.id}`}
-              leading={<Avatar name={user.name} />}
+              leading={<Avatar name={user.name} photo={user.avatar} />}
               title={
                 <>
-                  {user.name} {user.id === data.me.id && <Badge tone="blue">Tú</Badge>} {!user.active && <Badge>Desactivado</Badge>}
+                  {user.name} {user.owner && <Badge tone="violet">Dueño</Badge>} {user.id === data.me.id && <Badge tone="blue">Tú</Badge>} {!user.active && <Badge>Desactivado</Badge>}
                 </>
               }
               subtitle={
@@ -96,6 +96,8 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
   const [presets, setPresets] = useState<string[]>(['seller']);
   const [personId, setPersonId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // El aviso se va en cuanto se corrige algo.
+  useEffect(() => setError(null), [form, presets, personId]);
   const [created, setCreated] = useState<{ id: number; username: string; password: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -125,6 +127,9 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
 
   const save = async () => {
     setError(null);
+    if (!form.name.trim()) return setError('Escribe el nombre de la persona.');
+    if (!/^[a-z0-9._-]{3,40}$/.test(form.username)) return setError('Escribe el usuario: de 3 a 40 letras o números, sin espacios.');
+    if (form.password.length < 10) return setError('La contraseña debe tener al menos 10 caracteres.');
     if (needsPerson && !personId) return setError('Elige quién es en el equipo: así el sistema sabe cuáles son sus ventas y sus servicios.');
     setBusy(true);
     try {
@@ -167,7 +172,11 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
       onClose={onClose}
       title="Nuevo usuario"
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={save} disabled={busy}>Crear</button>}
+      onSubmit={save}
+      submitLabel="Crear usuario"
+      busy={busy}
+      error={error}
+      guard
     >
       <Group>
         <TextField label="Nombre" value={form.name} onChange={(name) => setForm({ ...form, name })} placeholder="Nombre" maxLength={80} autoFocus />
@@ -182,7 +191,6 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
         </Group>
       )}
       <p className="group-foot">Puedes marcar varios perfiles (por ejemplo Oficina + Técnico) y después ajustar cada permiso por separado.</p>
-      {error && <p className="field-error">{error}</p>}
     </Sheet>
   );
 }
@@ -314,8 +322,11 @@ export function UserScreen({ id }: { id: number }) {
   const set = <K extends keyof Permissions>(key: K, value: Permissions[K]) => setPerms((p) => normalizePermissions({ ...p, [key]: value }, false));
   const [area, setArea] = useState<string | null>(null);
   const isMe = user?.id === data.me.id;
+  // La cuenta del dueno solo la cambia el dueno.
+  const lockedOwner = Boolean(user?.owner && !data.me.owner);
 
-  const choosePreset = (key: string) => {
+  const choosePreset = async (key: string) => {
+    if (!selected && !(await confirm({ title: 'Reemplazar los permisos', message: 'Tiene permisos ajustados a mano. Al elegir un perfil se reemplazan por los del perfil.', confirm: 'Reemplazar' }))) return;
     const next = togglePreset(selected ?? [], key);
     if (!next) return toast('Deja al menos un perfil marcado.', 'error');
     if (next[0] === 'admin') return setRole('admin');
@@ -368,7 +379,7 @@ export function UserScreen({ id }: { id: number }) {
   return (
     <Page title={user.name} hideTitle back={{ label: 'Usuarios', to: '/ajustes/usuarios' }} narrow>
       <div className="hero-head">
-        <Avatar name={user.name} size="lg" />
+        <Avatar name={user.name} size="lg" photo={user.avatar} />
         <h1 className="large-title">{user.name}</h1>
         <p className="muted">
           {user.username} · {user.lastLoginAt ? `último acceso ${dateWithYear(localDate(user.lastLoginAt))}` : 'nunca ha entrado'}
@@ -387,7 +398,7 @@ export function UserScreen({ id }: { id: number }) {
       )}
 
       <div className="group-label">Perfil</div>
-      <PresetCards value={selected ?? []} onToggle={isMe ? () => toast('Tu propio acceso no se puede reducir.', 'error') : choosePreset} custom={!selected} />
+      <PresetCards value={selected ?? []} onToggle={isMe || user.owner ? () => toast(user.owner ? 'La cuenta del dueño siempre tiene acceso a todo.' : 'Tu propio acceso no se puede reducir.', 'error') : choosePreset} custom={!selected} />
       {isMe && role === 'admin' && <p className="group-foot">Eres administrador. Para no quedarte fuera, tu propio acceso no se puede reducir.</p>}
 
       {role === 'member' && (
@@ -426,15 +437,25 @@ export function UserScreen({ id }: { id: number }) {
 
       <PermissionSummary p={effective} name={user.name.split(' ')[0]} />
 
+      {data.me.owner && !data.viewer && (
+        <Group>
+          <Row to={`/actividad?usuario=${user.id}`} leading={<IconBox icon={<ShieldCheck size={17} />} color="#1d1d1f" />} title={`Ver lo que ha hecho ${user.name.split(' ')[0]}`} subtitle="Registro de actividad: cambios, accesos y descargas" />
+        </Group>
+      )}
+
+      {lockedOwner ? (
+        <p className="group-foot">Esta es la cuenta del dueño: solo {user.name.split(' ')[0]} puede cambiar su nombre, su contraseña o sus permisos.</p>
+      ) : (
       <Group label="Acceso">
         <Row onClick={() => setAccess('name')} leading={<UserCog size={19} color="var(--text-2)" />} title="Cambiar nombre" value={user.name} />
         <Row onClick={() => setAccess('password')} leading={<KeyRound size={19} color="var(--text-2)" />} title="Nueva contraseña" />
-        {!isMe && (
+        {!isMe && !user.owner && (
           <button type="button" className={`row ${user.active ? 'danger' : 'action'}`} onClick={toggleActive}>
             {user.active ? 'Quitarle el acceso' : 'Devolverle el acceso'}
           </button>
         )}
       </Group>
+      )}
 
       {(dirty || error) && (
         <div className="save-bar">
@@ -613,7 +634,8 @@ function AccessSheet({ user, mode, onClose, onSaved }: { user: User; mode: 'name
       onClose={onClose}
       title={mode === 'name' ? 'Nombre' : 'Nueva contraseña'}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      right={<button type="button" className="link-btn strong" onClick={save}>Guardar</button>}
+      onSubmit={save}
+      error={error}
     >
       <Group footer={mode === 'password' ? 'Sugerida automáticamente; puedes escribir otra (mínimo 10 caracteres). Al cambiarla se cierran sus sesiones.' : undefined}>
         <TextField label={mode === 'name' ? 'Nombre' : 'Contraseña'} value={value} onChange={setValue} maxLength={mode === 'name' ? 80 : 200} />
@@ -623,7 +645,6 @@ function AccessSheet({ user, mode, onClose, onSaved }: { user: User; mode: 'name
           </button>
         )}
       </Group>
-      {error && <p className="field-error">{error}</p>}
     </Sheet>
   );
 }

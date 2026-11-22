@@ -104,6 +104,7 @@ export function Sales({ initialFilter }: { initialFilter: string | null }) {
                 onClick={() => {
                   try {
                     exportSales(shown, data, a);
+                    toast('Descargado. Ábrelo con Excel o Google Sheets (está en Descargas).');
                   } catch (err: any) {
                     toast(err.message, 'error');
                   }

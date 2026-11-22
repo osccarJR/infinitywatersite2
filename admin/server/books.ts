@@ -26,19 +26,47 @@ export const listPayableAccounts = (db: DB): PayableAccount[] =>
     creditLimit: r.credit_limit,
     notes: r.notes,
     active: Boolean(r.active),
+    color: r.color ?? null,
+    network: r.network ?? null,
+    supplierId: r.supplier_id ?? null,
   }));
+
+/**
+ * Una cuenta de proveedor queda ligada al proveedor del catalogo con el mismo
+ * nombre (se crea si no existe). Devuelve el id del proveedor.
+ */
+export function linkSupplier(db: DB, accountId: number, name: string) {
+  const found = db.prepare('SELECT id FROM suppliers WHERE name = ? COLLATE NOCASE').get(name) as { id: number } | undefined;
+  const supplierId = found?.id ?? Number(db.prepare('INSERT INTO suppliers (name) VALUES (?)').run(name).lastInsertRowid);
+  db.prepare('UPDATE payable_accounts SET supplier_id = ? WHERE id = ?').run(supplierId, accountId);
+  return supplierId;
+}
+
+/** Cuenta por pagar de un proveedor del catalogo (la crea si no existe). */
+export function accountForSupplier(db: DB, supplierId: number): number {
+  const found = db.prepare('SELECT id FROM payable_accounts WHERE supplier_id = ?').get(supplierId) as { id: number } | undefined;
+  if (found) return found.id;
+  const supplier = db.prepare('SELECT name FROM suppliers WHERE id = ?').get(supplierId) as { name: string } | undefined;
+  if (!supplier) throw new Error('proveedor inexistente');
+  const sameName = db.prepare(`SELECT id FROM payable_accounts WHERE name = ? COLLATE NOCASE`).get(supplier.name) as { id: number } | undefined;
+  if (sameName) {
+    db.prepare(`UPDATE payable_accounts SET supplier_id = ?, kind = 'supplier' WHERE id = ?`).run(supplierId, sameName.id);
+    return sameName.id;
+  }
+  return Number(db.prepare(`INSERT INTO payable_accounts (name, kind, supplier_id) VALUES (?, 'supplier', ?)`).run(supplier.name, supplierId).lastInsertRowid);
+}
 
 export const insertPayableAccount = (db: DB, a: PayableAccountInput) =>
   Number(
     db
-      .prepare('INSERT INTO payable_accounts (name, kind, last4, due_day, credit_limit, notes, active) VALUES (?, ?, ?, ?, ?, ?, ?)')
-      .run(a.name, a.kind, a.last4, a.dueDay, a.creditLimit, a.notes, b(a.active)).lastInsertRowid
+      .prepare('INSERT INTO payable_accounts (name, kind, last4, due_day, credit_limit, notes, active, color, network) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(a.name, a.kind, a.last4, a.dueDay, a.creditLimit, a.notes, b(a.active), a.color, a.network).lastInsertRowid
   );
 
 export const updatePayableAccount = (db: DB, id: number, a: PayableAccountInput) =>
   db
-    .prepare('UPDATE payable_accounts SET name = ?, kind = ?, last4 = ?, due_day = ?, credit_limit = ?, notes = ?, active = ? WHERE id = ?')
-    .run(a.name, a.kind, a.last4, a.dueDay, a.creditLimit, a.notes, b(a.active), id).changes;
+    .prepare('UPDATE payable_accounts SET name = ?, kind = ?, last4 = ?, due_day = ?, credit_limit = ?, notes = ?, active = ?, color = ?, network = ? WHERE id = ?')
+    .run(a.name, a.kind, a.last4, a.dueDay, a.creditLimit, a.notes, b(a.active), a.color, a.network, id).changes;
 
 export const payableAccountUsage = (db: DB, id: number) =>
   (

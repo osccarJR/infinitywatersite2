@@ -63,6 +63,12 @@ export function download(path: string) {
   link.remove();
 }
 
+/** Anota en el registro de actividad una descarga o impresion hecha en la app. */
+export function logEvent(kind: 'export' | 'print', what: string, rows?: number) {
+  if (previewTarget()) return;
+  api('/audit/event', { method: 'POST', body: { kind, what, ...(rows != null ? { rows } : {}) } }).catch(() => {});
+}
+
 /** Guarda un archivo generado en la app (CSV de un reporte, por ejemplo). */
 export function saveFile(name: string, content: string, type = 'text/csv;charset=utf-8') {
   const url = URL.createObjectURL(new Blob([content], { type }));

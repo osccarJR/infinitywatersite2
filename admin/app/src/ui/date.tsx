@@ -29,6 +29,7 @@ export function DateField({
   min,
   quick = 'past',
   field,
+  required,
 }: {
   label: string;
   value: string;
@@ -38,6 +39,8 @@ export function DateField({
   /** Accesos rapidos: fecha pasada, proxima o de mantenimiento. */
   quick?: Quick;
   field?: string;
+  /** Obligatoria: sin la X de borrar (no se puede dejar vacia). */
+  required?: boolean;
 }) {
   const id = useId();
   const [open, setOpen] = useState(false);
@@ -51,7 +54,7 @@ export function DateField({
           {value ? dateWithYear(value) : <span className="date-placeholder">Elegir fecha</span>}
           <CalendarDays size={18} />
         </button>
-        {value && (
+        {value && !required && (
           <button type="button" className="date-clear" onClick={() => onChange('')} aria-label={`Borrar ${label}`}>
             <X size={16} />
           </button>
