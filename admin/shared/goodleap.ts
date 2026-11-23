@@ -4,19 +4,20 @@
  * vendedor lo firman ademas de la autorizacion de instalacion.
  *
  * El texto va TAL CUAL lo mando GoodLeap (encabezado "Infinity Water" y su
- * direccion, sin importar la marca de la venta). La traduccion al espanol es
+ * direccion, sin importar la marca de la venta), con los errores de escritura
+ * corregidos ("Fort Meyers" -> "Fort Myers"). La traduccion al espanol es
  * solo para que el cliente entienda lo que firma; no se imprime.
  */
 
 /** Version del texto: va en la huella de la firma. Cambiarla si cambia el formulario. */
-export const GOODLEAP_DOC_VERSION = 'goodleap-warranties-2026-11';
+export const GOODLEAP_DOC_VERSION = 'goodleap-warranties-2026-11b';
 
 /** La financiera es GoodLeap (por el nombre en el catalogo). */
 export const isGoodLeap = (name: string | null | undefined) => /good\s*-?\s*leap/i.test(name ?? '');
 
 export const GOODLEAP_DOC = {
   title: 'Infinity Water',
-  address: '835 Youngreen Dr Fort Meyers, FL 33913 |  475-685-8464 |',
+  address: '835 Youngreen Dr, Fort Myers, FL 33913 | 475-685-8464',
   heading: 'WARRANTIES & RIGHT TO CANCEL',
   sections: [
     {
