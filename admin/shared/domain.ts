@@ -42,6 +42,7 @@ export interface User {
 
 /* Los permisos detallados viven en ./permissions.ts (se reexportan aqui). */
 import type { Permissions } from './permissions.ts';
+import type { CreditSummary } from './credit.ts';
 export * from './permissions.ts';
 
 /** Persona del equipo: puede vender, instalar o ambas cosas. */
@@ -407,6 +408,8 @@ export interface Bootstrap {
   payablePayments: PayablePayment[];
   inventoryItems: InventoryItem[];
   inventoryMovements: InventoryMovement[];
+  /** Solicitudes de credito que ve este usuario (sin datos de identidad). */
+  credit: CreditSummary[];
 }
 
 /* ------------------------------------------------------------------ */

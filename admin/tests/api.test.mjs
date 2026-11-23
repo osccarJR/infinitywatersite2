@@ -724,6 +724,115 @@ test('factura: número correlativo, sin repetir, reemisión igual y permisos', a
 
 /* ------------------------- registro de actividad ------------------------- */
 
+test('créditos: solicitud cifrada, firmas, aprobación y autorización que crea la venta', async () => {
+  const personId = (await call('POST', '/people', { name: 'Vendedor Crédito', phone: null, isSeller: true, isInstaller: false })).data.person.id;
+  const u = await call('POST', '/users', { username: 'vcredito', name: 'Vendedor Crédito', password: 'clave-credito-123', role: 'member', permissions: perms('own', personId, ['credit.create']) });
+  assert.equal(u.status, 200, JSON.stringify(u.data));
+  const vc = await loginAs('vcredito', 'clave-credito-123');
+  // "Solo créditos": no ve clientes ni ventas del negocio.
+  const vboot = await call('GET', '/bootstrap', undefined, { as: vc });
+  assert.equal(vboot.data.clients.length, 0);
+  assert.equal(vboot.data.sales.length, 0);
+
+  const person = (firstName, lastName) => ({
+    firstName, lastName, cellPhone: '2395550123', homePhone: '', email: 'ana@example.com', address: '1420 SE 8th Ter', city: 'Cape Coral', state: 'fl', zip: '33990',
+    previousAddress: '', employer: 'Publix', years: '3', salary: '$3,500', position: 'Cajera', businessPhone: '', employerAddress: '', employerCity: '', employerState: '', employerZip: '', previousEmployer: '', otherIncome: '',
+  });
+  const body = {
+    brandId: null, appDate: '2026-11-22', amount: 950_000,
+    data: { applicant: person('Ana', 'Prueba'), coApplicant: person('Luis', 'Prueba'), home: { status: 'paid', company: '', monthlyPayment: '', howLong: '10 años' }, references: [{ name: 'Rosa', relationship: 'Hermana', phone: '2395550000' }] },
+    secret: { applicant: { ssn: '123-45-6789', dob: '1980-02-03', dl: 'P123456789', dlExp: '2030-01-01' }, coApplicant: { ssn: '987654321', dob: '1979-05-06', dl: '', dlExp: '' } },
+  };
+  const c = await call('POST', '/credit', body, { as: vc });
+  assert.equal(c.status, 200, JSON.stringify(c.data));
+  const id = c.data.app.id;
+  assert.equal(c.data.app.secret.applicant.ssn, '123456789', 'quien la llena la ve completa');
+  assert.equal(c.data.app.sellerId, personId);
+  assert.equal(c.data.app.data.references.length, 3);
+
+  // En la base el SSN no queda legible.
+  const raw = new Database(path.join(dataDir, 'admin.db'), { readonly: true });
+  const row = raw.prepare('SELECT secret FROM credit_apps WHERE id = ?').get(id);
+  raw.close();
+  assert.ok(!row.secret.includes('123456789') && !Buffer.from(row.secret, 'base64').toString('latin1').includes('123456789'));
+
+  // Sin la foto de la ID no se envía.
+  const png = 'data:image/png;base64,' + Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').toString('base64');
+  const sigs = { applicant: png, coApplicant: png, rep: png };
+  let s = await call('POST', `/credit/${id}/submit`, { consent: true, signatures: sigs }, { as: vc });
+  assert.equal(s.status, 400);
+  assert.equal(s.data.field, 'id1-front');
+  const jpg = 'data:image/jpeg;base64,' + Buffer.from([0xff, 0xd8, 0xff, 0xe0, 1, 2, 3, 4]).toString('base64');
+  for (const k of ['id1-front', 'id2-front']) assert.equal((await call('PUT', `/credit/${id}/files/${k}`, { image: jpg }, { as: vc })).status, 200);
+  assert.equal((await call('PUT', `/credit/${id}/files/id1-front`, { image: 'data:image/jpeg;base64,AAAA' }, { as: vc })).status, 400, 'no es JPEG');
+  assert.equal((await call('POST', `/credit/${id}/submit`, { consent: false, signatures: sigs }, { as: vc })).status, 400, 'sin aceptar la firma electrónica');
+  assert.equal((await call('POST', `/credit/${id}/submit`, { consent: true, signatures: { ...sigs, coApplicant: null } }, { as: vc })).status, 400, 'falta el coaplicante');
+  s = await call('POST', `/credit/${id}/submit`, { consent: true, signatures: sigs }, { as: vc });
+  assert.equal(s.status, 200, JSON.stringify(s.data));
+  assert.equal(s.data.app.status, 'submitted');
+  assert.equal(s.data.app.secret.applicant.ssn, '•••-••-6789', 'ya enviada: tapado');
+  assert.equal(s.data.app.signatures.applicant.hash.length, 64);
+
+  // El vendedor ya no la cambia ni ve el SSN o las IDs; otro usuario sin permiso no la ve.
+  assert.equal((await call('PUT', `/credit/${id}`, body, { as: vc })).status, 403);
+  assert.equal((await call('GET', `/credit/${id}/secret`, undefined, { as: vc })).status, 403);
+  assert.equal((await call('GET', `/credit/${id}/files/id1-front`, undefined, { as: vc })).status, 403);
+  assert.equal((await call('POST', `/credit/${id}/decision`, { result: 'approved' }, { as: vc })).status, 403);
+  assert.equal((await call('GET', `/credit/${id}`, undefined, { as: sellerCookie })).status, 403);
+
+  // La oficina: SSN completo (queda anotado) y la foto descifrada.
+  const sec = await call('GET', `/credit/${id}/secret`);
+  assert.equal(sec.data.secret.applicant.ssn, '123456789');
+  const img = await fetch(`${BASE}/admin/api/credit/${id}/files/id1-front`, { headers: { Cookie: cookie } });
+  assert.equal(img.status, 200);
+  assert.deepEqual([...new Uint8Array(await img.arrayBuffer())].slice(0, 2), [0xff, 0xd8]);
+
+  // Devolver para corregir borra las firmas; se vuelve a firmar.
+  const back = await call('POST', `/credit/${id}/decision`, { result: 'return', notes: 'Revisar el SSN del coaplicante' });
+  assert.equal(back.data.app.status, 'draft');
+  assert.deepEqual(back.data.app.signatures, {});
+  assert.equal(back.data.app.data.returnNote, 'Revisar el SSN del coaplicante');
+  const fixed = await call('PUT', `/credit/${id}`, { ...body, secret: { applicant: { ...body.secret.applicant, ssn: '•••-••-6789' }, coApplicant: { ...body.secret.coApplicant, ssn: '987654322' } } }, { as: vc });
+  assert.equal(fixed.status, 200, JSON.stringify(fixed.data));
+  assert.equal(fixed.data.app.secret.applicant.ssn, '123456789', 'lo tapado se conserva');
+  assert.equal((await call('POST', `/credit/${id}/submit`, { consent: true, signatures: sigs }, { as: vc })).status, 200);
+
+  // Aprobar: al vendedor le aparece aprobada.
+  const fin = (await call('GET', '/bootstrap')).data.financiers[0];
+  const ap = await call('POST', `/credit/${id}/decision`, { result: 'approved', financierId: fin.id, approvedAmount: 950_000, apr: 9.99, termMonths: 120, monthlyPayment: 12_550 });
+  assert.equal(ap.status, 200, JSON.stringify(ap.data));
+  assert.equal((await call('GET', '/bootstrap', undefined, { as: vc })).data.credit.find((x) => x.id === id).status, 'approved');
+
+  // Autorización de instalación: firma y crea la venta.
+  const contract = {
+    date: '2026-11-22', buyer1: { name: 'Ana Prueba', phone: '2395550123', email: 'ana@example.com' }, buyer2: { name: 'Luis Prueba', phone: '', email: '' },
+    address: '1420 SE 8th Ter', city: 'Cape Coral', state: 'FL', zip: '33990', waterTreatment: { brand: 'Infinity Water', model: 'X1' }, reverseOsmosis: { brand: '', model: '' }, other: '',
+    equipment: EQ, installDate: '2026-11-25', installSlot: 'am', waterSource: 'well', iceMaker: true, people: 4, floor: 'slab', payment: null,
+    cashPrice: 950_000, installation: null, taxes: null, downPayment: 0, amountToFinance: 950_000, payments: 120, monthlyPayment: 12_550, apr: 9.99,
+  };
+  const csigs = { buyer1: png, buyer2: png, rep: png };
+  assert.equal((await call('POST', `/credit/${id}/contract/sign`, { consent: true, signatures: csigs }, { as: vc })).status, 400, 'primero se guarda');
+  assert.equal((await call('PUT', `/credit/${id}/contract`, contract, { as: vc })).status, 200);
+  assert.equal((await call('POST', `/credit/${id}/contract/sign`, { consent: true, signatures: { ...csigs, buyer2: null } }, { as: vc })).status, 400, 'falta el comprador 2');
+  const sg = await call('POST', `/credit/${id}/contract/sign`, { consent: true, signatures: csigs }, { as: vc });
+  assert.equal(sg.status, 200, JSON.stringify(sg.data));
+  assert.equal(sg.data.app.status, 'signed');
+  const boot = (await call('GET', '/bootstrap')).data;
+  const sale = boot.sales.find((x) => x.id === sg.data.saleId);
+  assert.equal(sale.price, 950_000);
+  assert.equal(sale.paymentMethod, 'financed');
+  assert.equal(sale.financierId, fin.id);
+  assert.equal(sale.sellerId, personId);
+  assert.equal(sale.installTime, '8:00 am – 1:00 pm');
+  assert.equal(sale.waterSource, 'well');
+  assert.equal(boot.clients.find((x) => x.id === sale.clientId).name, 'Ana Prueba');
+  assert.equal((await call('POST', `/credit/${id}/contract/sign`, { consent: true, signatures: csigs }, { as: vc })).status, 403, 'no se firma dos veces');
+  assert.equal((await call('DELETE', `/credit/${id}`)).status, 403, 'ligada a la venta: no se borra');
+
+  const log = (await call('GET', '/audit?group=credit&limit=40')).data.entries.map((e) => e.action);
+  for (const action of ['credit-submit', 'credit-return', 'credit-secret', 'credit-ids', 'credit-approve', 'contract-sign']) assert.ok(log.includes(action), action);
+});
+
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {
   assert.equal((await call('GET', '/audit', undefined, { as: sellerCookie })).status, 403);
   assert.equal((await call('GET', '/audit', undefined, { viewAs: sellerUserId })).status, 403, 'tampoco en la vista previa');

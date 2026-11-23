@@ -5,6 +5,7 @@
  *   node dist/server/cli.js crear <usuario> "<Nombre>"       # genera la clave
  *   node dist/server/cli.js clave <usuario>                  # nueva clave
  *   node dist/server/cli.js lista
+ *   node dist/server/cli.js aprobar-creditos <usuario>     # le da "Aprobar o negar creditos"
  *   node dist/server/cli.js borrar-datos --confirmar          # deja el sistema en cero
  *
  * `borrar-datos` elimina clientes, ventas, servicios, equipo, financieras,
@@ -20,6 +21,7 @@ import { mkdirSync } from 'node:fs';
 import { openDatabase } from './db.ts';
 import { deleteUserSessions, hashPassword } from './auth.ts';
 import { initAudit, writeAudit, type AuditEntry } from './audit.ts';
+import { normalizePermissions } from '../shared/permissions.ts';
 
 const dataDir = path.resolve(process.env.DATA_DIR ?? 'data');
 const db = openDatabase(dataDir);
@@ -63,7 +65,7 @@ async function main() {
     const count = (table: string) => (db.prepare(`SELECT COUNT(*) AS n FROM ${table}`).get() as { n: number }).n;
     const before = { clientes: count('clients'), ventas: count('sales'), servicios: count('services') };
     db.transaction(() => {
-      for (const table of ['inventory_movements', 'inventory_items', 'payable_payments', 'payables', 'payable_accounts', 'services', 'sale_suppliers', 'sales', 'clients', 'people', 'financiers', 'suppliers']) {
+      for (const table of ['credit_files', 'credit_apps', 'inventory_movements', 'inventory_items', 'payable_payments', 'payables', 'payable_accounts', 'services', 'sale_suppliers', 'sales', 'clients', 'people', 'financiers', 'suppliers']) {
         db.prepare(`DELETE FROM ${table}`).run();
       }
     })();
@@ -71,6 +73,15 @@ async function main() {
     db.exec('VACUUM');
     console.log(`Datos borrados: ${before.clientes} clientes, ${before.ventas} ventas, ${before.servicios} servicios.`);
     console.log(`Los usuarios se conservan. Copia previa en ${file}`);
+  } else if (command === 'aprobar-creditos' && username) {
+    const user = db.prepare('SELECT id, name, role, permissions FROM users WHERE username = ?').get(username) as { id: number; name: string; role: string; permissions: string | null } | undefined;
+    if (!user) throw new Error(`No existe el usuario ${username}`);
+    if (user.role === 'admin') throw new Error(`${username} es administrador: ya puede aprobar créditos`);
+    const current = normalizePermissions(JSON.parse(user.permissions ?? '{}'), false);
+    const next = normalizePermissions({ ...current, flags: { ...current.flags, 'credit.review': true, 'credit.create': true } }, false);
+    db.prepare('UPDATE users SET permissions = ? WHERE id = ?').run(JSON.stringify(next), user.id);
+    log({ action: 'permissions', entity: 'user', entityId: user.id, label: `${user.name} (desde el servidor)`, changes: [{ f: 'Créditos', a: current.flags['credit.review'] ? 'Aprobar' : 'Sin aprobar', b: 'Llenar y aprobar o negar créditos' }] });
+    console.log(`${user.name} ya puede aprobar o negar créditos.`);
   } else if (command === 'lista') {
     console.table(db.prepare('SELECT id, username, name, active, last_login_at FROM users').all());
   } else {

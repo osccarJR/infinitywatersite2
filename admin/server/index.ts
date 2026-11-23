@@ -25,6 +25,8 @@ import { HttpError, clientIp, parseCookies, readJson, sendJson, sessionCookie, t
 import { SESSION_COOKIE, SESSION_DAYS, findUserById, purgeExpiredSessions, toUser, userFromSession } from './auth.ts';
 import type { User } from '../shared/domain.ts';
 import { bumpVersion } from './version.ts';
+import { purgeCreditSecrets } from './credit.ts';
+import { writeAudit } from './audit.ts';
 
 const PORT = Number(process.env.PORT ?? 3042);
 const HOST = process.env.HOST ?? '127.0.0.1';
@@ -213,6 +215,10 @@ server.listen(PORT, HOST, () => {
 const daily = async () => {
   try {
     purgeExpiredSessions(db);
+    // Datos de identidad de creditos ya decididos: se guardan solo un tiempo.
+    for (const id of purgeCreditSecrets(db)) {
+      writeAudit(db, { userId: null, ip: null, device: 'sistema' }, { action: 'credit-purge', entity: 'credit', entityId: id, label: `la solicitud de crédito #${id}` });
+    }
     await backupDatabase(db, DATA_DIR);
   } catch (error) {
     console.error('[admin] fallo el respaldo diario', error);

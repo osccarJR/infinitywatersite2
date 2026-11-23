@@ -56,7 +56,7 @@ export function accessOf(p: Permissions, owner = false): Access {
     reports: Object.keys(f).some((k) => k.startsWith('report.') && f[k as PermissionFlag]),
     export: can('export'),
     catalogs: can('catalogs.team') || can('catalogs.financiers') || can('catalogs.suppliers') || can('catalogs.brands'),
-    canRegister: can('sales.create') || can('services.create') || can('clients.create') || can('payables.charges') || can('inventory.move'),
+    canRegister: can('credit.create') || can('sales.create') || can('services.create') || can('clients.create') || can('payables.charges') || can('inventory.move'),
   };
 }
 

@@ -29,6 +29,8 @@ export const FLAG_KEYS = [
   'services.create',
   'services.edit',
   'services.delete',
+  'credit.create',
+  'credit.review',
   'money.prices',
   'money.financier',
   'money.commissions',
@@ -110,6 +112,15 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'services.create', label: 'Registrar servicios' },
       { flag: 'services.edit', label: 'Editar y cerrar servicios' },
       { flag: 'services.delete', label: 'Borrar servicios' },
+    ],
+  },
+  {
+    key: 'credit',
+    label: 'Créditos',
+    text: 'Solicitudes de crédito y autorizaciones de instalación',
+    flags: [
+      { flag: 'credit.create', label: 'Llenar solicitudes de crédito', hint: 'Ve solo las que llenó. Después de enviarla no ve el seguro social completo.' },
+      { flag: 'credit.review', label: 'Aprobar o negar créditos', hint: 'Ve todas las solicitudes con el seguro social, la licencia y las fotos de las IDs. Solo para quien pasa los datos a la financiera.' },
     ],
   },
   {
@@ -213,7 +224,14 @@ export const PERMISSION_PRESETS: { key: string; label: string; text: string; sco
     label: 'Vendedor',
     text: 'Solo sus clientes y sus ventas, con el precio y su comisión. No ve ganancias ni lo de los demás.',
     scope: 'own',
-    flags: ['clients.view', 'clients.contact', 'clients.create', 'clients.edit', 'sales.view', 'sales.create', 'sales.edit', 'services.view', 'money.prices'],
+    flags: ['clients.view', 'clients.contact', 'clients.create', 'clients.edit', 'sales.view', 'sales.create', 'sales.edit', 'services.view', 'credit.create', 'money.prices'],
+  },
+  {
+    key: 'credit',
+    label: 'Solo créditos',
+    text: 'Solo la pantalla de Créditos: llena solicitudes y autorizaciones de instalación. No ve clientes, ventas ni montos del negocio.',
+    scope: 'own',
+    flags: ['credit.create'],
   },
   {
     key: 'technician',
@@ -435,6 +453,7 @@ export function areaSummary(p: Permissions, areaKey: string): string {
     'clients.view': 'Ver', 'clients.contact': 'contacto', 'clients.create': 'agregar', 'clients.edit': 'editar', 'clients.delete': 'borrar',
     'sales.view': 'Ver', 'sales.create': 'registrar', 'sales.edit': 'editar', 'sales.status': 'cancelar', 'sales.delete': 'borrar',
     'services.view': 'Ver', 'services.create': 'registrar', 'services.edit': 'editar', 'services.delete': 'borrar',
+    'credit.create': 'Llenar', 'credit.review': 'aprobar',
     'money.prices': 'Precios', 'money.financier': 'financieras', 'money.commissions': 'comisiones', 'money.techpay': 'técnicos', 'money.costs': 'costos', 'money.profit': 'ganancias',
     'payments.view': 'Ver', 'payments.commissions': 'comisiones', 'payments.technicians': 'técnicos', 'payments.financiers': 'financieras',
     'payables.view': 'Ver', 'payables.charges': 'gastos', 'payables.pay': 'pagos', 'payables.accounts': 'cuentas', 'payables.delete': 'borrar',

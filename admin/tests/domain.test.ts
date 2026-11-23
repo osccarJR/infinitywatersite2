@@ -176,3 +176,19 @@ test('permisos de la primera versión se convierten', async () => {
   assert.equal(p.flags['report.financiers'], false);
   assert.equal(p.flags['catalogs.brands'], true);
 });
+
+test('créditos: 3 días hábiles para cancelar (sin domingos ni feriados), franjas y SSN tapado', async () => {
+  const { cancelDeadline, slotOf, maskIdentity, formatSsn } = await import('../shared/credit.ts');
+  assert.equal(cancelDeadline('2026-11-22'), '2026-11-25', 'firmado en domingo: lunes, martes y miércoles');
+  assert.equal(cancelDeadline('2026-11-24'), '2026-11-28', 'Acción de Gracias no cuenta; el sábado sí');
+  assert.equal(cancelDeadline('2026-12-24'), '2026-12-29', 'Navidad y domingo no cuentan');
+  assert.equal(slotOf('10:00 am – 12:00 pm'), 'am');
+  assert.equal(slotOf('2:00 pm – 4:00 pm'), 'pm');
+  assert.equal(slotOf('12:00 pm – 2:00 pm'), 'am');
+  assert.equal(slotOf(null), null);
+  assert.equal(formatSsn('123456789'), '123-45-6789');
+  const m = maskIdentity({ ssn: '123456789', dob: '1980-02-03', dl: 'P123456789', dlExp: '2030-01-01' });
+  assert.equal(m.ssn, '•••-••-6789');
+  assert.equal(m.dob, '••/••/1980');
+  assert.ok(!m.dl.includes('P12345') && m.dl.endsWith('6789'));
+});

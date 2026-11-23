@@ -249,7 +249,8 @@ interface TextFieldProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
-  type?: 'text' | 'tel' | 'email';
+  type?: 'text' | 'tel' | 'email' | 'date';
+  disabled?: boolean;
   inputMode?: 'text' | 'tel' | 'email' | 'numeric' | 'decimal';
   autoComplete?: string;
   autoCapitalize?: 'none' | 'words' | 'sentences';

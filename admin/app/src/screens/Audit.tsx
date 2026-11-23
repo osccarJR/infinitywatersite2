@@ -64,6 +64,7 @@ const GROUPS = [
   { key: 'sales', label: 'Ventas' },
   { key: 'clients', label: 'Clientes' },
   { key: 'services', label: 'Servicio' },
+  { key: 'credit', label: 'Créditos' },
   { key: 'payments', label: 'Pagos' },
   { key: 'payables', label: 'Cuentas por pagar' },
   { key: 'inventory', label: 'Inventario' },
@@ -100,6 +101,7 @@ const ENTITY_VERB: Record<string, [create: string, update: string, del: string]>
   brand: ['agregó', 'editó', 'borró'],
   user: ['creó', 'editó', 'borró'],
   database: ['creó', 'editó', 'borró'],
+  credit: ['empezó', 'editó', 'borró'],
 };
 
 /** "Adriana editó la venta de María Pérez (#123)". */
@@ -138,6 +140,22 @@ function sentence(e: Entry): { who: string; text: string } {
       return { who, text: `emitió ${label}` };
     case 'invoice-update':
       return { who, text: `volvió a emitir ${label}` };
+    case 'credit-submit':
+      return { who, text: `firmó y envió ${label}` };
+    case 'credit-approve':
+      return { who, text: `aprobó ${label}` };
+    case 'credit-decline':
+      return { who, text: `negó ${label}` };
+    case 'credit-return':
+      return { who, text: `devolvió para corregir ${label}` };
+    case 'credit-secret':
+      return { who, text: `${e.extra?.motivo === 'imprimir' ? 'imprimió con el seguro social completo' : 'vio el seguro social y la licencia de'} ${label}` };
+    case 'credit-ids':
+      return { who, text: `vio las fotos de las IDs de ${label}` };
+    case 'credit-purge':
+      return { who: 'El sistema', text: `borró el seguro social, la licencia y las fotos de las IDs de ${label} (ya pasó el tiempo de guardarlos)` };
+    case 'contract-sign':
+      return { who, text: `firmó la autorización de instalación de ${label}` };
     case 'avatar':
       return { who, text: `cambió ${label}` };
     case 'login-failed':

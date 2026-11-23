@@ -2,6 +2,7 @@
  * Inicio: como va el negocio. Arriba los numeros del periodo elegido;
  * debajo, lo que esta pendiente hoy (no depende del periodo).
  */
+import { CreditAlerts, CreditStart } from '../ui/creditAlerts.tsx';
 import { useMemo, useState } from 'react';
 import { AlertTriangle, BarChart3, Boxes, CalendarClock, CreditCard, HandCoins, HardHat, History, Landmark, Receipt, TrendingUp, Truck, Wallet, Wrench } from 'lucide-react';
 import { addDaysISO, equipmentSummary, isActiveSale, saleMissing } from '../../../shared/domain.ts';
@@ -44,6 +45,8 @@ export function Home() {
   const lowStock = stock.filter((x) => x.low || x.out);
   const showSales = a.canSee('sales');
   const showServices = a.canSee('services');
+  // Vendedor con "Solo creditos": Inicio muestra solo sus avisos de creditos.
+  const creditOnly = !showSales && !showServices && !a.can('clients.view') && (a.can('credit.create') || a.can('credit.review'));
   const periodLabel = PERIODS.find((x) => x.key === period)?.label;
 
   return (
@@ -56,7 +59,10 @@ export function Home() {
         </Link>
       }
     >
-      {empty ? (
+      <CreditAlerts />
+      {creditOnly ? (
+        <CreditStart />
+      ) : empty ? (
         <Welcome />
       ) : (
         <>

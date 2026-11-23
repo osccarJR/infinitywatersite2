@@ -60,6 +60,8 @@ import { addressById, geoEnabled, searchAddresses, searchCities, zipLookup } fro
 import { todayISO } from '../shared/domain.ts';
 import { dataVersion } from './version.ts';
 import { createHash } from 'node:crypto';
+import { creditRoutes, visibleCredit } from './creditApi.ts';
+import { initCreditKey } from './credit.ts';
 import { AUDIT_GROUPS, auditStats, deviceOf, diff, initAudit, listAudit, permissionChanges, snapshot, verifyAudit, writeAudit, type AuditEntry, type Change } from './audit.ts';
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
@@ -118,6 +120,7 @@ export function buildApi(db: DB, dataDir: string) {
   const addressesEnabled = () => geoEnabled(dataDir) || placesEnabled();
   const api = new Router();
   initAudit(db, dataDir);
+  initCreditKey(dataDir);
 
   /* ------------------------- registro de actividad ------------------------- */
 
@@ -316,6 +319,7 @@ export function buildApi(db: DB, dataDir: string) {
       sales: !f['sales.view'] ? [] : repo.listSales(db).filter((s) => seesSale(scope, s.id)).map((s) => shapeSale(s, p)),
       services: !f['services.view'] ? [] : repo.listServices(db).filter((s) => seesService(scope, s.id)).map((s) => shapeService(s, p)),
       people: repo.listPeople(db),
+      credit: visibleCredit(db, user),
       financiers: repo.listCatalog(db, 'financiers'),
       suppliers: costs || f['inventory.view'] || f['catalogs.suppliers'] ? repo.listCatalog(db, 'suppliers') : [],
       brands: repo.listCatalog(db, 'brands'),
@@ -420,6 +424,10 @@ export function buildApi(db: DB, dataDir: string) {
     repo.deleteClient(db, num(ctx));
     return { ok: true };
   });
+
+  /* ------------------------- solicitudes de credito ------------------------- */
+
+  creditRoutes(api, db, log);
 
   /* ------------------------------ ventas ------------------------------ */
 

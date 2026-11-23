@@ -3,7 +3,7 @@
  * pestanas abajo en el telefono), boton "+" y rutas.
  */
 import { Suspense, lazy, useState, type ReactNode } from 'react';
-import { BarChart3, Boxes, ChevronRight, ShieldCheck, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
+import { BarChart3, Boxes, ChevronRight, ClipboardSignature, ShieldCheck, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
 import { StoreProvider, useData, useStore } from './lib/store.tsx';
 import { accessOf, type Access } from './lib/access.ts';
 import { permissionsSummary } from '../../shared/domain.ts';
@@ -35,6 +35,12 @@ const Reports = lazy(() => import('./screens/Reports.tsx').then((m) => ({ defaul
 const WarrantyPrint = lazy(() => import('./screens/WarrantyPrint.tsx').then((m) => ({ default: m.WarrantyPrint })));
 const InvoicePrint = lazy(() => import('./screens/InvoicePrint.tsx').then((m) => ({ default: m.InvoicePrint })));
 const ServicePrint = lazy(() => import('./screens/ServicePrint.tsx').then((m) => ({ default: m.ServicePrint })));
+const CreditList = lazy(() => import('./screens/Credit.tsx').then((m) => ({ default: m.CreditList })));
+const CreditForm = lazy(() => import('./screens/Credit.tsx').then((m) => ({ default: m.CreditForm })));
+const CreditDetail = lazy(() => import('./screens/Credit.tsx').then((m) => ({ default: m.CreditDetail })));
+const ContractForm = lazy(() => import('./screens/Credit.tsx').then((m) => ({ default: m.ContractForm })));
+const CreditPrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.CreditPrint })));
+const ContractPrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.ContractPrint })));
 const Audit = lazy(() => import('./screens/Audit.tsx').then((m) => ({ default: m.Audit })));
 
 export function App() {
@@ -86,6 +92,22 @@ function Gate() {
       </Suspense>
     );
   }
+  const printCredit = matchRoute('/imprimir/credito/:id', path);
+  if (printCredit && /^\d+$/.test(printCredit.id)) {
+    return (
+      <Suspense fallback={<div className="splash"><Spinner /></div>}>
+        <CreditPrint id={Number(printCredit.id)} copy={new URLSearchParams(location.search).get('copia') === 'cliente'} />
+      </Suspense>
+    );
+  }
+  const printContract = matchRoute('/imprimir/autorizacion/:id', path);
+  if (printContract && /^\d+$/.test(printContract.id)) {
+    return (
+      <Suspense fallback={<div className="splash"><Spinner /></div>}>
+        <ContractPrint id={Number(printContract.id)} draft={new URLSearchParams(location.search).get('borrador') === '1'} />
+      </Suspense>
+    );
+  }
   const printService = matchRoute('/imprimir/servicio/:id', path);
   if (printService && /^\d+$/.test(printService.id)) {
     return (
@@ -114,6 +136,11 @@ const ROUTES: [string, (p: Record<string, string>, q: URLSearchParams) => ReactN
   ['/servicio', (_, q) => <Services initialFilter={q.get('filtro')} />],
   ['/servicio/nuevo', (_, q) => <ServiceForm clientId={Number(q.get('cliente')) || null} saleId={Number(q.get('venta')) || null} />],
   ['/servicio/:id', (p) => <ServiceForm id={Number(p.id)} />],
+  ['/creditos', (_, q) => <CreditList initialFilter={q.get('filtro')} />],
+  ['/creditos/nueva', () => <CreditForm />],
+  ['/creditos/:id', (p) => <CreditDetail id={Number(p.id)} />],
+  ['/creditos/:id/editar', (p) => <CreditForm id={Number(p.id)} />],
+  ['/creditos/:id/autorizacion', (p) => <ContractForm id={Number(p.id)} />],
   ['/pagos', (_, q) => <Payments initialTab={q.get('tab')} />],
   ['/pagar', (_, q) => <Payables action={q.get('nuevo')} />],
   ['/pagar/:id', (p) => <PayableAccountScreen id={Number(p.id)} />],
@@ -141,6 +168,7 @@ const ROUTE_ACCESS: [RegExp, (a: Access) => boolean][] = [
   [/^\/clientes\/nuevo$/, (a) => a.can('clients.create')],
   [/^\/clientes\/\d+\/editar$/, (a) => a.can('clients.edit')],
   [/^\/clientes/, (a) => a.can('clients.view')],
+  [/^\/creditos/, (a) => a.can('credit.create') || a.can('credit.review')],
   [/^\/pagos/, (a) => a.canSee('payments')],
   [/^\/pagar/, (a) => a.canSee('payables')],
   [/^\/inventario/, (a) => a.canSee('inventory')],
@@ -201,6 +229,7 @@ const NAV: NavItem[] = [
   { to: '/clientes', label: 'Clientes', icon: Users, color: '#0a72c2', show: (a) => a.can('clients.view') },
   { to: '/ventas', label: 'Ventas', icon: Receipt, color: '#0a72c2', show: (a) => a.canSee('sales') },
   { to: '/servicio', label: 'Servicio técnico', short: 'Servicio', icon: Wrench, color: '#ff9500', show: (a) => a.canSee('services') },
+  { to: '/creditos', label: 'Créditos', icon: ClipboardSignature, color: '#1d9a46', show: (a) => a.can('credit.create') || a.can('credit.review') },
   { to: '/pagos', label: 'Pagos', icon: HandCoins, color: '#1d9a46', show: (a) => a.canSee('payments') },
   { to: '/pagar', label: 'Cuentas por pagar', short: 'Por pagar', icon: CreditCard, color: '#e5484d', show: (a) => a.canSee('payables') },
   { to: '/inventario', label: 'Inventario', icon: Boxes, color: '#6a3fdc', show: (a) => a.canSee('inventory') },
@@ -247,6 +276,9 @@ function Shell() {
     .sort((x, y) => Number(createsIn[y.to]) - Number(createsIn[x.to]))
     .slice(0, 2)
     .sort((x, y) => ['/clientes', '/ventas', '/servicio'].indexOf(x.to) - ['/clientes', '/ventas', '/servicio'].indexOf(y.to));
+  // Quien casi no tiene secciones (p. ej. "Solo creditos") ve Creditos abajo, a un toque.
+  const creditTab = nav.find((item) => item.to === '/creditos');
+  if (primary.length < 2 && creditTab) primary.push(creditTab);
   const more = nav.filter((item) => item.to !== '/' && !primary.includes(item));
 
   return (
@@ -401,6 +433,14 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
       color: '#6a3fdc',
       title: 'Cliente anterior',
       text: 'Ponte al día: registra lo que tiene instalado, aunque falten datos.',
+    },
+    {
+      to: '/creditos/nueva',
+      show: access.can('credit.create') || access.can('credit.review'),
+      icon: <ClipboardSignature size={22} />,
+      color: '#1d9a46',
+      title: 'Solicitud de crédito',
+      text: 'En casa del cliente: fotos de las IDs, datos y firmas.',
     },
     {
       to: '/servicio/nuevo',

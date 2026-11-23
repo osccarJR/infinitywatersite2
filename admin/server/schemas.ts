@@ -3,6 +3,7 @@
  * como null; el dinero llega en centavos enteros.
  */
 import { z } from 'zod';
+import { PRESET_KEYS } from '../shared/permissions.ts';
 
 const text = (max = 200) =>
   z
@@ -222,7 +223,7 @@ export const PermissionsInput = z.object({
   personId: id.nullable(),
   flags: z.record(z.string().max(40), z.boolean()).refine((f) => Object.keys(f).length <= 80, 'Demasiados permisos'),
   payableAccounts: z.array(id).max(200).nullable().default(null),
-  profiles: z.array(z.enum(['seller', 'technician', 'office', 'cashier', 'accountant'])).max(5).optional(),
+  profiles: z.array(z.enum(PRESET_KEYS as [string, ...string[]])).max(PRESET_KEYS.length).optional(),
 });
 
 export const UserCreateInput = z.object({
@@ -369,3 +370,133 @@ export function firstIssue(error: z.ZodError): { message: string; field?: string
   const field = issue?.path?.length ? issue.path.join('.') : undefined;
   return { message: issue?.message || 'Datos no válidos', field };
 }
+
+/* ------------------------------------------------------------------ */
+/* Solicitud de credito y autorizacion de instalacion                   */
+/* ------------------------------------------------------------------ */
+
+/** Texto que se guarda tal cual (vacio = ""). */
+const str = (max = 120) => z.string().max(max, `Máximo ${max} caracteres`).nullish().transform((v) => (v ?? '').trim());
+
+const CreditPersonInput = z.object({
+  firstName: str(60),
+  lastName: str(60),
+  cellPhone: str(40),
+  homePhone: str(40),
+  email: str(160),
+  address: str(200),
+  city: str(80),
+  state: str(2).transform((v) => v.toUpperCase()),
+  zip: str(10),
+  previousAddress: str(240),
+  employer: str(120),
+  years: str(20),
+  salary: str(40),
+  position: str(80),
+  businessPhone: str(40),
+  employerAddress: str(200),
+  employerCity: str(80),
+  employerState: str(2).transform((v) => v.toUpperCase()),
+  employerZip: str(10),
+  previousEmployer: str(200),
+  otherIncome: str(200),
+});
+
+const IdentityInput = z.object({
+  ssn: str(20),
+  dob: str(10),
+  dl: str(30),
+  dlExp: str(10),
+});
+
+export const CreditInput = z.object({
+  brandId: optionalId,
+  clientId: optionalId,
+  sellerId: optionalId,
+  appDate: date,
+  amount: money,
+  data: z.object({
+    applicant: CreditPersonInput,
+    coApplicant: CreditPersonInput.nullish().transform((v) => v ?? null),
+    home: z.object({
+      status: z.enum(['paid', 'mortgaged', 'rent']).nullish().transform((v) => v ?? null),
+      company: str(120),
+      monthlyPayment: str(40),
+      howLong: str(40),
+    }),
+    references: z.array(z.object({ name: str(120), relationship: str(60), phone: str(40) })).max(3),
+  }),
+  secret: z.object({
+    applicant: IdentityInput,
+    coApplicant: IdentityInput.nullish().transform((v) => v ?? null),
+  }),
+  expectedUpdatedAt: z.string().max(40).optional(),
+});
+export type CreditInput = z.infer<typeof CreditInput>;
+
+/** Firma dibujada en la pantalla (PNG). */
+const signatureImage = z.string().max(400_000).regex(/^data:image\/png;base64,[A-Za-z0-9+/=]+$/, 'La firma no es válida. Fírmala otra vez.');
+
+export const CreditSignInput = z.object({
+  consent: z.literal(true, { error: 'Marca que aceptan firmar electrónicamente.' }),
+  signatures: z.object({
+    applicant: signatureImage,
+    coApplicant: signatureImage.nullish().transform((v) => v ?? null),
+    rep: signatureImage,
+  }),
+});
+
+export const CreditDecisionInput = z.discriminatedUnion('result', [
+  z.object({
+    result: z.literal('approved'),
+    financierId: id.nullish().transform((v) => v ?? null),
+    approvedAmount: money,
+    apr: z.number().min(0).max(60).nullish().transform((v) => v ?? null),
+    termMonths: z.number().int().min(1).max(360).nullish().transform((v) => v ?? null),
+    monthlyPayment: money,
+    notes: text(2000),
+  }),
+  z.object({ result: z.literal('declined'), financierId: id.nullish().transform((v) => v ?? null), notes: text(2000) }),
+  z.object({ result: z.literal('return'), notes: requiredText('Escribe qué hay que corregir', 2000) }),
+]);
+
+const contractParty = z.object({ name: str(120), phone: str(40), email: str(160) });
+
+export const ContractInput = z.object({
+  date,
+  buyer1: contractParty,
+  buyer2: contractParty.nullish().transform((v) => v ?? null),
+  address: str(200),
+  city: str(80),
+  state: str(2).transform((v) => v.toUpperCase()),
+  zip: str(10),
+  waterTreatment: z.object({ brand: str(80), model: str(80) }),
+  reverseOsmosis: z.object({ brand: str(80), model: str(80) }),
+  other: str(400),
+  equipment: EquipmentInput,
+  installDate: optionalDate,
+  installSlot: z.enum(['am', 'pm']).nullish().transform((v) => v ?? null),
+  waterSource: z.enum(['city', 'well']).nullish().transform((v) => v ?? null),
+  iceMaker: z.boolean().nullish().transform((v) => v ?? null),
+  people: z.number().int().min(1).max(30).nullish().transform((v) => v ?? null),
+  floor: z.enum(['raised', 'slab']).nullish().transform((v) => v ?? null),
+  payment: z.enum(['card', 'check']).nullish().transform((v) => v ?? null),
+  cashPrice: money,
+  installation: money,
+  taxes: money,
+  downPayment: money,
+  amountToFinance: money,
+  payments: z.number().int().min(1).max(360).nullish().transform((v) => v ?? null),
+  monthlyPayment: money,
+  apr: z.number().min(0).max(60).nullish().transform((v) => v ?? null),
+});
+export type ContractInput = z.infer<typeof ContractInput>;
+
+export const ContractSignInput = z.object({
+  consent: z.literal(true, { error: 'Marca que aceptan firmar electrónicamente.' }),
+  signatures: z.object({
+    buyer1: signatureImage,
+    buyer2: signatureImage.nullish().transform((v) => v ?? null),
+    rep: signatureImage,
+  }),
+});

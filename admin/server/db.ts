@@ -306,6 +306,43 @@ const MIGRATIONS: string[] = [
   /* 13: hora de la visita de servicio (sale en el reporte de mantenimiento). */ `
   ALTER TABLE services ADD COLUMN visit_time TEXT;
   `,
+  /* 14: solicitudes de credito y autorizacion de instalacion. Los datos de
+        identidad (SSN, licencia) y los archivos (IDs, firmas) van cifrados. */ `
+  CREATE TABLE credit_apps (
+    id INTEGER PRIMARY KEY,
+    status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','submitted','approved','declined','signed')),
+    brand_id INTEGER REFERENCES brands(id) ON DELETE SET NULL,
+    client_id INTEGER REFERENCES clients(id) ON DELETE SET NULL,
+    seller_id INTEGER REFERENCES people(id) ON DELETE SET NULL,
+    sale_id INTEGER REFERENCES sales(id) ON DELETE SET NULL,
+    app_date TEXT NOT NULL,
+    amount INTEGER,
+    data TEXT NOT NULL,
+    secret TEXT,
+    signatures TEXT,
+    submitted_at TEXT,
+    decision TEXT,
+    decided_at TEXT,
+    decided_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    contract TEXT,
+    contract_signatures TEXT,
+    signed_at TEXT,
+    purged_at TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    updated_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX credit_apps_status ON credit_apps(status);
+  CREATE TABLE credit_files (
+    app_id INTEGER NOT NULL REFERENCES credit_apps(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    data BLOB NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (app_id, kind)
+  );
+  `,
 ];
 
 export type DB = Database.Database;

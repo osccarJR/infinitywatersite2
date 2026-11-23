@@ -50,7 +50,8 @@ export class Router {
       '^' +
         path.replace(/:(\w+)/g, (_, key) => {
           keys.push(key);
-          return '(\\d+)';
+          // Los ids son numeros; "kind" es un nombre corto (id1-front, sig-rep...).
+          return key === 'kind' ? '([a-z0-9-]{1,40})' : '(\\d+)';
         }) +
         '$'
     );
