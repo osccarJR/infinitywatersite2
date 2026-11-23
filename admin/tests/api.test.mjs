@@ -655,6 +655,51 @@ test('hora de instalación y garantía guardada', async () => {
   assert.equal((await call('POST', `/sales/${saleId}/warranty`, { issueDate: '2026-11-07', representative: 'X', lines: [{ item: 'Y' }] }, { as: techCookie })).status, 403, 'el técnico solo ve ventas');
 });
 
+test('factura: número correlativo, sin repetir, reemisión igual y permisos', async () => {
+  const body = (extra = {}) => ({
+    issueDate: '2026-11-22',
+    dueDate: '2026-11-22',
+    brand: 'magic',
+    terms: 'Financed — Financiera Uno',
+    taxRate: 0,
+    amountPaid: 50_000,
+    financedAmount: 1_150_000,
+    financedBy: 'Financiera Uno',
+    customerPo: '',
+    lines: [
+      { description: 'Whole-house reverse osmosis system (2 membranes)', itemNumber: 'MW-WRO-2M', quantity: 1, unitPrice: 600_000, serial: 'MW-WRO-20261122-001' },
+      { description: 'Outdoor filter tank', itemNumber: 'MW-FLT-TANK', quantity: 3, unitPrice: 200_000, serial: 'A, B, C' },
+      { description: 'Installation, materials, transportation and labor', itemNumber: 'INSTALL', quantity: 1, unitPrice: 0, serial: '' },
+    ],
+    ...extra,
+  });
+  assert.equal((await call('GET', '/invoices/next')).data.number, 2023, 'sigue a la 300-2022');
+  const r = await call('POST', `/sales/${saleId}/invoice`, body());
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.sale.invoice.number, 2023, 'sin número se asigna el siguiente');
+  assert.equal(r.data.sale.invoice.lines[1].quantity, 3);
+  assert.equal((await call('GET', '/invoices/next')).data.number, 2024);
+  // Reemitir conserva el número.
+  const again = await call('POST', `/sales/${saleId}/invoice`, body({ terms: 'Paid in full' }));
+  assert.equal(again.data.sale.invoice.number, 2023);
+  assert.equal(again.data.sale.invoice.terms, 'Paid in full');
+  // Otra venta no puede usar el mismo número.
+  const other = (await call('GET', '/bootstrap')).data.sales.find((s) => s.id !== saleId);
+  const dup = await call('POST', `/sales/${other.id}/invoice`, body({ number: 2023 }));
+  assert.equal(dup.status, 409);
+  assert.match(dup.data.error, /300-2024/);
+  assert.equal((await call('POST', `/sales/${other.id}/invoice`, body({ number: 2024 }))).status, 200);
+  // Datos mal y permisos.
+  assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ lines: [] }))).status, 400);
+  assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ taxRate: 40 }))).status, 400);
+  assert.equal((await call('POST', `/sales/${saleId}/invoice`, body(), { as: techCookie })).status, 403);
+  assert.equal((await call('GET', '/invoices/next', undefined, { as: techCookie })).status, 403);
+  const techSales = (await call('GET', '/bootstrap', undefined, { as: techCookie })).data.sales;
+  assert.ok(techSales.every((s) => s.invoice === null), 'quien no ve precios no recibe la factura');
+  const log = (await call('GET', '/audit?group=sales&limit=10')).data.entries;
+  assert.ok(log.some((e) => e.action === 'invoice' && /factura 300-2023/.test(e.label)));
+});
+
 /* ------------------------- registro de actividad ------------------------- */
 
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {

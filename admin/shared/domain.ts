@@ -141,11 +141,62 @@ export interface Sale {
   isLegacy: boolean;
   /** Garantia ya generada (para reimprimirla con los mismos seriales). */
   warranty: WarrantyData | null;
+  /** Factura emitida (se reimprime igual, con el mismo numero). */
+  invoice: InvoiceData | null;
   suppliers: SaleSupplier[];
   createdAt: string;
   updatedAt: string;
   createdBy: string | null;
   updatedBy: string | null;
+}
+
+/** Logo con que sale la factura. */
+export type InvoiceBrand = 'magic' | 'infinity';
+
+export interface InvoiceLine {
+  description: string;
+  itemNumber: string;
+  quantity: number;
+  /** Centavos por unidad. */
+  unitPrice: number;
+  /** Numeros de serie (SN#), separados por coma. */
+  serial: string;
+}
+
+export interface InvoiceData {
+  number: number;
+  issueDate: string;
+  dueDate: string;
+  brand: InvoiceBrand;
+  /** "Paid in full", "Financed — X", "Net 30"... */
+  terms: string;
+  /** Porcentaje de impuesto (0 a 15). */
+  taxRate: number;
+  /** Lo que pago el cliente (centavos). */
+  amountPaid: number;
+  /** Lo que cubre la financiera (centavos). */
+  financedAmount: number;
+  financedBy: string;
+  customerPo: string;
+  lines: InvoiceLine[];
+  issuedAt: string;
+}
+
+/**
+ * Numeracion de facturas del negocio: "300-" fijo y un correlativo que sube
+ * (la ultima a mano fue la 300-2022; el panel sigue con la 300-2023).
+ */
+export const INVOICE_PREFIX = '300-';
+export const FIRST_INVOICE = 2023;
+export const invoiceLabel = (n: number) => `${INVOICE_PREFIX}${n}`;
+
+/** Totales de una factura (centavos). */
+export function invoiceTotals(inv: Pick<InvoiceData, 'lines' | 'taxRate' | 'amountPaid' | 'financedAmount'>) {
+  const subtotal = inv.lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPrice), 0);
+  const tax = Math.round((subtotal * inv.taxRate) / 100);
+  const total = subtotal + tax;
+  const balance = Math.max(total - inv.amountPaid - inv.financedAmount, 0);
+  return { subtotal, tax, total, balance };
 }
 
 export interface WarrantyLine {

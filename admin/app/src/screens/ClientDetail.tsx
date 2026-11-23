@@ -4,7 +4,8 @@ import { useData, useStore } from '../lib/store.tsx';
 import { useAccess } from '../lib/access.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
-import { dateWithYear, localDate, mapsHref, money, plural, telHref, whatsappHref } from '../lib/format.ts';
+import { dateWithYear, localDate, mapsHref, money, plural, telHref } from '../lib/format.ts';
+import { waLink } from '../lib/whatsapp.ts';
 import { Avatar, Empty, Group, Page, Row, Section } from '../ui/kit.tsx';
 import { SaleRow, ServiceRow } from '../ui/items.tsx';
 import { useFeedback } from '../ui/sheet.tsx';
@@ -80,7 +81,7 @@ export function ClientDetail({ id }: { id: number }) {
           <Phone size={22} />
           Llamar
         </a>
-        <a className="quick-action" href={client.phone ? whatsappHref(client.phone) : undefined} target="_blank" rel="noopener" aria-disabled={!client.phone}>
+        <a className="quick-action" {...(client.phone ? waLink(client.phone) : {})} aria-disabled={!client.phone}>
           <MessageCircle size={22} />
           WhatsApp
         </a>

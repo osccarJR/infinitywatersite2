@@ -137,11 +137,6 @@ export function telHref(phone: string) {
   return `tel:${digits.length === 10 ? '+1' + digits : '+' + digits}`;
 }
 
-export function whatsappHref(phone: string) {
-  const digits = phoneDigits(phone);
-  return `https://wa.me/${digits.length === 10 ? '1' + digits : digits}`;
-}
-
 export const mapsHref = (address: string) => `https://maps.apple.com/?q=${encodeURIComponent(address)}`;
 
 /* ------------------------------------------------------------------ */

@@ -83,6 +83,7 @@ export function shapeSale(sale: Sale, p: Permissions): Sale {
   if (!f['money.prices']) {
     out.price = null;
     out.cashDown = null;
+    out.invoice = null; // la factura lleva precios
   }
   if (!f['money.financier']) out.fundedAmount = null;
   if (!f['money.commissions'] && !(mine && sale.sellerId === p.personId)) out.commission = null;

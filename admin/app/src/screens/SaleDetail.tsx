@@ -19,7 +19,8 @@ import { useData, useStore } from '../lib/store.tsx';
 import { useAccess, visibleMissing } from '../lib/access.ts';
 import { Link, navigate } from '../lib/router.tsx';
 import { api } from '../lib/api.ts';
-import { dateWithYear, localDate, mapsHref, money, percentText, relativeDay, telHref, whatsappHref } from '../lib/format.ts';
+import { dateWithYear, localDate, mapsHref, money, percentText, relativeDay, telHref } from '../lib/format.ts';
+import { waLink } from '../lib/whatsapp.ts';
 import { Avatar, Badge, Empty, Group, Page, Row, Section } from '../ui/kit.tsx';
 import { SaleBadges, ServiceRow } from '../ui/items.tsx';
 import { SaleDocs } from '../ui/saledocs.tsx';
@@ -138,7 +139,7 @@ export function SaleDetail({ id }: { id: number }) {
                   <a className="icon-btn" href={telHref(client.phone)} aria-label="Llamar">
                     <Phone size={20} />
                   </a>
-                  <a className="icon-btn" href={whatsappHref(client.phone)} target="_blank" rel="noopener" aria-label="WhatsApp">
+                  <a className="icon-btn" {...waLink(client.phone)} aria-label="WhatsApp">
                     <MessageCircle size={20} />
                   </a>
                 </span>

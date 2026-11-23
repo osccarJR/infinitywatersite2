@@ -7,6 +7,7 @@ import { toggleAmounts, useAmountsHidden } from '../lib/privacy.ts';
 import { Link, goBack } from '../lib/router.tsx';
 import { useStore } from '../lib/store.tsx';
 import { avatarStyle, centsToInput, initials, parseMoney } from '../lib/format.ts';
+import { waLink } from '../lib/whatsapp.ts';
 
 /* ------------------------------------------------------------------ */
 /* Pagina                                                               */
@@ -212,13 +213,7 @@ export function ContactRow({
           <a className="icon-btn" href={`tel:+${intl}`} aria-label="Llamar">
             <Phone size={19} />
           </a>
-          <a
-            className="icon-btn wa"
-            href={`https://wa.me/${intl}${whatsappText ? `?text=${encodeURIComponent(whatsappText)}` : ''}`}
-            target="_blank"
-            rel="noopener"
-            aria-label="WhatsApp"
-          >
+          <a className="icon-btn wa" {...waLink(phone, whatsappText)} aria-label="WhatsApp">
             <MessageCircle size={19} />
           </a>
         </span>

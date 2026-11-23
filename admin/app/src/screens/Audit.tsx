@@ -134,6 +134,10 @@ function sentence(e: Entry): { who: string; text: string } {
       return { who, text: `generó ${label}` };
     case 'warranty-update':
       return { who, text: `volvió a generar ${label}` };
+    case 'invoice':
+      return { who, text: `emitió ${label}` };
+    case 'invoice-update':
+      return { who, text: `volvió a emitir ${label}` };
     case 'avatar':
       return { who, text: `cambió ${label}` };
     case 'login-failed':

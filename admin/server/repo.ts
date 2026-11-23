@@ -6,6 +6,7 @@
  */
 import type { DB } from './db.ts';
 import type { CatalogItem, Client, Person, Sale, Service } from '../shared/domain.ts';
+import { FIRST_INVOICE } from '../shared/domain.ts';
 import type { ClientInput, PersonInput, SaleInput, ServiceInput } from './schemas.ts';
 
 const b = (value: boolean) => (value ? 1 : 0);
@@ -19,6 +20,13 @@ function parseWarranty(json: string | null) {
 }
 
 export const saveWarranty = (db: DB, saleId: number, data: unknown) => db.prepare('UPDATE sales SET warranty = ? WHERE id = ?').run(JSON.stringify(data), saleId).changes;
+
+export const nextInvoiceNumber = (db: DB) => ((db.prepare('SELECT MAX(invoice_no) AS n FROM sales').get() as { n: number | null }).n ?? FIRST_INVOICE - 1) + 1;
+/** Venta que ya usa ese numero (otra distinta a la indicada). */
+export const invoiceNumberOwner = (db: DB, number: number, saleId: number) =>
+  (db.prepare('SELECT id FROM sales WHERE invoice_no = ? AND id <> ?').get(number, saleId) as { id: number } | undefined)?.id ?? null;
+export const saveInvoice = (db: DB, saleId: number, data: { number: number }) =>
+  db.prepare('UPDATE sales SET invoice = ?, invoice_no = ? WHERE id = ?').run(JSON.stringify(data), data.number, saleId).changes;
 const userName = `(SELECT name FROM users WHERE id = %s)`;
 
 /* ------------------------------------------------------------------ */
@@ -191,6 +199,7 @@ const toSale = (r: any, suppliers: Sale['suppliers']): Sale => ({
   isLegacy: Boolean(r.is_legacy),
   installTime: r.install_time ?? null,
   warranty: parseWarranty(r.warranty),
+  invoice: parseWarranty(r.invoice ?? null),
   suppliers,
   createdAt: r.created_at,
   updatedAt: r.updated_at,

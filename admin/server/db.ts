@@ -297,6 +297,12 @@ const MIGRATIONS: string[] = [
   ALTER TABLE sales ADD COLUMN install_time TEXT;
   ALTER TABLE sales ADD COLUMN warranty TEXT;
   `,
+  /* 12: factura en ingles emitida por Global Innovations Group (una por
+        venta, con numero unico y correlativo). */ `
+  ALTER TABLE sales ADD COLUMN invoice TEXT;
+  ALTER TABLE sales ADD COLUMN invoice_no INTEGER;
+  CREATE UNIQUE INDEX sales_invoice_no ON sales(invoice_no) WHERE invoice_no IS NOT NULL;
+  `,
 ];
 
 export type DB = Database.Database;

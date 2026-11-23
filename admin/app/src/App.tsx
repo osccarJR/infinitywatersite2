@@ -33,6 +33,7 @@ const Inventory = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ de
 const InventoryItemScreen = lazy(() => import('./screens/Inventory.tsx').then((m) => ({ default: m.InventoryItemScreen })));
 const Reports = lazy(() => import('./screens/Reports.tsx').then((m) => ({ default: m.Reports })));
 const WarrantyPrint = lazy(() => import('./screens/WarrantyPrint.tsx').then((m) => ({ default: m.WarrantyPrint })));
+const InvoicePrint = lazy(() => import('./screens/InvoicePrint.tsx').then((m) => ({ default: m.InvoicePrint })));
 const Audit = lazy(() => import('./screens/Audit.tsx').then((m) => ({ default: m.Audit })));
 
 export function App() {
@@ -73,6 +74,14 @@ function Gate() {
     return (
       <Suspense fallback={<div className="splash"><Spinner /></div>}>
         <WarrantyPrint id={Number(print.id)} />
+      </Suspense>
+    );
+  }
+  const printInvoice = matchRoute('/imprimir/factura/:id', path);
+  if (printInvoice && /^\d+$/.test(printInvoice.id)) {
+    return (
+      <Suspense fallback={<div className="splash"><Spinner /></div>}>
+        <InvoicePrint id={Number(printInvoice.id)} />
       </Suspense>
     );
   }

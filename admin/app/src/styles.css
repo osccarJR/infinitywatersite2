@@ -1876,6 +1876,75 @@ a.pay-card:active { transform: perspective(900px) scale(0.98); }
 .order-text { white-space: pre-wrap; word-break: break-word; margin: 0 0 14px; padding: 14px 16px; border-radius: var(--radius); background: #e7f8ee; border: 1px solid #c7ecd6; font: 15px/1.5 var(--font); color: #10301f; }
 .order-buttons { display: grid; gap: 8px; }
 .btn.whatsapp { background: #1fa855; color: #fff; }
+.wa-mode { margin-top: 16px; padding: 14px 16px; background: var(--surface); border-radius: var(--radius); display: grid; gap: 10px; }
+.wa-mode > span { font-size: 13px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: 0.02em; }
+.wa-mode p { margin: 0; font-size: 13px; line-height: 1.4; color: var(--text-2); }
 .warranty-line { display: grid; grid-template-columns: 1.4fr 1fr auto; gap: 8px; align-items: center; padding: 8px 12px; border-bottom: 0.5px solid var(--sep); }
 .warranty-line .field-input { height: 40px; padding: 0 10px; border-radius: 9px; background: var(--fill-2); text-align: left; width: 100%; min-width: 0; }
 @media (max-width: 480px) { .warranty-line { grid-template-columns: 1fr auto; } .warranty-line .field-input:first-child { grid-column: 1 / -1; } }
+
+/* Factura: formulario */
+.doc-icon.invoice { background: linear-gradient(135deg, #0f9d74, #1fbf8f); }
+.inv-lines { display: grid; gap: 10px; }
+.inv-line { background: var(--surface); border-radius: var(--radius); padding: 12px; display: grid; gap: 10px; }
+.inv-line-head { display: flex; align-items: center; gap: 8px; }
+.inv-line-no { width: 26px; height: 26px; border-radius: 50%; background: var(--fill); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: var(--text-2); flex: 0 0 auto; }
+.inv-line .field-input { height: 40px; padding: 0 10px; border-radius: 9px; background: var(--fill-2); text-align: left; width: 100%; min-width: 0; }
+.inv-line .field-input.num { text-align: right; }
+.inv-line-grid { display: grid; grid-template-columns: 1.3fr 0.6fr 1.1fr; gap: 8px; }
+.inv-line-grid label, .inv-line-sn { display: grid; gap: 4px; font-size: 12px; font-weight: 600; color: var(--text-2); }
+.inv-line-sn { grid-template-columns: auto 1fr; align-items: center; gap: 8px; }
+.inv-price { position: relative; display: block; }
+.inv-price > span { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); color: var(--text-2); font-size: 15px; pointer-events: none; }
+.inv-price .field-input { padding-left: 22px; }
+.inv-price .field-input[aria-invalid='true'] { box-shadow: inset 0 0 0 1.5px var(--red); }
+.inv-line-total { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
+.inv-add { display: flex; align-items: center; justify-content: center; gap: 6px; height: 46px; border-radius: var(--radius); border: 1.5px dashed var(--sep); color: var(--accent); font-weight: 600; }
+.inv-check { margin: 12px 0 0; padding: 12px 14px; border-radius: var(--radius); background: rgba(31, 168, 85, 0.1); display: flex; align-items: center; gap: 12px; }
+.inv-check > div { flex: 1; display: grid; gap: 2px; font-size: 14px; }
+.inv-check span { color: var(--text-2); font-size: 13px; }
+.inv-check.off { background: rgba(255, 149, 0, 0.14); }
+.inv-terms { flex-wrap: wrap; gap: 8px; padding-top: 10px; padding-bottom: 10px; }
+.inv-terms .chip { height: 34px; padding: 0 12px; font-size: 13.5px; }
+
+/* Factura: hoja para imprimir (formato de factura de proveedor) */
+.ip-page { font-size: 9.6pt; color: #111; padding: 0.4in 0.45in 0.35in; }
+.ip-top { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6in; margin-bottom: 0.2in; }
+.ip-box { border: 1px solid #555; }
+.ip-issuer { padding: 12px 18px 16px; line-height: 1.4; }
+.ip-issuer img { height: 0.55in; width: auto; max-width: 2.4in; display: block; margin-bottom: 12px; object-fit: contain; object-position: left; }
+.ip-meta h1 { margin: 0; padding: 10px; text-align: center; font-size: 15pt; font-weight: 700; border-bottom: 1px solid #555; }
+.ip-meta dl { margin: 0; padding: 10px 14px; display: grid; grid-template-columns: 1fr 1fr; column-gap: 8px; row-gap: 1px; }
+.ip-meta dt { text-align: right; font-weight: 700; }
+.ip-meta dd { margin: 0; }
+.ip-party h2 { margin: 0; padding: 4px 10px; font-size: 10.5pt; background: #dcdcdc; border-bottom: 1px solid #555; }
+.ip-party p { margin: 0; padding: 18px 10px 22px; font-size: 10.5pt; line-height: 1.35; }
+.ip-band { width: 100%; border-collapse: collapse; margin-bottom: 6px; border: 1px solid #555; background: #dcdcdc; }
+.ip-band th { font-weight: 700; padding: 3px 8px 0; text-align: center; }
+.ip-band td { padding: 0 8px 4px; text-align: center; }
+.ip-band th:first-child, .ip-band td:first-child { border-right: 1px solid #999; }
+.ip-lines { width: 100%; border-collapse: collapse; }
+.ip-lines thead th { background: #c8c8c8; border: 1px solid #555; border-width: 1px 0; padding: 8px 8px; text-align: left; font-weight: 700; }
+.ip-lines thead th:first-child { border-left-width: 1px; }
+.ip-lines thead th:last-child { border-right-width: 1px; }
+.ip-lines td { padding: 12px 8px 4px; vertical-align: top; }
+.ip-lines .r { text-align: right; }
+.ip-lines .c { text-align: center; }
+.ip-sn { margin-top: 8px; margin-left: -6px; }
+.ip-notice { margin: 22px 10px 0; font-size: 8.8pt; line-height: 1.35; }
+.ip-foot { margin-top: auto; padding: 0 10px; }
+.ip-total-head { display: flex; justify-content: flex-end; font-weight: 700; padding-right: 60px; border-bottom: 1px solid #333; padding-bottom: 1px; }
+.ip-foot-row { display: flex; justify-content: space-between; gap: 24px; padding-top: 4px; }
+.ip-terms { margin: 0; display: grid; grid-template-columns: auto auto; column-gap: 24px; row-gap: 4px; align-content: start; }
+.ip-terms dt { font-weight: 700; }
+.ip-terms dd { margin: 0; }
+.ip-sums { margin: 0; display: grid; grid-template-columns: auto auto; column-gap: 18px; row-gap: 2px; text-align: right; align-content: start; }
+.ip-sums dd { margin: 0; font-variant-numeric: tabular-nums; }
+.ip-sums .strong { font-weight: 700; }
+.ip-page-foot { margin-top: 16px; }
+@media print { .ip-band, .ip-lines thead th, .ip-party h2 { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }
+.inv-check + .group-label { margin-top: 26px; }
+.ip-lines td:nth-child(3), .ip-lines th, .ip-meta dt { white-space: nowrap; }
+.ip-meta dl { grid-template-columns: 1.5fr 1fr; }
+.ip-lines td:nth-child(2) { width: 42%; }
+.inv-number-prefix { margin-left: auto; color: var(--text-2); font-variant-numeric: tabular-nums; }

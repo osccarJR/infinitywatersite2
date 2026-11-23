@@ -255,6 +255,32 @@ export const WarrantyInput = z.object({
     .max(8, 'Máximo 8 equipos'),
 });
 
+/** Factura: lo que se imprime (lineas con precio y serial, pagos y condiciones). */
+export const InvoiceInput = z.object({
+  number: z.number({ error: 'Escribe el número de factura' }).int('El número de factura es un número entero').min(1, 'El número de factura debe ser mayor que 0').max(99_999_999, 'Número de factura muy largo').nullish().transform((v) => v ?? null),
+  issueDate: date,
+  dueDate: date,
+  brand: z.enum(['magic', 'infinity']),
+  terms: requiredText('Escribe las condiciones de pago', 80),
+  taxRate: z.number().min(0, 'El impuesto no puede ser negativo').max(15, 'Impuesto máximo 15 %'),
+  amountPaid: z.number().int().min(0, 'Lo pagado no puede ser negativo').max(100_000_000),
+  financedAmount: z.number().int().min(0, 'Lo financiado no puede ser negativo').max(100_000_000),
+  financedBy: text(80).transform((v) => v ?? ''),
+  customerPo: text(40).transform((v) => v ?? ''),
+  lines: z
+    .array(
+      z.object({
+        description: requiredText('Escribe la descripción de cada línea', 140),
+        itemNumber: text(40).transform((v) => v ?? ''),
+        quantity: z.number().min(0.01, 'La cantidad debe ser mayor que 0').max(9999, 'Cantidad muy grande'),
+        unitPrice: z.number().int().min(0, 'El precio no puede ser negativo').max(100_000_000),
+        serial: text(200).transform((v) => v ?? ''),
+      })
+    )
+    .min(1, 'Agrega al menos una línea')
+    .max(12, 'Máximo 12 líneas'),
+});
+
 /* ------------------------- cuentas por pagar ------------------------- */
 
 export const PayableAccountInput = z.object({

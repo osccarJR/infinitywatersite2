@@ -26,6 +26,7 @@ import {
   ServiceInput,
   ServiceInputNoAmount,
   WarrantyInput,
+  InvoiceInput,
   UserCreateInput,
   UserUpdateInput,
   PayableAccountInput,
@@ -36,7 +37,7 @@ import {
 } from './schemas.ts';
 import * as books from './books.ts';
 import { createdTodayBy, need, protectClientBody, protectSaleBody, protectServiceBody, scopeOf, seesClient, seesSale, seesService, shapeClient, shapeSale, shapeService } from './permissions.ts';
-import { normalizePermissions, permissionsSummary, type PermissionFlag, type User } from '../shared/domain.ts';
+import { invoiceLabel, invoiceTotals, normalizePermissions, permissionsSummary, type PermissionFlag, type User } from '../shared/domain.ts';
 import {
   SESSION_COOKIE,
   SESSION_DAYS,
@@ -479,6 +480,45 @@ export function buildApi(db: DB, dataDir: string) {
         ...input.lines.map((l) => ({ f: l.item, b: l.serial || 'sin serial' })),
       ],
     });
+    return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
+  });
+
+  /** Siguiente numero de factura libre (el formulario lo propone). */
+  api.add('GET', '/invoices/next', (ctx) => {
+    allowed(ctx, (p) => p.flags['sales.view'] && p.flags['money.prices'] && (p.flags['sales.edit'] || p.flags['sales.create']));
+    return { number: repo.nextInvoiceNumber(db) };
+  });
+
+  /** Emite (o vuelve a emitir) la factura de la venta; el numero no se repite entre ventas. */
+  api.add('POST', '/sales/:id/invoice', (ctx) => {
+    const user = allowed(ctx, (p) => p.flags['sales.view'] && p.flags['money.prices'] && (p.flags['sales.edit'] || p.flags['sales.create']));
+    const sale = repo.getSale(db, num(ctx));
+    notFound(sale ? 1 : 0, 'La venta');
+    need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
+    const input = parse(InvoiceInput, ctx.body);
+    const fmtDate = (d: string) => d.split('-').reverse().join('/');
+    db.transaction(() => {
+      const number = input.number ?? sale!.invoice?.number ?? repo.nextInvoiceNumber(db);
+      const owner = repo.invoiceNumberOwner(db, number, num(ctx));
+      if (owner) throw new HttpError(409, `La factura ${invoiceLabel(number)} ya es de la venta #${owner}. La siguiente libre es la ${invoiceLabel(repo.nextInvoiceNumber(db))}.`, 'number');
+      const data = { ...input, number, issuedAt: new Date().toISOString() };
+      repo.saveInvoice(db, num(ctx), data);
+      const t = invoiceTotals(data);
+      const usd = (c: number) => `$${(c / 100).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+      log(ctx, {
+        action: sale!.invoice ? 'invoice-update' : 'invoice',
+        entity: 'sale',
+        entityId: num(ctx),
+        label: `la factura ${invoiceLabel(number)} de ${saleLabel(sale)}`,
+        changes: [
+          { f: 'Número', b: invoiceLabel(number) },
+          { f: 'Fecha', b: fmtDate(input.issueDate) },
+          ...data.lines.map((l) => ({ f: l.description, b: `${l.quantity} × ${usd(l.unitPrice)}` })),
+          { f: 'Total', b: usd(t.total) },
+          { f: 'Saldo pendiente', b: usd(t.balance) },
+        ],
+      });
+    })();
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };
   });
 
