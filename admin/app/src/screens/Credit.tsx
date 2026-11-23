@@ -7,12 +7,14 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { BadgeCheck, ClipboardSignature, Eye, FileText, Plus, Send, Trash2, Undo2, UserRound, XCircle } from 'lucide-react';
 import type { Equipment } from '../../../shared/domain.ts';
-import { EMPTY_EQUIPMENT, equipmentSummary } from '../../../shared/domain.ts';
+import { EMPTY_EQUIPMENT, SALE_STATUS_LABEL, equipmentSummary } from '../../../shared/domain.ts';
 import {
   CREDIT_KEEP_DAYS,
   CREDIT_STATUS_LABEL,
   SLOT_LABEL,
+  cancelDeadline,
   contractTotals,
+  creditMissing,
   emptyCreditData,
   emptyIdentity,
   emptyPerson,
@@ -37,12 +39,15 @@ import { dateWithYear, formatPhone, localDate, moneyPlain } from '../lib/format.
 import { CREDIT_AUTH, contractText } from '../lib/creditText.ts';
 import { Badge, Chips, Empty, Group, MoneyField, Page, Row, SearchBox, SegmentedRow, SwitchRow, TextField, StackField, type Tone } from '../ui/kit.tsx';
 import { DateField } from '../ui/date.tsx';
-import { PersonPicker, PickerRow, StateZipRow } from '../ui/pickers.tsx';
+import { PersonPicker, PickerRow, StateZipRow, useCatalogCreate } from '../ui/pickers.tsx';
 import { Picker, Sheet, useFeedback } from '../ui/sheet.tsx';
 import { IdPhoto } from '../ui/idphoto.tsx';
 import { SignSheet } from '../ui/signature.tsx';
 
 const STATUS_TONE: Record<CreditStatus, Tone> = { draft: 'orange', submitted: 'blue', approved: 'green', declined: 'red', signed: 'violet' };
+/** Estado en palabras: "Devuelta" si la oficina la regreso para corregir; para el vendedor, "En la oficina". */
+const statusLabel = (c: { status: CreditStatus; returnNote: string | null }, reviewer: boolean) =>
+  c.status === 'draft' && c.returnNote ? 'Devuelta' : c.status === 'submitted' && !reviewer ? 'En la oficina' : CREDIT_STATUS_LABEL[c.status];
 
 export const creditAccess = (a: ReturnType<typeof useAccess>) => ({ fills: a.can('credit.create'), reviews: a.can('credit.review') });
 
@@ -78,7 +83,7 @@ function brandName(data: ReturnType<typeof useData>, id: number | null) {
 
 const FILTERS: { key: '' | CreditStatus; label: string }[] = [
   { key: '', label: 'Todas' },
-  { key: 'submitted', label: 'Por revisar' },
+  { key: 'submitted', label: 'En la oficina' },
   { key: 'approved', label: 'Aprobadas' },
   { key: 'draft', label: 'Por firmar' },
   { key: 'declined', label: 'Negadas' },
@@ -129,8 +134,8 @@ export function CreditList({ initialFilter }: { initialFilter?: string | null })
                     {c.coApplicantName && <span className="muted"> y {c.coApplicantName}</span>}
                   </>
                 }
-                subtitle={[brand, c.city, dateWithYear(c.appDate), seller ? `Vendedor: ${seller}` : null, c.amount ? moneyPlain(c.amount) : null].filter(Boolean).join(' · ')}
-                trailing={<Badge tone={STATUS_TONE[c.status]}>{CREDIT_STATUS_LABEL[c.status]}</Badge>}
+                subtitle={[brand, c.city, dateWithYear(c.appDate), reviews && seller ? `Vendedor: ${seller}` : null, c.amount ? moneyPlain(c.amount) : null].filter(Boolean).join(' · ')}
+                trailing={<Badge tone={STATUS_TONE[c.status]}>{statusLabel(c, reviews)}</Badge>}
               />
             );
           })}
@@ -223,6 +228,24 @@ export function CreditForm({ id }: { id?: number }) {
     () => confirm({ title: '¿Salir sin guardar?', message: 'Lo que escribiste se perderá.', confirm: 'Salir sin guardar', cancel: 'Seguir llenando', danger: true })
   );
 
+  // Se guarda sola cada rato (la solicitud es larga y en el iPhone la pagina se puede recargar al abrir la camara).
+  const [autoSaved, setAutoSaved] = useState<string | null>(null);
+  const formJson = form ? JSON.stringify(form) : '';
+  useEffect(() => {
+    if (!form || !savedId.current || busy || signing || formJson === initial.current || app?.status !== 'draft') return;
+    const timer = setTimeout(() => {
+      api<{ app: CreditApp }>(`/credit/${savedId.current}`, { method: 'PUT', body: bodyOf(form, app?.updatedAt) })
+        .then((r) => {
+          setApp(r.app);
+          initial.current = formJson;
+          setAutoSaved(new Date().toLocaleTimeString('es-US', { hour: 'numeric', minute: '2-digit' }));
+        })
+        .catch(() => {});
+    }, 15_000);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [formJson, busy, signing]);
+
   if (!fills && !reviews) return <Page title="Solicitud de crédito"><Empty title="No tienes acceso a créditos" /></Page>;
   if (id && loadError) return <Page title="Solicitud de crédito" back={{ label: 'Créditos', to: '/creditos' }}><Empty title={loadError} /></Page>;
   if (!form) return <Page title="Solicitud de crédito" back={{ label: 'Créditos', to: '/creditos' }}><div className="loading-block" /></Page>;
@@ -284,9 +307,14 @@ export function CreditForm({ id }: { id?: number }) {
     setBusy(true);
     try {
       const saved = await save();
-      const files = saved.files;
-      if (!files.includes('id1-front')) return fail('Falta la foto de la ID del aplicante (de frente).', 'id1-front');
-      if (form.hasCo && !files.includes('id2-front')) return fail('Falta la foto de la ID del coaplicante (de frente).', 'id2-front');
+      // Todo lo que falta, de una vez, ANTES de que el cliente firme.
+      const missing = creditMissing({
+        data: { ...form.data, coApplicant: form.hasCo ? form.data.coApplicant : null },
+        secret: { applicant: form.secret.applicant, coApplicant: form.hasCo ? form.secret.coApplicant : null },
+        files: saved.files,
+        amount: form.amount,
+      });
+      if (missing.length) return fail(`Antes de firmar falta: ${missing.map((m) => m.label).join('; ')}.`, missing[0].field);
       setSigning(true);
     } catch (err: any) {
       fail(err.message, err.field);
@@ -297,17 +325,8 @@ export function CreditForm({ id }: { id?: number }) {
 
   const sign = async (sigs: Record<string, string>) => {
     const sid = savedId.current!;
-    try {
-      await api(`/credit/${sid}/submit`, { method: 'POST', body: { consent: true, signatures: { applicant: sigs.applicant, coApplicant: sigs.coApplicant ?? null, rep: sigs.rep } } });
-    } catch (err: any) {
-      // Falta un dato: se cierra la hoja y se lleva al campo.
-      if (err.field && err.field !== 'sig-co') {
-        setSigning(false);
-        fail(err.message, err.field);
-        return;
-      }
-      throw err;
-    }
+    // Si falla, la hoja sigue abierta con el aviso y las firmas no se pierden.
+    await api(`/credit/${sid}/submit`, { method: 'POST', body: { consent: true, expectedUpdatedAt: app?.updatedAt, signatures: { applicant: sigs.applicant, coApplicant: sigs.coApplicant ?? null, rep: sigs.rep } } });
     leaving.current = true;
     await reload();
     setSigning(false);
@@ -379,7 +398,17 @@ export function CreditForm({ id }: { id?: number }) {
   const signers = [
     { key: 'applicant', role: 'Aplicante', name: personName(form.data.applicant) },
     ...(form.hasCo ? [{ key: 'coApplicant', role: 'Coaplicante', name: personName(form.data.coApplicant) }] : []),
-    { key: 'rep', role: 'Vendedor', name: (form.sellerId ? data.personById.get(form.sellerId)?.name : null) ?? data.me.name },
+    {
+      key: 'rep',
+      role: 'Vendedor',
+      name: (a.personId ? data.personById.get(a.personId)?.name : null) ?? data.me.name,
+      agreement: (
+        <>
+          <p>Certifico que vi la identificación original del cliente y que el cliente llenó (o revisó) y firmó esta solicitud en mi presencia.</p>
+          <p className="muted">I certify that I saw the customer's original ID and that the customer completed (or reviewed) and signed this application in my presence.</p>
+        </>
+      ),
+    },
   ];
 
   return (
@@ -438,7 +467,7 @@ export function CreditForm({ id }: { id?: number }) {
         <PersonFields who="applicant" title="Aplicante" person={form.data.applicant} id={form.secret.applicant} masked={masked} onPerson={(p) => setPerson('applicant', p)} onId={(p) => setId('applicant', p)} />
 
         <Group>
-          <SwitchRow label="Hay coaplicante" subtitle="Esposo(a) u otra persona que también firma" checked={form.hasCo} onChange={(v) => set({ hasCo: v })} />
+          <SwitchRow label="¿Hay otra persona que firma?" subtitle="Coaplicante: esposo(a) u otra persona" checked={form.hasCo} onChange={(v) => set({ hasCo: v })} />
         </Group>
         {form.hasCo && (
           <PersonFields
@@ -466,7 +495,7 @@ export function CreditForm({ id }: { id?: number }) {
             options={[
               { value: 'paid', label: 'Pagada' },
               { value: 'mortgaged', label: 'Financiada' },
-              { value: 'rent', label: 'Arriendo' },
+              { value: 'rent', label: 'Alquilada' },
             ]}
             value={form.data.home.status}
             onChange={(v) => set({ data: { ...form.data, home: { ...form.data.home, status: v } } })}
@@ -495,6 +524,7 @@ export function CreditForm({ id }: { id?: number }) {
 
         <div className="form-actions">
           {error && <p className="form-error" role="alert">{error}</p>}
+          {!error && autoSaved && <p className="form-saved">Guardado solo a las {autoSaved}</p>}
           <button type="submit" className="btn gray" disabled={busy}>
             {busy ? 'Guardando…' : 'Guardar'}
           </button>
@@ -519,8 +549,8 @@ export function CreditForm({ id }: { id?: number }) {
         finishLabel="Firmar y enviar a la oficina"
         agreement={
           <>
-            <p>{CREDIT_AUTH.en}</p>
-            <p className="muted">{CREDIT_AUTH.es}</p>
+            <p>{CREDIT_AUTH.es}</p>
+            <p className="muted">{CREDIT_AUTH.en}</p>
             <p className="sig-amount">
               {brand || 'Infinity Water'} · Monto a financiar: <b>{form.amount ? moneyPlain(form.amount) : '—'}</b>
             </p>
@@ -562,7 +592,7 @@ function PersonFields({
           value={isMasked(id.ssn) ? id.ssn : formatSsn(id.ssn)}
           onChange={(v) => onId({ ssn: v.replace(/\D/g, '').slice(0, 9) })}
           inputMode="numeric"
-          placeholder="123-45-6789"
+          placeholder="9 números"
           autoComplete="off"
           field={f('ssn')}
           disabled={masked && isMasked(id.ssn)}
@@ -676,7 +706,7 @@ export function CreditDetail({ id }: { id: number }) {
   return (
     <Page title={app.applicantName} subtitle={`${brand || 'Solicitud de crédito'} · ${dateWithYear(app.appDate)}`} back={{ label: 'Créditos', to: '/creditos' }} narrow>
       <div className="credit-status">
-        <Badge tone={STATUS_TONE[app.status]}>{CREDIT_STATUS_LABEL[app.status]}</Badge>
+        <Badge tone={STATUS_TONE[app.status]}>{statusLabel(app, reviews)}</Badge>
         {app.amount != null && <span>Monto a financiar: <b>{moneyPlain(app.amount)}</b></span>}
       </div>
 
@@ -689,6 +719,29 @@ export function CreditDetail({ id }: { id: number }) {
         ))}
       </ol>
 
+      {app.status === 'draft' && (mine || reviews) && (
+        <div className={`banner${app.data.returnNote ? '' : ' blue'}`}>
+          <Undo2 size={20} />
+          <div style={{ flex: 1 }}>
+            <div className="banner-title">{app.data.returnNote ? 'La oficina la devolvió para corregir' : 'Todavía no se ha firmado ni enviado'}</div>
+            {app.data.returnNote && <div className="banner-text">{app.data.returnNote}</div>}
+            {app.createdById === data.me.id && (
+              <Link to={`/creditos/${id}/editar`} className="btn small" style={{ marginTop: 10 }}>
+                {app.data.returnNote ? 'Corregir y volver a firmar' : 'Seguir llenando'}
+              </Link>
+            )}
+          </div>
+        </div>
+      )}
+      {app.status === 'submitted' && !reviews && (
+        <div className="banner blue">
+          <Send size={20} />
+          <div>
+            <div className="banner-title">La oficina la está revisando</div>
+            <div className="banner-text">Cuando la aprueben te aparece aquí y en Inicio para llenar y firmar la autorización de instalación con el cliente.</div>
+          </div>
+        </div>
+      )}
       {app.status === 'approved' && app.decision && (
         <div className="banner green">
           <BadgeCheck size={20} />
@@ -741,7 +794,12 @@ export function CreditDetail({ id }: { id: number }) {
                 </span>
                 <span>
                   <b>Venta #{app.saleId}</b>
-                  <span>Se creó al firmar la autorización</span>
+                  <span>
+                    {(() => {
+                      const sale = data.sales.find((x) => x.id === app.saleId);
+                      return sale && sale.status !== 'active' ? `Venta ${SALE_STATUS_LABEL[sale.status].toLowerCase()} · el cliente sigue guardado` : 'Se creó al firmar la autorización · si el cliente se arrepiente, cámbiala a Cancelada';
+                    })()}
+                  </span>
                 </span>
               </Link>
             )}
@@ -754,7 +812,7 @@ export function CreditDetail({ id }: { id: number }) {
             </span>
             <span>
               <b>Solicitud de crédito</b>
-              <span>{reviews ? 'Con el seguro social completo (queda anotado)' : 'Copia para el cliente (PDF o WhatsApp)'}</span>
+              <span>{reviews ? 'Con el seguro social completo (se registra quién la abre)' : 'Copia para el cliente (PDF o WhatsApp)'}</span>
             </span>
           </Link>
         )}
@@ -780,7 +838,7 @@ export function CreditDetail({ id }: { id: number }) {
       )}
 
       {reviews && !app.purged && (
-        <Group label="Datos de identidad" footer={`Cada vez que alguien los abre queda en el Registro de actividad. Se borran solos ${CREDIT_KEEP_DAYS} días después de aprobar o negar.`}>
+        <Group label="Datos de identidad" footer={`Cada vez que alguien los abre se registra en el Registro de actividad. Se borran solos ${CREDIT_KEEP_DAYS} días después de aprobar o negar.`}>
           {!secret && <Row title="Mostrar seguro social y licencia completos" leading={<Eye size={20} />} onClick={reveal} />}
           <div className="id-photos read-only">
             {['id1-front', 'id1-back', 'id2-front', 'id2-back']
@@ -800,7 +858,7 @@ export function CreditDetail({ id }: { id: number }) {
       {app.data.coApplicant && person(app.data.coApplicant, shown.coApplicant, 'Coaplicante')}
 
       <Group label="Vivienda">
-        <Row title="La casa está" value={app.data.home.status === 'paid' ? 'Pagada' : app.data.home.status === 'mortgaged' ? 'Financiada' : app.data.home.status === 'rent' ? 'Arriendo' : '—'} />
+        <Row title="La casa está" value={app.data.home.status === 'paid' ? 'Pagada' : app.data.home.status === 'mortgaged' ? 'Financiada' : app.data.home.status === 'rent' ? 'Alquilada' : '—'} />
         {app.data.home.company && <Row title="Financiera" value={app.data.home.company} />}
         {app.data.home.monthlyPayment && <Row title="Pago mensual" value={app.data.home.monthlyPayment} />}
         {app.data.home.howLong && <Row title="Tiempo" value={app.data.home.howLong} />}
@@ -844,6 +902,8 @@ export function CreditDetail({ id }: { id: number }) {
 
 function DecisionSheet({ app, mode, onClose, onDone }: { app: CreditApp; mode: 'approved' | 'declined' | 'return' | null; onClose: () => void; onDone: (app: CreditApp, message: string) => Promise<void> }) {
   const data = useData();
+  const a = useAccess();
+  const createFinancier = useCatalogCreate('financiers');
   const [financierId, setFinancierId] = useState<number | null>(null);
   const [approvedAmount, setApprovedAmount] = useState<number | null>(null);
   const [apr, setApr] = useState('');
@@ -854,6 +914,8 @@ function DecisionSheet({ app, mode, onClose, onDone }: { app: CreditApp; mode: '
   const [error, setError] = useState<string | null>(null);
   const [pickOpen, setPickOpen] = useState(false);
 
+  // Al cambiar algo, el aviso anterior ya no aplica.
+  useEffect(() => setError(null), [financierId, approvedAmount, apr, term, monthly, notes]);
   useEffect(() => {
     if (!mode) return;
     const d = app.decision;
@@ -895,7 +957,15 @@ function DecisionSheet({ app, mode, onClose, onDone }: { app: CreditApp; mode: '
           <div className="group">
             <PickerRow label="Financiera" value={financierId ? data.financierById.get(financierId)?.name : null} onOpen={() => setPickOpen(true)} />
           </div>
-          <Picker open={pickOpen} onClose={() => setPickOpen(false)} title="Financiera" options={data.financiers.filter((f) => f.active || f.id === financierId).map((f) => ({ id: f.id, label: f.name }))} value={financierId} onSelect={setFinancierId} />
+          <Picker
+            open={pickOpen}
+            onClose={() => setPickOpen(false)}
+            title="Financiera"
+            options={data.financiers.filter((f) => f.active || f.id === financierId).map((f) => ({ id: f.id, label: f.name }))}
+            value={financierId}
+            onSelect={setFinancierId}
+            {...(a.can('catalogs.financiers') ? { onCreate: createFinancier, createLabel: 'Agregar financiera' } : {})}
+          />
         </>
       )}
       {mode === 'approved' && (
@@ -956,6 +1026,7 @@ function contractDraft(app: CreditApp, data: ReturnType<typeof useData>, today: 
 
 export function ContractForm({ id }: { id: number }) {
   const data = useData();
+  const a = useAccess();
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
   const { app, setApp, error: loadError } = useCreditApp(id);
@@ -1005,7 +1076,7 @@ export function ContractForm({ id }: { id: number }) {
 
   const save = async () => {
     const body = { ...form, apr: apr ? Number(apr.replace(',', '.')) : null, equipment: { ...form.equipment, roType: form.equipment.ro ? form.equipment.roType : null, roUv: form.equipment.ro && form.equipment.roUv } };
-    const r = await api<{ app: CreditApp }>(`/credit/${id}/contract`, { method: 'PUT', body });
+    const r = await api<{ app: CreditApp }>(`/credit/${id}/contract`, { method: 'PUT', body: { ...body, expectedUpdatedAt: app.updatedAt } });
     setApp(r.app);
     initial.current = JSON.stringify(form);
     return r.app;
@@ -1036,7 +1107,19 @@ export function ContractForm({ id }: { id: number }) {
     if (!form.address.trim() || !form.city.trim()) return fail('Falta la dirección de la instalación.', 'address');
     if (!hasEq) return fail('Marca lo que se va a instalar.', 'equipment');
     if (!form.installDate) return fail('Falta el día de la instalación.', 'installDate');
+    if (!form.installSlot) return fail('Marca la hora de la instalación (mañana o tarde).', 'installSlot');
+    if (!form.waterSource) return fail('Marca la fuente de agua (ciudad o pozo).', 'waterSource');
     if (!form.cashPrice) return fail('Falta el precio.', 'cashPrice');
+    if (form.buyer2 && !form.buyer2.name.trim()) return fail('Escribe el nombre del comprador 2 o quítalo.', 'buyer2.name');
+    // El contrato dice que no se firme con espacios en blanco: se avisa cuales quedan.
+    const blanks = [
+      form.iceMaker == null && 'conexión del hielo',
+      form.people == null && 'personas en la casa',
+      form.floor == null && 'tipo de piso',
+      (form.downPayment ?? 0) > 0 && !form.payment && 'pago de la cuota inicial',
+      !form.waterTreatment.model && !form.reverseOsmosis.model && 'modelo del equipo',
+    ].filter(Boolean);
+    if (blanks.length && !(await confirm({ title: 'Quedan espacios en blanco', message: `${blanks.join(', ')}. El contrato dice que no se firme con espacios en blanco. ¿Firmar igual?`, confirm: 'Firmar igual', cancel: 'Completar' }))) return;
     setBusy(true);
     try {
       await save();
@@ -1049,20 +1132,19 @@ export function ContractForm({ id }: { id: number }) {
   };
 
   const sign = async (sigs: Record<string, string>) => {
-    const r = await api<{ app: CreditApp; saleId: number }>(`/credit/${id}/contract/sign`, { method: 'POST', body: { consent: true, signatures: { buyer1: sigs.buyer1, buyer2: sigs.buyer2 ?? null, rep: sigs.rep } } });
+    const r = await api<{ app: CreditApp; saleId: number }>(`/credit/${id}/contract/sign`, { method: 'POST', body: { consent: true, expectedUpdatedAt: app.updatedAt, signatures: { buyer1: sigs.buyer1, buyer2: sigs.buyer2 ?? null, rep: sigs.rep } } });
     leaving.current = true;
     setApp(r.app);
     await reload();
     setSigning(false);
     toast('Autorización firmada: la venta quedó registrada');
-    navigate(`/imprimir/autorizacion/${id}`, { replace: true, force: true });
+    navigate(`/imprimir/autorizacion/${id}?firmado=1`, { replace: true, force: true });
   };
 
-  const seller = (app.sellerId ? data.personById.get(app.sellerId)?.name : null) ?? data.me.name;
   const signers = [
     { key: 'buyer1', role: 'Comprador 1', name: form.buyer1.name },
     ...(form.buyer2 ? [{ key: 'buyer2', role: 'Comprador 2', name: form.buyer2.name }] : []),
-    { key: 'rep', role: 'Vendedor', name: seller },
+    { key: 'rep', role: 'Vendedor', name: (a.personId ? data.personById.get(a.personId)?.name : null) ?? data.me.name },
   ];
   const financier = app.decision?.financierId ? data.financierById.get(app.decision.financierId)?.name : null;
 
@@ -1080,7 +1162,7 @@ export function ContractForm({ id }: { id: number }) {
           <TextField label="Comprador 1" value={form.buyer1.name} onChange={(v) => set({ buyer1: { ...form.buyer1, name: v } })} autoComplete="off" autoCapitalize="words" field="buyer1.name" />
           <TextField label="Celular" type="tel" inputMode="tel" value={form.buyer1.phone} onChange={(v) => set({ buyer1: { ...form.buyer1, phone: v } })} autoComplete="off" />
           <TextField label="Correo" type="email" inputMode="email" value={form.buyer1.email} onChange={(v) => set({ buyer1: { ...form.buyer1, email: v.trim() } })} autoComplete="off" />
-          <SwitchRow label="Comprador 2" checked={form.buyer2 != null} onChange={(v) => set({ buyer2: v ? form.buyer2 ?? { name: '', phone: '', email: '' } : null })} />
+          <SwitchRow label="Comprador 2" subtitle="Otra persona que también compra (esposo/a)" checked={form.buyer2 != null} onChange={(v) => set({ buyer2: v ? form.buyer2 ?? { name: '', phone: '', email: '' } : null })} />
           {form.buyer2 && (
             <>
               <TextField label="Nombre" value={form.buyer2.name} onChange={(v) => set({ buyer2: { ...form.buyer2!, name: v } })} autoComplete="off" autoCapitalize="words" field="buyer2.name" />
@@ -1126,9 +1208,10 @@ export function ContractForm({ id }: { id: number }) {
           <StackField label="Otros productos o promociones incluidas" value={form.other} onChange={(v) => set({ other: v })} placeholder="Opcional" />
         </Group>
 
-        <Group label="Instalación">
+        <Group label="Instalación" footer={`El cliente puede cancelar sin costo hasta la medianoche del ${dateWithYear(cancelDeadline(data.today))} (3 días hábiles).`}>
           <DateField field="installDate" label="Día estimado" value={form.installDate ?? ''} onChange={(v) => set({ installDate: v || null })} quick="future" min={form.date} />
           <SegmentedRow
+            field="installSlot"
             title="Hora"
             options={[
               { value: 'am', label: '8 am – 1 pm' },
@@ -1138,6 +1221,7 @@ export function ContractForm({ id }: { id: number }) {
             onChange={(v) => set({ installSlot: v })}
           />
           <SegmentedRow
+            field="waterSource"
             title="Fuente de agua"
             options={[
               { value: 'city', label: 'Ciudad' },
@@ -1167,7 +1251,14 @@ export function ContractForm({ id }: { id: number }) {
           />
         </Group>
 
-        <Group label="Precio y pago" footer={`Total ${moneyPlain(t.total)} · saldo ${moneyPlain(t.balance)}`}>
+        <Group
+          label="Precio y pago"
+          footer={
+            form.amountToFinance != null && form.amountToFinance !== t.balance
+              ? `Ojo: el saldo (${moneyPlain(t.balance)}) no es igual a la cantidad a financiar (${moneyPlain(form.amountToFinance)}).`
+              : undefined
+          }
+        >
           <MoneyField field="cashPrice" label="Precio contado" value={form.cashPrice} onChange={(v) => set({ cashPrice: v })} />
           <MoneyField label="Instalación" value={form.installation} onChange={(v) => set({ installation: v })} placeholder="Incluida" />
           <MoneyField label="Impuestos" value={form.taxes} onChange={(v) => set({ taxes: v })} />
@@ -1186,7 +1277,7 @@ export function ContractForm({ id }: { id: number }) {
         </Group>
 
         <Group label="Financiamiento" footer={financier ? `Aprobado con ${financier}.` : undefined}>
-          <MoneyField label="Cantidad a financiar" value={form.amountToFinance} onChange={(v) => set({ amountToFinance: v })} />
+          <MoneyField field="amountToFinance" label="Cantidad a financiar" value={form.amountToFinance} onChange={(v) => set({ amountToFinance: v })} />
           <TextField label="Número de pagos" value={form.payments != null ? String(form.payments) : ''} onChange={(v) => set({ payments: v ? Number(v.replace(/\D/g, '')) || null : null })} inputMode="numeric" autoComplete="off" />
           <MoneyField label="Pago mensual" value={form.monthlyPayment} onChange={(v) => set({ monthlyPayment: v })} />
           <TextField label="APR (%)" value={apr} onChange={(v) => setApr(v.replace(/[^\d.,]/g, ''))} inputMode="decimal" autoComplete="off" />
@@ -1215,24 +1306,18 @@ export function ContractForm({ id }: { id: number }) {
               {brand} · {equipmentSummary(form.equipment)} · Total <b>{moneyPlain(t.total)}</b>
               {form.installDate ? ` · instalación ${dateWithYear(form.installDate)}${form.installSlot ? ` (${SLOT_LABEL[form.installSlot]})` : ''}` : ''}
             </p>
-            <p>{text.payment.en}</p>
-            <p className="muted">{text.payment.es}</p>
+            <p>{text.payment.es}</p>
+            <p className="muted">{text.payment.en}</p>
             <p>
-              <b>{text.rightToCancel.en}</b>
+              <b>{text.rightToCancel.es}</b>
             </p>
-            <p className="muted">{text.rightToCancel.es}</p>
+            <p className="muted">{text.rightToCancel.en}</p>
             <p>
-              {text.receivedCopy.en} <span className="muted">{text.receivedCopy.es}</span>
-            </p>
-            <p className="muted">
-              Puede leer el contrato completo, con los términos y el aviso de cancelación, antes de firmar:{' '}
-              <a href={`/admin/imprimir/autorizacion/${id}?borrador=1`} target="_blank" rel="noopener">
-                ver contrato
-              </a>
-              .
+              {text.receivedCopy.es} <span className="muted">{text.receivedCopy.en}</span>
             </p>
           </>
         }
+        readMore={{ href: `/admin/imprimir/autorizacion/${id}?borrador=1`, label: 'Leer el contrato completo' }}
         onDone={sign}
       />
     </Page>

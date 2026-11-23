@@ -71,6 +71,8 @@ const CSP = [
 function baseHeaders(res: ServerResponse) {
   res.setHeader('Content-Security-Policy', CSP);
   res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  // Solo por HTTPS (el sitio ya redirige; asi el navegador no vuelve a intentar por HTTP).
+  if (PROD) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
   // nginx ya pone nosniff, Referrer-Policy y X-Frame-Options en produccion;
   // repetirlos duplicaria las cabeceras.
   if (!PROD) {
@@ -216,8 +218,14 @@ const daily = async () => {
   try {
     purgeExpiredSessions(db);
     // Datos de identidad de creditos ya decididos: se guardan solo un tiempo.
-    for (const id of purgeCreditSecrets(db)) {
+    const purged = purgeCreditSecrets(db);
+    for (const id of purged) {
       writeAudit(db, { userId: null, ip: null, device: 'sistema' }, { action: 'credit-purge', entity: 'credit', entityId: id, label: `la solicitud de crédito #${id}` });
+    }
+    if (purged.length) {
+      // Que no quede rastro en el diario de la base y la app vea el cambio.
+      db.pragma('wal_checkpoint(TRUNCATE)');
+      bumpVersion();
     }
     await backupDatabase(db, DATA_DIR);
   } catch (error) {

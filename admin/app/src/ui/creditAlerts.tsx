@@ -15,10 +15,12 @@ export function CreditAlerts() {
   if (!fills && !reviews) return null;
   const toReview = reviews ? data.credit.filter((c) => c.status === 'submitted') : [];
   const mine = (c: CreditSummary) => c.createdById === data.me.id || (a.personId != null && c.sellerId === a.personId);
-  const toSign = data.credit.filter((c) => c.status === 'approved' && (mine(c) || reviews));
+  // La autorizacion la llena el vendedor; la oficina ve solo un resumen.
+  const toSign = data.credit.filter((c) => c.status === 'approved' && mine(c));
+  const waitingSign = reviews ? data.credit.filter((c) => c.status === 'approved' && !mine(c)) : [];
   const returned = data.credit.filter((c) => c.status === 'draft' && mine(c));
   const declined = data.credit.filter((c) => c.status === 'declined' && mine(c) && !reviews && c.decidedAt && Date.now() - Date.parse(`${c.decidedAt.replace(' ', 'T')}Z`) < 7 * 86_400_000);
-  if (!toReview.length && !toSign.length && !returned.length && !declined.length) return null;
+  if (!toReview.length && !toSign.length && !returned.length && !declined.length && !waitingSign.length) return null;
   return (
     <div className="credit-alerts">
       {toReview.length > 0 && (
@@ -39,12 +41,21 @@ export function CreditAlerts() {
           </span>
         </Link>
       ))}
+      {waitingSign.length > 0 && (
+        <Link to="/creditos?filtro=approved" className="credit-alert">
+          <BadgeCheck size={22} />
+          <span>
+            <b>{waitingSign.length === 1 ? '1 crédito aprobado' : `${waitingSign.length} créditos aprobados`} esperando la firma del cliente</b>
+            <span>{waitingSign.slice(0, 3).map((c) => c.applicantName).join(', ')}</span>
+          </span>
+        </Link>
+      )}
       {returned.map((c) => (
         <Link key={c.id} to={`/creditos/${c.id}/editar`} className="credit-alert orange">
           <ClipboardSignature size={22} />
           <span>
-            <b>Solicitud por firmar · {c.applicantName}</b>
-            <span>Complétala y envíala a la oficina</span>
+            <b>{c.returnNote ? 'Devuelta por la oficina' : 'Solicitud sin enviar'} · {c.applicantName}</b>
+            <span>{c.returnNote ?? 'Complétala, que firme el cliente y envíala a la oficina'}</span>
           </span>
         </Link>
       ))}

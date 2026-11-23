@@ -139,6 +139,8 @@ const WINDOW_MS = 15 * 60 * 1000;
 const MAX_PER_IP = 20;
 /** Por usuario Y por IP: asi un tercero no puede dejar fuera al dueno fallando a proposito. */
 const MAX_PER_USER_IP = 6;
+/** Tope por usuario desde todas las IP juntas: frena un ataque repartido en muchas conexiones. */
+const MAX_PER_USER = 40;
 const failures = new Map<string, number[]>();
 
 function recent(key: string) {
@@ -149,12 +151,13 @@ function recent(key: string) {
 }
 
 export function loginBlocked(ip: string, username: string): boolean {
-  return recent(`ip:${ip}`).length >= MAX_PER_IP || recent(`u:${username.toLowerCase()}@${ip}`).length >= MAX_PER_USER_IP;
+  return recent(`ip:${ip}`).length >= MAX_PER_IP || recent(`u:${username.toLowerCase()}@${ip}`).length >= MAX_PER_USER_IP || recent(`u:${username.toLowerCase()}`).length >= MAX_PER_USER;
 }
 
 export function recordLoginFailure(ip: string, username: string) {
   recent(`ip:${ip}`).push(Date.now());
   recent(`u:${username.toLowerCase()}@${ip}`).push(Date.now());
+  recent(`u:${username.toLowerCase()}`).push(Date.now());
 }
 
 export function clearLoginFailures(ip: string, username: string) {

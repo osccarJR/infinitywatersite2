@@ -13,7 +13,7 @@
     "typecheck": "tsc -p .",
     "start": "node dist/server/index.js",
     "user": "node dist/server/cli.js",
-    "test": "npm run build && node --test tests/domain.test.ts tests/api.test.mjs",
+    "test": "npm run build && node --test tests/domain.test.ts tests/credit.test.ts tests/api.test.mjs",
     "deploy": "bash scripts/deploy.sh"
   },
   "dependencies": {

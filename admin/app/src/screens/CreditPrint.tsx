@@ -29,7 +29,9 @@ import { ALIMONY_NOTE, COMPANY_ADDRESS, COMPANY_PHONES, CREDIT_AUTH, SECOND_OFFI
 import { documentPdf, sharePdf } from '../lib/pdf.ts';
 
 const longEn = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
+const longEs = new Intl.DateTimeFormat('es-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const dateEn = (iso: string | null | undefined) => (iso ? longEn.format(new Date(`${iso.slice(0, 10)}T12:00:00Z`)) : '');
+const dateEs = (iso: string | null | undefined) => (iso ? longEs.format(new Date(`${iso.slice(0, 10)}T12:00:00Z`)) : '');
 /** Dia en Florida de una hora guardada en UTC ("2026-11-23 01:10:00" o ISO). */
 const floridaDay = (stamp: string) => {
   const d = new Date(stamp.includes('T') ? stamp : `${stamp.replace(' ', 'T')}Z`);
@@ -59,7 +61,7 @@ function Logo({ brand }: { brand: string }) {
 }
 
 /** Barra de arriba: volver, enviar el PDF y la impresion. */
-function Toolbar({ title, filename, canShare = true }: { title: string; filename: string; canShare?: boolean }) {
+function Toolbar({ title, filename, canShare = true, done }: { title: string; filename: string; canShare?: boolean; done?: boolean }) {
   const [state, setState] = useState<'idle' | 'making' | 'ready'>('idle');
   const [message, setMessage] = useState<string | null>(null);
   const file = useRef<File | null>(null);
@@ -71,6 +73,7 @@ function Toolbar({ title, filename, canShare = true }: { title: string; filename
         setState('making');
         file.current = await documentPdf([...document.querySelectorAll<HTMLElement>('.wp-page')], filename);
       }
+      setState('idle');
       const result = await sharePdf(file.current, title);
       if (result === 'blocked') {
         setState('ready');
@@ -86,11 +89,22 @@ function Toolbar({ title, filename, canShare = true }: { title: string; filename
   };
 
   return (
+    <>
+    {(message || done) && (
+      <div className={`wp-message no-print${done && !message ? ' ok' : ''}`} role="status">
+        {message ?? 'Firmado. La venta quedó registrada: envíale este PDF al cliente con «Enviar PDF».'}
+        {done && !message && (
+          <a href="/admin/" className="wp-message-link">
+            Ir a Inicio
+          </a>
+        )}
+      </div>
+    )}
     <div className="wp-toolbar no-print">
       <button type="button" onClick={() => (history.length > 1 ? history.back() : window.close())}>
         <ArrowLeft size={18} /> Volver
       </button>
-      <span>{message ?? title}</span>
+      <span>{title}</span>
       {canShare && (
         <button type="button" className={state === 'ready' ? 'primary pulse' : ''} onClick={send} disabled={state === 'making'}>
           {state === 'making' ? <Loader2 size={18} className="spin" /> : <Send size={18} />} {state === 'making' ? 'Preparando…' : 'Enviar PDF'}
@@ -100,6 +114,7 @@ function Toolbar({ title, filename, canShare = true }: { title: string; filename
         <Printer size={18} /> <span className="hide-sm">Imprimir</span>
       </button>
     </div>
+    </>
   );
 }
 
@@ -213,7 +228,8 @@ export function CreditPrint({ id, copy }: { id: number; copy: boolean }) {
 
   return (
     <div className="wp-root">
-      <Toolbar title={`Solicitud de crédito · ${app.applicantName}`} filename={`Credit-Application-${app.applicantName.replace(/\s+/g, '-')}.pdf`} />
+      {/* La copia con el seguro social completo solo se imprime: no se manda por WhatsApp. */}
+      <Toolbar title={`Solicitud de crédito · ${app.applicantName}`} filename={`Credit-Application-${app.applicantName.replace(/\s+/g, '-')}.pdf`} canShare={!full} />
       <div className="wp-page cp-page">
         {copy && <div className="cp-copy">CUSTOMER COPY · COPIA DEL CLIENTE</div>}
         <header className="cp-head">
@@ -247,7 +263,7 @@ export function CreditPrint({ id, copy }: { id: number; copy: boolean }) {
               </span>
             </Cell>
             <Cell en="Mortgage company" es="Financiera">{home.company}</Cell>
-            <Cell en="Monthly payment" es="Pago mensual">{home.monthlyPayment}</Cell>
+            <Cell en="Monthly pmt." es="Pago mensual">{home.monthlyPayment}</Cell>
             <Cell en="How long" es="Cuánto tiempo">{home.howLong}</Cell>
           </div>
         </section>
@@ -317,7 +333,7 @@ export function CreditPrint({ id, copy }: { id: number; copy: boolean }) {
 /* Autorizacion de instalacion (contrato)                               */
 /* ------------------------------------------------------------------ */
 
-export function ContractPrint({ id, draft }: { id: number; draft: boolean }) {
+export function ContractPrint({ id, draft, justSigned }: { id: number; draft: boolean; justSigned?: boolean }) {
   const data = useData();
   const { app, error } = useApp(id);
   useEffect(() => {
@@ -333,7 +349,7 @@ export function ContractPrint({ id, draft }: { id: number; draft: boolean }) {
   const t = contractTotals(c);
   const signedDay = app.signedAt ? floridaDay(app.signedAt) : c.date;
   const deadline = cancelDeadline(signedDay);
-  const notice = text.notice(dateEn(signedDay), dateEn(deadline));
+  const notice = { en: text.notice(dateEn(signedDay), dateEn(deadline)).en, es: text.notice(dateEs(signedDay), dateEs(deadline)).es };
   const signed = app.status === 'signed' && !draft;
   const seller = (app.sellerId ? data.personById.get(app.sellerId)?.name : null) ?? app.createdBy ?? '';
   const sig = (who: 'buyer1' | 'buyer2' | 'rep') => {
@@ -367,7 +383,7 @@ export function ContractPrint({ id, draft }: { id: number; draft: boolean }) {
         {B} · {COMPANY_ADDRESS.line} · {COMPANY_PHONES.join(' | ')}
       </span>
       <span>
-        Page {page} of {pages}
+        Page {page} of {pages} / Página {page} de {pages}
       </span>
     </footer>
   );
@@ -426,7 +442,7 @@ export function ContractPrint({ id, draft }: { id: number; draft: boolean }) {
 
   return (
     <div className="wp-root">
-      <Toolbar title={`Autorización de instalación · ${app.applicantName}`} filename={`Contract-${app.applicantName.replace(/\s+/g, '-')}.pdf`} canShare={!draft} />
+      <Toolbar title={`Autorización de instalación · ${app.applicantName}`} filename={`Contract-${app.applicantName.replace(/\s+/g, '-')}.pdf`} canShare={!draft} done={justSigned && app.status === 'signed'} />
 
       <div className="wp-page ct-page">
         {draft && <div className="ct-draft">DRAFT · BORRADOR</div>}

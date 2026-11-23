@@ -377,6 +377,12 @@ export function firstIssue(error: z.ZodError): { message: string; field?: string
 
 /** Texto que se guarda tal cual (vacio = ""). */
 const str = (max = 120) => z.string().max(max, `Máximo ${max} caracteres`).nullish().transform((v) => (v ?? '').trim());
+/** Estado en dos letras, o vacio. */
+const stateStr = str(2)
+  .transform((v) => v.toUpperCase())
+  .refine((v) => v === '' || /^[A-Z]{2}$/.test(v), 'El estado va en dos letras, por ejemplo FL');
+/** ZIP de 5 numeros (o ZIP+4), o vacio. */
+const zipStr = str(10).refine((v) => v === '' || /^\d{5}(-?\d{4})?$/.test(v), 'ZIP no válido: son 5 números');
 
 const CreditPersonInput = z.object({
   firstName: str(60),
@@ -386,8 +392,8 @@ const CreditPersonInput = z.object({
   email: str(160),
   address: str(200),
   city: str(80),
-  state: str(2).transform((v) => v.toUpperCase()),
-  zip: str(10),
+  state: stateStr,
+  zip: zipStr,
   previousAddress: str(240),
   employer: str(120),
   years: str(20),
@@ -396,8 +402,8 @@ const CreditPersonInput = z.object({
   businessPhone: str(40),
   employerAddress: str(200),
   employerCity: str(80),
-  employerState: str(2).transform((v) => v.toUpperCase()),
-  employerZip: str(10),
+  employerState: stateStr,
+  employerZip: zipStr,
   previousEmployer: str(200),
   otherIncome: str(200),
 });
@@ -462,14 +468,15 @@ export const CreditDecisionInput = z.discriminatedUnion('result', [
 
 const contractParty = z.object({ name: str(120), phone: str(40), email: str(160) });
 
-export const ContractInput = z.object({
+export const ContractInput = z
+  .object({
   date,
   buyer1: contractParty,
   buyer2: contractParty.nullish().transform((v) => v ?? null),
   address: str(200),
   city: str(80),
-  state: str(2).transform((v) => v.toUpperCase()),
-  zip: str(10),
+  state: stateStr,
+  zip: zipStr,
   waterTreatment: z.object({ brand: str(80), model: str(80) }),
   reverseOsmosis: z.object({ brand: str(80), model: str(80) }),
   other: str(400),
@@ -489,7 +496,9 @@ export const ContractInput = z.object({
   payments: z.number().int().min(1).max(360).nullish().transform((v) => v ?? null),
   monthlyPayment: money,
   apr: z.number().min(0).max(60).nullish().transform((v) => v ?? null),
-});
+})
+  .refine((c) => !c.buyer2 || c.buyer2.name.length > 0, { message: 'Escribe el nombre del comprador 2 (o quítalo).', path: ['buyer2', 'name'] })
+  .refine((c) => !c.installDate || c.installDate >= c.date, { message: 'La instalación no puede ser antes de la fecha del contrato.', path: ['installDate'] });
 export type ContractInput = z.infer<typeof ContractInput>;
 
 export const ContractSignInput = z.object({

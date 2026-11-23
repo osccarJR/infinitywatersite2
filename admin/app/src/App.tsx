@@ -2,7 +2,7 @@
  * Estructura de la app: acceso, navegacion (barra lateral en escritorio,
  * pestanas abajo en el telefono), boton "+" y rutas.
  */
-import { Suspense, lazy, useState, type ReactNode } from 'react';
+import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
 import { BarChart3, Boxes, ChevronRight, ClipboardSignature, ShieldCheck, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
 import { StoreProvider, useData, useStore } from './lib/store.tsx';
 import { accessOf, type Access } from './lib/access.ts';
@@ -104,7 +104,7 @@ function Gate() {
   if (printContract && /^\d+$/.test(printContract.id)) {
     return (
       <Suspense fallback={<div className="splash"><Spinner /></div>}>
-        <ContractPrint id={Number(printContract.id)} draft={new URLSearchParams(location.search).get('borrador') === '1'} />
+        <ContractPrint id={Number(printContract.id)} draft={new URLSearchParams(location.search).get('borrador') === '1'} justSigned={new URLSearchParams(location.search).get('firmado') === '1'} />
       </Suspense>
     );
   }
@@ -252,7 +252,7 @@ function Shell() {
   const openServices = data.services.filter((s) => s.status === 'open').length;
   // En los formularios del telefono se oculta la barra de pestanas: queda solo
   // la barra de Guardar, sin dos barras apiladas.
-  const isForm = /^\/(ventas\/(nueva|\d+\/editar)|servicio\/(nuevo|\d+)|clientes\/(nuevo|\d+\/editar))$/.test(path);
+  const isForm = /^\/(ventas\/(nueva|\d+\/editar)|servicio\/(nuevo|\d+)|clientes\/(nuevo|\d+\/editar)|creditos\/(nueva|\d+\/editar|\d+\/autorizacion))$/.test(path);
 
   const pendingPayments = access.canSee('payments')
     ? data.sales.filter(
@@ -476,6 +476,11 @@ function PlusSheet({ open, onClose, access }: { open: boolean; onClose: () => vo
     },
   ];
   const actions = all.filter((a) => a.show);
+  // Con una sola opcion (p. ej. "Solo creditos"), el "+" va directo.
+  useEffect(() => {
+    if (open && actions.length === 1) go(actions[0].to);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
   return (
     <Sheet open={open} onClose={onClose} title="Registrar">
       <div className="action-list">

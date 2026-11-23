@@ -57,7 +57,10 @@ export function ServicePrint({ id }: { id: number }) {
     ...clientSales
       .filter((s) => s.status === 'active' || s.status === 'uninstalled')
       .map((s) => ({ key: `s${s.id}`, day: s.installDate ?? s.saleDate, order: 0, id: s.id, kind: 'Instalación', tech: personName(s.installerId), detail: equipmentSummary(s.equipment), current: false })),
-    ...(data.servicesByClient.get(service.clientId) ?? []).map((v) => ({
+    ...(data.servicesByClient.get(service.clientId) ?? [])
+      // Otros servicios que todavia no tienen visita no son visitas pasadas.
+      .filter((v) => v.id === service.id || v.visitDate || v.status === 'closed')
+      .map((v) => ({
       key: `v${v.id}`,
       day: v.visitDate ?? v.reportedDate,
       order: 1,
@@ -72,7 +75,7 @@ export function ServicePrint({ id }: { id: number }) {
   const before = visits.slice(0, visitNumber - 1);
   const shown = before.slice(-HISTORY_ROWS);
   const hidden = before.length - shown.length;
-  const serviceCount = visits.filter((v) => v.order === 1 && v.day <= (service.visitDate ?? service.reportedDate)).length;
+  const serviceCount = visits.slice(0, Math.max(visitNumber, 0)).filter((v) => v.order === 1).length;
 
   const when = service.visitDate ? `${cap(longDate(service.visitDate))} de ${service.visitDate.slice(0, 4)}` : 'Por confirmar';
   const billing = service.billing === 'warranty' ? 'Garantía (sin costo)' : service.billing === 'charged' ? 'Con costo para el cliente' : '';

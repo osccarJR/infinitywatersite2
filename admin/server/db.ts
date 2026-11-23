@@ -352,6 +352,8 @@ export function openDatabase(dataDir: string): DB {
   const db = new Database(path.join(dataDir, 'admin.db'));
   db.pragma('journal_mode = WAL');
   db.pragma('foreign_keys = ON');
+  // Lo que se borra (p. ej. el SSN cifrado al limpiar) no queda en paginas libres del archivo.
+  db.pragma('secure_delete = ON');
   db.pragma('busy_timeout = 5000');
   migrate(db);
   return db;

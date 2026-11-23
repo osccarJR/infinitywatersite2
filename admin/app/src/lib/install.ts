@@ -142,8 +142,13 @@ export function fitToTotal(lines: InvoiceLine[], total: number, weights?: number
     return { ...l, unitPrice: base[i] ? Math.floor(target / l.quantity / 100) * 100 : l.unitPrice };
   });
   const diff = total - out.reduce((a, l) => a + Math.round(l.quantity * l.unitPrice), 0);
-  const fix = out.findIndex((l, i) => base[i] > 0 && l.quantity === 1);
-  if (fix >= 0) out[fix] = { ...out[fix], unitPrice: out[fix].unitPrice + diff };
+  if (!diff) return out;
+  // Lo que sobra: a una linea de cantidad 1; si no hay, a una donde se reparta exacto
+  // entre las unidades; si tampoco, a la de instalacion (asi la suma cuadra siempre).
+  let fix = out.findIndex((l, i) => base[i] > 0 && l.quantity === 1);
+  if (fix < 0) fix = out.findIndex((l, i) => base[i] > 0 && Number.isInteger(diff / l.quantity));
+  if (fix < 0) fix = out.findIndex((l) => l.quantity === 1);
+  if (fix >= 0) out[fix] = { ...out[fix], unitPrice: out[fix].unitPrice + diff / out[fix].quantity };
   return out;
 }
 

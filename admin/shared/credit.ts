@@ -81,8 +81,10 @@ export interface SignatureProof {
   at: string;
   ip: string | null;
   device: string | null;
-  /** Huella (SHA-256) del documento tal como estaba al firmar. */
+  /** Huella (HMAC con llave del servidor) del documento tal como estaba al firmar. */
   hash: string;
+  /** Como se calculo la huella ("hmac-v1"; "hmac-legacy" = convertida de la primera version). */
+  alg?: string;
 }
 
 export type CreditSigner = 'applicant' | 'coApplicant' | 'rep';
@@ -151,6 +153,8 @@ export interface CreditSummary {
   createdById: number | null;
   updatedAt: string;
   purged: boolean;
+  /** Nota de la oficina si la devolvio para corregir. */
+  returnNote: string | null;
 }
 
 export interface CreditApp extends CreditSummary {
@@ -177,7 +181,7 @@ export const CREDIT_FILE_KINDS = [...ID_PHOTOS, ...Object.values(CREDIT_SIGNATUR
 export const CREDIT_KEEP_DAYS = 90;
 
 export const emptyPerson = (): CreditPerson => ({
-  firstName: '', lastName: '', cellPhone: '', homePhone: '', email: '', address: '', city: '', state: '', zip: '', previousAddress: '',
+  firstName: '', lastName: '', cellPhone: '', homePhone: '', email: '', address: '', city: '', state: 'FL', zip: '', previousAddress: '',
   employer: '', years: '', salary: '', position: '', businessPhone: '', employerAddress: '', employerCity: '', employerState: '', employerZip: '', previousEmployer: '', otherIncome: '',
 });
 export const emptyIdentity = (): CreditIdentity => ({ ssn: '', dob: '', dl: '', dlExp: '' });
@@ -187,6 +191,30 @@ export const emptyCreditData = (): CreditData => ({
   home: { status: null, company: '', monthlyPayment: '', howLong: '' },
   references: [0, 1, 2].map(() => ({ name: '', relationship: '', phone: '' })),
 });
+
+/**
+ * Lo que falta para firmar y enviar la solicitud (todo junto, para decirlo de
+ * una vez antes de que el cliente firme). El servidor revisa lo mismo.
+ */
+export function creditMissing(app: { data: CreditData; secret: CreditSecret; files: string[]; amount: number | null }): { label: string; field: string }[] {
+  const out: { label: string; field: string }[] = [];
+  const person = (who: 'applicant' | 'coApplicant', label: string) => {
+    const p = app.data[who];
+    const s = app.secret[who];
+    if (!p) return;
+    if (!p.firstName.trim() || !p.lastName.trim()) out.push({ label: `nombre y apellido del ${label}`, field: `${who}.firstName` });
+    if (!s || (!isMasked(s.ssn) && s.ssn.replace(/\D/g, '').length !== 9)) out.push({ label: `seguro social del ${label} (9 números)`, field: `${who}.ssn` });
+    if (!s?.dob) out.push({ label: `fecha de nacimiento del ${label}`, field: `${who}.dob` });
+    if (!p.cellPhone.trim() && !p.homePhone.trim()) out.push({ label: `un teléfono del ${label}`, field: `${who}.cellPhone` });
+    if (!p.address.trim() || !p.city.trim() || !p.state.trim() || !p.zip.trim()) out.push({ label: `dirección completa del ${label} (con ciudad, estado y ZIP)`, field: `${who}.address` });
+    const photo = who === 'applicant' ? 'id1-front' : 'id2-front';
+    if (!app.files.includes(photo)) out.push({ label: `foto de la ID del ${label} (de frente)`, field: photo });
+  };
+  person('applicant', 'aplicante');
+  if (app.data.coApplicant) person('coApplicant', 'coaplicante');
+  if (!app.amount) out.push({ label: 'monto a financiar', field: 'amount' });
+  return out;
+}
 
 export const personName = (p: Pick<CreditPerson, 'firstName' | 'lastName'> | null | undefined) =>
   p ? `${p.firstName} ${p.lastName}`.replace(/\s+/g, ' ').trim() : '';
@@ -212,7 +240,8 @@ export function maskIdentity(id: CreditIdentity): CreditIdentity {
   return {
     ssn: ssn ? `${MASK_CHAR.repeat(3)}-${MASK_CHAR.repeat(2)}-${ssn.slice(-4)}` : '',
     dob: id.dob ? `${MASK_CHAR.repeat(2)}/${MASK_CHAR.repeat(2)}/${id.dob.slice(0, 4)}` : '',
-    dl: id.dl ? `${MASK_CHAR.repeat(Math.max(id.dl.length - 4, 2))}${id.dl.slice(-4)}` : '',
+    // Licencias cortas: todo tapado (mostrar 4 seria casi todo el numero).
+    dl: id.dl ? (id.dl.length <= 6 ? MASK_CHAR.repeat(6) : `${MASK_CHAR.repeat(id.dl.length - 4)}${id.dl.slice(-4)}`) : '',
     dlExp: id.dlExp,
   };
 }
@@ -243,6 +272,20 @@ export function contractTotals(c: Pick<ContractData, 'cashPrice' | 'installation
 }
 
 const FIXED_HOLIDAYS = ['01-01', '06-19', '07-04', '11-11', '12-25'];
+/**
+ * Feriado fijo, o el dia en que se observa: si cae sabado se descansa el
+ * viernes, si cae domingo, el lunes.
+ */
+function isFixedHoliday(iso: string) {
+  const d = new Date(`${iso}T12:00:00Z`);
+  const shift = (days: number) => new Date(d.getTime() + days * 86_400_000).toISOString().slice(5, 10);
+  const md = iso.slice(5);
+  if (FIXED_HOLIDAYS.includes(md)) return true;
+  if (d.getUTCDay() === 5 && FIXED_HOLIDAYS.includes(shift(1))) return true; // sabado -> viernes
+  if (d.getUTCDay() === 1 && FIXED_HOLIDAYS.includes(shift(-1))) return true; // domingo -> lunes
+  return false;
+}
+
 /** Feriados federales que caen en un dia de la semana (lunes de enero, etc.). */
 function movingHoliday(iso: string) {
   const d = new Date(`${iso}T12:00:00Z`);
@@ -268,7 +311,7 @@ export function cancelDeadline(signedIso: string) {
   while (left > 0) {
     d = new Date(d.getTime() + 86_400_000);
     const iso = d.toISOString().slice(0, 10);
-    if (d.getUTCDay() === 0 || FIXED_HOLIDAYS.includes(iso.slice(5)) || movingHoliday(iso)) continue;
+    if (d.getUTCDay() === 0 || isFixedHoliday(iso) || movingHoliday(iso)) continue;
     left--;
   }
   return d.toISOString().slice(0, 10);

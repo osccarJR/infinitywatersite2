@@ -5,6 +5,7 @@
  */
 import { useRef, useState } from 'react';
 import { Camera, RotateCcw, Trash2 } from 'lucide-react';
+import { useFeedback } from './sheet.tsx';
 
 const MAX = 1600;
 
@@ -31,7 +32,8 @@ export async function compressPhoto(file: File): Promise<string> {
     canvas.getContext('2d')!.drawImage(img, 0, 0, canvas.width, canvas.height);
     let quality = 0.82;
     let out = canvas.toDataURL('image/jpeg', quality);
-    while (out.length > 1_100_000 && quality > 0.4) {
+    // Debajo del limite del servidor (1 MB por envio), con margen.
+    while (out.length > 950_000 && quality > 0.3) {
       quality -= 0.12;
       out = canvas.toDataURL('image/jpeg', quality);
     }
@@ -56,6 +58,7 @@ export function IdPhoto({
   field?: string;
 }) {
   const input = useRef<HTMLInputElement>(null);
+  const { confirm } = useFeedback();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,7 +78,8 @@ export function IdPhoto({
 
   return (
     <div className="id-photo" data-field={field}>
-      <input ref={input} type="file" accept="image/*" capture="environment" hidden onChange={(e) => pick(e.target.files?.[0])} />
+      {/* Sin "capture": el iPhone deja elegir entre tomar la foto o usar una que ya tiene (p. ej. de WhatsApp). */}
+      <input ref={input} type="file" accept="image/*" hidden onChange={(e) => pick(e.target.files?.[0])} />
       {src ? (
         <div className="id-photo-img">
           <img src={src} alt={label} />
@@ -85,7 +89,14 @@ export function IdPhoto({
                 <RotateCcw size={15} /> Repetir
               </button>
               {onRemove && (
-                <button type="button" onClick={() => onRemove().catch((err) => setError(err.message))} disabled={busy} aria-label="Quitar foto">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    if (await confirm({ title: '¿Quitar esta foto?', confirm: 'Quitar', danger: true })) onRemove().catch((err) => setError(err.message));
+                  }}
+                  disabled={busy}
+                  aria-label="Quitar foto"
+                >
                   <Trash2 size={15} />
                 </button>
               )}
@@ -95,7 +106,7 @@ export function IdPhoto({
       ) : (
         <button type="button" className="id-photo-empty" onClick={() => input.current?.click()} disabled={disabled || busy}>
           <Camera size={26} />
-          <span>{busy ? 'Subiendo…' : label}</span>
+          <span>{busy ? 'Subiendo…' : 'Tomar foto'}</span>
         </button>
       )}
       <span className="id-photo-label">{label}</span>

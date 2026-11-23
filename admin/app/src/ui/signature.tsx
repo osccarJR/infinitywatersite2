@@ -5,11 +5,7 @@
  */
 import { useEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react';
 import { Eraser } from 'lucide-react';
-import { Sheet } from './sheet.tsx';
-
-export interface SignaturePadHandle {
-  empty: boolean;
-}
+import { Sheet, useFeedback } from './sheet.tsx';
 
 function SignaturePad({ onChange }: { onChange: (png: string | null) => void }) {
   const canvas = useRef<HTMLCanvasElement>(null);
@@ -123,6 +119,8 @@ export interface Signer {
   /** "Aplicante", "Coaplicante", "Vendedor"... */
   role: string;
   name: string;
+  /** Lo que firma esta persona, si es distinto del texto general (p. ej. el vendedor). */
+  agreement?: ReactNode;
 }
 
 /**
@@ -137,6 +135,7 @@ export function SignSheet({
   agreement,
   finishLabel,
   onDone,
+  readMore,
 }: {
   open: boolean;
   onClose: () => void;
@@ -146,7 +145,10 @@ export function SignSheet({
   agreement: ReactNode;
   finishLabel: string;
   onDone: (signatures: Record<string, string>) => Promise<void>;
+  /** Enlace para leer el documento completo antes de firmar. */
+  readMore?: { href: string; label: string };
 }) {
+  const { confirm } = useFeedback();
   const [step, setStep] = useState(0);
   const [sigs, setSigs] = useState<Record<string, string>>({});
   const [current, setCurrent] = useState<string | null>(null);
@@ -166,6 +168,14 @@ export function SignSheet({
 
   const signer = signers[step];
   const lastStep = step === signers.length - 1;
+  const started = step > 0 || Boolean(current) || agreed;
+
+  /** Cerrar a mitad de las firmas: se pregunta, porque se pierden. */
+  const close = async () => {
+    if (busy) return;
+    if (started && !(await confirm({ title: '¿Salir sin terminar las firmas?', message: 'Las firmas que ya se hicieron se pierden y hay que firmar otra vez.', confirm: 'Salir', cancel: 'Seguir firmando', danger: true }))) return;
+    onClose();
+  };
 
   const next = async () => {
     setError(null);
@@ -191,7 +201,21 @@ export function SignSheet({
 
   if (!signer) return null;
   return (
-    <Sheet open={open} onClose={onClose} title={title} onSubmit={next} submitLabel={lastStep ? finishLabel : 'Siguiente firma'} busy={busy} error={error}>
+    <Sheet
+      open={open}
+      onClose={close}
+      title={title}
+      left={
+        <button type="button" className="link-btn" onClick={close}>
+          Cerrar
+        </button>
+      }
+      guard
+      onSubmit={next}
+      submitLabel={lastStep ? finishLabel : 'Siguiente firma'}
+      busy={busy}
+      error={error}
+    >
       <div className="sig-steps">
         {signers.map((s, i) => (
           <span key={s.key} className={i === step ? 'on' : i < step ? 'done' : ''}>
@@ -204,7 +228,12 @@ export function SignSheet({
         <span>{signer.role}</span>
         <b>{signer.name || '—'}</b>
       </div>
-      <div className="sig-agreement">{agreement}</div>
+      <div className="sig-agreement">{signer.agreement ?? agreement}</div>
+      {readMore && (
+        <a className="btn block gray sig-read" href={readMore.href} target="_blank" rel="noopener">
+          {readMore.label}
+        </a>
+      )}
       <label className="sig-consent">
         <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
         <span>

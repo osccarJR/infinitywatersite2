@@ -4,7 +4,15 @@
  * el menu de compartir con el archivo ya listo; si el navegador no puede
  * compartir archivos, lo descarga.
  */
-export async function documentPdf(pages: HTMLElement[], filename: string): Promise<File> {
+/** Rechaza si tarda demasiado (asi nadie se queda esperando frente al cliente). */
+const withTimeout = <T,>(work: Promise<T>, ms: number) =>
+  Promise.race([work, new Promise<T>((_, reject) => setTimeout(() => reject(new Error('El PDF tardó demasiado. Toca Imprimir y elige «Guardar como PDF».')), ms))]);
+
+export function documentPdf(pages: HTMLElement[], filename: string): Promise<File> {
+  return withTimeout(makePdf(pages, filename), 45_000);
+}
+
+async function makePdf(pages: HTMLElement[], filename: string): Promise<File> {
   const [{ default: html2canvas }, { jsPDF }] = await Promise.all([import('html2canvas-pro'), import('jspdf')]);
   const root = document.documentElement;
   // Sin el zoom de pantalla chica: se captura al tamano real de la hoja.
@@ -12,7 +20,14 @@ export async function documentPdf(pages: HTMLElement[], filename: string): Promi
   try {
     const pdf = new jsPDF({ unit: 'in', format: 'letter', orientation: 'portrait', compress: true });
     for (let i = 0; i < pages.length; i++) {
-      const canvas = await html2canvas(pages[i], { scale: 2, backgroundColor: '#ffffff', useCORS: true, logging: false });
+      const canvas = await html2canvas(pages[i], {
+        scale: 2,
+        backgroundColor: '#ffffff',
+        useCORS: true,
+        logging: false,
+        // La copia que se dibuja no necesita la app (ni sus scripts): solo la hoja.
+        ignoreElements: (el) => el.tagName === 'SCRIPT' || (el.tagName === 'LINK' && (el as HTMLLinkElement).rel === 'modulepreload') || el.classList?.contains('no-print'),
+      });
       if (i > 0) pdf.addPage('letter', 'portrait');
       pdf.addImage(canvas.toDataURL('image/jpeg', 0.86), 'JPEG', 0, 0, 8.5, 11, undefined, 'FAST');
     }

@@ -61,7 +61,7 @@ import { todayISO } from '../shared/domain.ts';
 import { dataVersion } from './version.ts';
 import { createHash } from 'node:crypto';
 import { creditRoutes, visibleCredit } from './creditApi.ts';
-import { initCreditKey } from './credit.ts';
+import { initCreditKey, upgradeLegacyHashes } from './credit.ts';
 import { AUDIT_GROUPS, auditStats, deviceOf, diff, initAudit, listAudit, permissionChanges, snapshot, verifyAudit, writeAudit, type AuditEntry, type Change } from './audit.ts';
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
@@ -121,6 +121,9 @@ export function buildApi(db: DB, dataDir: string) {
   const api = new Router();
   initAudit(db, dataDir);
   initCreditKey(dataDir);
+  // Huellas de firma de la primera version: se protegen con la llave (una sola vez).
+  const upgraded = upgradeLegacyHashes(db);
+  if (upgraded) writeAudit(db, { userId: null, ip: null, device: 'sistema' }, { action: 'update', entity: 'credit', label: `la huella de firma de ${upgraded} solicitud(es) de crédito (ahora protegida con llave)` });
 
   /* ------------------------- registro de actividad ------------------------- */
 
@@ -318,7 +321,8 @@ export function buildApi(db: DB, dataDir: string) {
       clients: !f['clients.view'] ? [] : repo.listClients(db).filter((c) => seesClient(scope, c.id)).map((c) => shapeClient(c, p)),
       sales: !f['sales.view'] ? [] : repo.listSales(db).filter((s) => seesSale(scope, s.id)).map((s) => shapeSale(s, p)),
       services: !f['services.view'] ? [] : repo.listServices(db).filter((s) => seesService(scope, s.id)).map((s) => shapeService(s, p)),
-      people: repo.listPeople(db),
+      // Telefonos del equipo solo para quien trabaja con ventas, servicios o el equipo.
+      people: f['sales.view'] || f['services.view'] || f['clients.view'] || f['catalogs.team'] ? repo.listPeople(db) : repo.listPeople(db).map((x) => ({ ...x, phone: null })),
       credit: visibleCredit(db, user),
       financiers: repo.listCatalog(db, 'financiers'),
       suppliers: costs || f['inventory.view'] || f['catalogs.suppliers'] ? repo.listCatalog(db, 'suppliers') : [],
@@ -507,6 +511,7 @@ export function buildApi(db: DB, dataDir: string) {
     const fmtDate = (d: string) => d.split('-').reverse().join('/');
     db.transaction(() => {
       const number = input.number ?? sale!.invoice?.number ?? repo.nextInvoiceNumber(db);
+      if (number > 99_999_999) throw new HttpError(400, 'El número de factura es muy largo: escríbelo a mano.', 'number');
       if (input.discount > invoiceTotals({ ...input, discount: 0 }).subtotal) throw new HttpError(400, 'El descuento no puede ser mayor que la suma de las líneas.', 'discount');
       const owner = repo.invoiceNumberOwner(db, number, num(ctx));
       if (owner) throw new HttpError(409, `La factura ${invoiceLabel(number)} ya es de la venta #${owner}. La siguiente libre es la ${invoiceLabel(repo.nextInvoiceNumber(db))}.`, 'number');
@@ -857,7 +862,7 @@ export function buildApi(db: DB, dataDir: string) {
       before: Number(q.get('before')) || undefined,
       limit: Number(q.get('limit')) || 80,
       userId: Number(q.get('user')) || undefined,
-      group: group in AUDIT_GROUPS ? group : undefined,
+      group: group && Object.hasOwn(AUDIT_GROUPS, group) ? group : undefined,
       from: isDate(q.get('from')),
       to: isDate(q.get('to')),
       q: (q.get('q') ?? '').trim().slice(0, 80) || undefined,

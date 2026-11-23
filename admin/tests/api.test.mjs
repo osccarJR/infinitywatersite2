@@ -829,6 +829,28 @@ test('créditos: solicitud cifrada, firmas, aprobación y autorización que crea
   assert.equal((await call('POST', `/credit/${id}/contract/sign`, { consent: true, signatures: csigs }, { as: vc })).status, 403, 'no se firma dos veces');
   assert.equal((await call('DELETE', `/credit/${id}`)).status, 403, 'ligada a la venta: no se borra');
 
+  // El vendedor no la pone a nombre de otro ni de un cliente que no ve; no firma más de lo aprobado.
+  const other = await call('POST', '/credit', { ...body, sellerId: 1, clientId: sale.clientId }, { as: vc });
+  assert.equal(other.status, 403, 'cliente que no ve');
+  const own = await call('POST', '/credit', { ...body, sellerId: 1 }, { as: vc });
+  assert.equal(own.data.app.sellerId, personId, 'queda a su nombre');
+  const badSig = await call('POST', `/credit/${own.data.app.id}/submit`, { consent: true, signatures: { applicant: 'data:image/png;base64,' + Buffer.from('<html>').toString('base64'), coApplicant: png, rep: png } }, { as: vc });
+  assert.equal(badSig.status, 400);
+  // La nota de la oficina sigue a la vista mientras el vendedor corrige.
+  const ownId = own.data.app.id;
+  for (const k of ['id1-front', 'id2-front']) await call('PUT', `/credit/${ownId}/files/${k}`, { image: jpg }, { as: vc });
+  assert.equal((await call('POST', `/credit/${ownId}/submit`, { consent: true, signatures: sigs }, { as: vc })).status, 200);
+  await call('POST', `/credit/${ownId}/decision`, { result: 'return', notes: 'Falta el ZIP' });
+  const kept = await call('PUT', `/credit/${ownId}`, body, { as: vc });
+  assert.equal(kept.data.app.data.returnNote, 'Falta el ZIP');
+  await call('POST', `/credit/${ownId}/submit`, { consent: true, signatures: sigs }, { as: vc });
+  await call('POST', `/credit/${ownId}/decision`, { result: 'approved', financierId: fin.id, approvedAmount: 500_000, apr: 9.99, termMonths: 120, monthlyPayment: 6_600 });
+  const tooMuch = await call('PUT', `/credit/${ownId}/contract`, { ...contract, amountToFinance: 999_999_00, cashPrice: 999_999_00, monthlyPayment: 6_600 }, { as: vc });
+  assert.equal(tooMuch.status, 400);
+  assert.equal(tooMuch.data.field, 'amountToFinance');
+  assert.equal((await call('PUT', `/credit/${ownId}/contract`, { ...contract, zip: '339901' }, { as: vc })).status, 400, 'ZIP mal escrito');
+  assert.equal((await call('PUT', `/credit/${ownId}/contract`, { ...contract, installDate: '2026-11-01' }, { as: vc })).status, 400, 'instalación antes del contrato');
+
   const log = (await call('GET', '/audit?group=credit&limit=40')).data.entries.map((e) => e.action);
   for (const action of ['credit-submit', 'credit-return', 'credit-secret', 'credit-ids', 'credit-approve', 'contract-sign']) assert.ok(log.includes(action), action);
 });

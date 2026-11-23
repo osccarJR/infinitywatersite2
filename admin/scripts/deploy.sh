@@ -26,8 +26,8 @@ cd "$(dirname "$0")/.."
 
 echo "> compilando y probando"
 npm run build >/dev/null
-node --test tests/domain.test.ts tests/api.test.mjs 2>&1 | grep -E "^ℹ (pass|fail)"
-node --test tests/domain.test.ts tests/api.test.mjs >/dev/null 2>&1 || { echo "!! las pruebas fallan: no se publica"; exit 1; }
+node --test tests/domain.test.ts tests/credit.test.ts tests/api.test.mjs 2>&1 | grep -E "^ℹ (pass|fail)"
+node --test tests/domain.test.ts tests/credit.test.ts tests/api.test.mjs >/dev/null 2>&1 || { echo "!! las pruebas fallan: no se publica"; exit 1; }
 
 echo "> copia de seguridad de la base antes de actualizar"
 ssh "$HOST" "if [ -f $DIR/data/admin.db ]; then mkdir -p $DIR/data/backups && sqlite3 $DIR/data/admin.db \".backup '$DIR/data/backups/pre-deploy-\$(date +%Y%m%d%H%M%S).db'\"; fi"

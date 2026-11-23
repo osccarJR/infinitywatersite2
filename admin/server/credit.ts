@@ -9,7 +9,8 @@
  *   medias) se borran el SSN, la licencia y las fotos de las IDs. Las firmas
  *   y el resto de la solicitud se quedan.
  */
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
+import { HttpError } from './http.ts';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import type { DB } from './db.ts';
@@ -19,15 +20,12 @@ import {
   emptyCreditData,
   personName,
   type ContractData,
-  type ContractSigner,
   type CreditApp,
   type CreditData,
   type CreditDecision,
   type CreditSecret,
-  type CreditSigner,
   type CreditStatus,
   type CreditSummary,
-  type SignatureProof,
 } from '../shared/credit.ts';
 
 /* ------------------------------------------------------------------ */
@@ -35,12 +33,15 @@ import {
 /* ------------------------------------------------------------------ */
 
 let key: Buffer | null = null;
+/** Llave aparte (derivada) para la huella de las firmas. */
+let signKey: Buffer | null = null;
 
 export function initCreditKey(dataDir: string) {
   const file = path.join(dataDir, 'credit.key');
   if (!existsSync(file)) writeFileSync(file, randomBytes(32).toString('hex'), { mode: 0o600 });
   key = Buffer.from(readFileSync(file, 'utf8').trim(), 'hex');
   if (key.length !== 32) throw new Error('credit.key no es valida');
+  signKey = createHmac('sha256', key).update('iw-signature-v1').digest();
 }
 
 /** iv (12) + tag (16) + datos cifrados. */
@@ -60,7 +61,14 @@ export function decrypt(sealed: Buffer): Buffer {
 }
 
 const sealJson = (value: unknown) => encrypt(Buffer.from(JSON.stringify(value))).toString('base64');
-const openJson = <T>(text: string | null): T | null => (text ? (JSON.parse(decrypt(Buffer.from(text, 'base64')).toString('utf8')) as T) : null);
+const openJson = <T>(text: string | null): T | null => {
+  if (!text) return null;
+  try {
+    return JSON.parse(decrypt(Buffer.from(text, 'base64')).toString('utf8')) as T;
+  } catch {
+    throw new HttpError(500, 'No se pueden leer los datos protegidos de esta solicitud (falta la llave de cifrado del servidor).');
+  }
+};
 
 /* ------------------------------------------------------------------ */
 /* Lectura                                                              */
@@ -102,6 +110,7 @@ function toSummary(r: any): CreditSummary {
     createdById: r.created_by,
     updatedAt: r.updated_at,
     purged: Boolean(r.purged_at),
+    returnNote: data.returnNote ?? null,
   };
 }
 
@@ -153,17 +162,26 @@ export function insertCreditApp(db: DB, v: CreditWrite, userId: number): number 
   );
 }
 
+const hasIdentity = (s: CreditSecret) => [s.applicant, s.coApplicant].some((p) => p && (p.ssn || p.dob || p.dl));
+
 export function updateCreditApp(db: DB, id: number, v: CreditWrite, userId: number) {
+  // Si se vuelven a escribir datos de identidad despues de una limpieza, cuentan de nuevo
+  // (se muestran a la oficina y se vuelven a borrar a su tiempo).
   return db
     .prepare(
       `UPDATE credit_apps SET brand_id = ?, client_id = ?, seller_id = ?, app_date = ?, amount = ?, data = ?, secret = ?,
+              purged_at = CASE WHEN ? THEN NULL ELSE purged_at END,
               updated_by = ?, updated_at = datetime('now') WHERE id = ?`
     )
-    .run(v.brandId, v.clientId, v.sellerId, v.appDate, v.amount, JSON.stringify(v.data), sealJson(v.secret), userId, id).changes;
+    .run(v.brandId, v.clientId, v.sellerId, v.appDate, v.amount, JSON.stringify(v.data), sealJson(v.secret), hasIdentity(v.secret) ? 1 : 0, userId, id).changes;
 }
+
+/** Columnas que se pueden cambiar con setCreditFields (nunca nombres que vengan de afuera). */
+const CREDIT_COLUMNS = new Set(['status', 'signatures', 'submitted_at', 'decision', 'decided_at', 'decided_by', 'data', 'contract', 'contract_signatures', 'signed_at', 'sale_id', 'client_id']);
 
 export const setCreditFields = (db: DB, id: number, userId: number, fields: Record<string, unknown>) => {
   const keys = Object.keys(fields);
+  for (const k of keys) if (!CREDIT_COLUMNS.has(k)) throw new Error(`Columna no permitida: ${k}`);
   const sets = keys.map((k) => `${k} = @${k}, `).join('');
   return db
     .prepare(`UPDATE credit_apps SET ${sets}updated_by = @__user, updated_at = datetime('now') WHERE id = @__id`)
@@ -175,6 +193,7 @@ export function saveCreditFile(db: DB, appId: number, kind: string, mime: string
     `INSERT INTO credit_files (app_id, kind, mime, data) VALUES (?, ?, ?, ?)
      ON CONFLICT(app_id, kind) DO UPDATE SET mime = excluded.mime, data = excluded.data, created_at = datetime('now')`
   ).run(appId, kind, mime, encrypt(data));
+  if ((ID_PHOTOS as readonly string[]).includes(kind)) db.prepare('UPDATE credit_apps SET purged_at = NULL WHERE id = ?').run(appId);
 }
 
 export function readCreditFile(db: DB, appId: number, kind: string): { mime: string; data: Buffer } | null {
@@ -187,12 +206,20 @@ export const deleteCreditFiles = (db: DB, appId: number, kinds: readonly string[
   for (const k of kinds) del.run(appId, k);
 };
 
-/** Huella del documento que se firma: si algo cambia despues, ya no coincide. */
-export function documentHash(parts: unknown): string {
-  return createHash('sha256').update(JSON.stringify(parts)).digest('hex');
+/**
+ * Huella del documento que se firma: si algo cambia despues, ya no coincide.
+ * Es un HMAC con una llave del servidor, NO un SHA-256 simple: el documento
+ * incluye el SSN y la fecha de nacimiento, y una huella sin llave se podria
+ * "adivinar" probando combinaciones.
+ */
+export function signatureHash(parts: unknown): string {
+  if (!signKey) throw new Error('Falta la llave de creditos');
+  return createHmac('sha256', signKey).update(JSON.stringify(parts)).digest('hex');
 }
 
-export type { ContractSigner, CreditSigner, SignatureProof };
+/** Huella de una imagen de firma (para incluirla en la del documento). */
+export const imageHash = (data: Buffer) => createHash('sha256').update(data).digest('hex');
+
 
 /* ------------------------------------------------------------------ */
 /* Limpieza de datos de identidad                                       */
@@ -204,14 +231,16 @@ export type { ContractSigner, CreditSigner, SignatureProof };
  * hace mas de 30. Devuelve cuantas limpio.
  */
 export function purgeCreditSecrets(db: DB): number[] {
+  // Enviadas y nunca decididas: tambien se limpian pasado el mismo tiempo.
   const rows = db
     .prepare(
       `SELECT id FROM credit_apps WHERE purged_at IS NULL AND (
-         (decided_at IS NOT NULL AND decided_at < datetime('now', ?)) OR
+         (decided_at IS NOT NULL AND decided_at < datetime('now', @keep)) OR
+         (status = 'submitted' AND submitted_at < datetime('now', @keep)) OR
          (status = 'draft' AND updated_at < datetime('now', '-30 days'))
        )`
     )
-    .all(`-${CREDIT_KEEP_DAYS} days`) as { id: number }[];
+    .all({ keep: `-${CREDIT_KEEP_DAYS} days` }) as { id: number }[];
   const empty = sealJson({ applicant: { ssn: '', dob: '', dl: '', dlExp: '' }, coApplicant: null });
   db.transaction(() => {
     for (const { id } of rows) {
@@ -220,4 +249,39 @@ export function purgeCreditSecrets(db: DB): number[] {
     }
   })();
   return rows.map((r) => r.id);
+}
+
+/**
+ * La primera version guardaba un SHA-256 simple del documento (con el SSN
+ * adentro), que se podia "adivinar" probando combinaciones. Al arrancar, esas
+ * huellas se reemplazan por un HMAC con la llave del servidor (que no deja
+ * sacar nada). Devuelve cuantas solicitudes convirtio.
+ */
+export function upgradeLegacyHashes(db: DB): number {
+  const rows = db.prepare('SELECT id, signatures, contract_signatures FROM credit_apps WHERE signatures IS NOT NULL OR contract_signatures IS NOT NULL').all() as { id: number; signatures: string | null; contract_signatures: string | null }[];
+  let changed = 0;
+  const fix = (text: string | null) => {
+    if (!text) return { text, touched: false };
+    const proofs = JSON.parse(text) as Record<string, { hash: string; alg?: string }>;
+    let touched = false;
+    for (const p of Object.values(proofs)) {
+      if (p && !p.alg) {
+        p.hash = signatureHash({ legacy: p.hash });
+        p.alg = 'hmac-legacy';
+        touched = true;
+      }
+    }
+    return { text: JSON.stringify(proofs), touched };
+  };
+  db.transaction(() => {
+    for (const r of rows) {
+      const a = fix(r.signatures);
+      const b = fix(r.contract_signatures);
+      if (!a.touched && !b.touched) continue;
+      db.prepare('UPDATE credit_apps SET signatures = ?, contract_signatures = ? WHERE id = ?').run(a.text, b.text, r.id);
+      changed++;
+    }
+  })();
+  if (changed) db.pragma('wal_checkpoint(TRUNCATE)');
+  return changed;
 }
