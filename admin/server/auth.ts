@@ -86,6 +86,20 @@ export function findUserByUsername(db: DB, username: string): UserRow | undefine
   return db.prepare('SELECT * FROM users WHERE username = ?').get(username.trim()) as UserRow | undefined;
 }
 
+/** Para entrar con el nombre: "jaimepesantez", "Jaime Pesantez" o "jaime pesantez" (sin tildes ni espacios). */
+const plain = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Si lo escrito no es un usuario, se busca por el nombre de la persona (sin
+ * espacios ni tildes). Solo si hay exactamente uno con ese nombre.
+ */
+export function findUserByName(db: DB, typed: string): UserRow | undefined {
+  const key = plain(typed);
+  if (key.length < 4) return undefined;
+  const matches = (db.prepare('SELECT * FROM users').all() as UserRow[]).filter((u) => plain(u.name) === key || plain(u.username) === key);
+  return matches.length === 1 ? matches[0] : undefined;
+}
+
 export function createSession(db: DB, userId: number, ip: string, userAgent: string): string {
   const token = randomBytes(32).toString('base64url');
   db.prepare(

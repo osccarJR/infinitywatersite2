@@ -47,6 +47,7 @@ import {
   deleteSession,
   deleteUserSessions,
   findUserById,
+  findUserByName,
   findUserByUsername,
   getDummyHash,
   hashPassword,
@@ -188,7 +189,8 @@ export function buildApi(db: DB, dataDir: string) {
       if (loginBlocked(ctx.ip, username)) {
         throw new HttpError(429, 'Demasiados intentos. Espera 15 minutos y vuelve a probar.');
       }
-      const row = findUserByUsername(db, username);
+      // El usuario, o si no existe, el nombre de la persona escrito de corrido ("jaimepesantez").
+      const row = findUserByUsername(db, username) ?? findUserByName(db, username);
       const ok = await verifyPassword(password, row?.password_hash ?? (await getDummyHash()));
       if (!row || !ok || !row.active) {
         recordLoginFailure(ctx.ip, username);
@@ -876,6 +878,11 @@ export function buildApi(db: DB, dataDir: string) {
     }
     checkPerson(input.permissions?.personId);
     if (input.name) db.prepare('UPDATE users SET name = ? WHERE id = ?').run(input.name, target);
+    if (input.username && input.username !== row!.username) {
+      if (findUserByUsername(db, input.username)) throw new HttpError(409, `Ya existe otro usuario «${input.username}». Elige otro.`, 'username');
+      db.prepare('UPDATE users SET username = ? WHERE id = ?').run(input.username, target);
+      log(ctx, { action: 'update', entity: 'user', entityId: target, label: `al usuario ${before.name}`, changes: [{ f: 'Usuario', a: row!.username, b: input.username }] });
+    }
     if (input.role || input.permissions) {
       const role = input.role ?? row!.role;
       const current = row!.permissions ? JSON.parse(row!.permissions) : null;

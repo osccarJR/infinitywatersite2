@@ -914,6 +914,20 @@ test('GoodLeap: toda venta nueva con GoodLeap exige el formulario firmado', asyn
   assert.equal(toGl.data.field, 'goodleap');
 });
 
+test('usuarios: el dueño cambia usuario y contraseña; se puede entrar con el nombre de corrido', async () => {
+  const pid = (await call('POST', '/people', { name: 'Jaime Pesantez Prueba', phone: null, isSeller: true, isInstaller: false })).data.person.id;
+  const u = (await call('POST', '/users', { username: 'jaimep', name: 'Jaime Pesantez Prueba', password: 'clave-jaime-123', role: 'member', permissions: perms('own', pid, ['credit.create']) })).data;
+  const id = u.user?.id ?? u.users?.find((x) => x.username === 'jaimep')?.id;
+  // Entra con el nombre escrito de corrido, sin tildes ni espacios.
+  assert.equal((await call('POST', '/auth/login', { username: 'jaimepesantezprueba', password: 'clave-jaime-123' }, { auth: false, ip: '192.0.2.77' })).status, 200);
+  // Cambiar el usuario (sin tocar la contraseña) y que no choque con otro.
+  assert.equal((await call('PUT', `/users/${id}`, { username: 'carlos' })).status, 409);
+  const ren = await call('PUT', `/users/${id}`, { username: 'jaime.pesantez' });
+  assert.equal(ren.status, 200, JSON.stringify(ren.data));
+  assert.equal((await call('POST', '/auth/login', { username: 'jaime.pesantez', password: 'clave-jaime-123' }, { auth: false, ip: '192.0.2.78' })).status, 200, 'la contraseña se mantuvo');
+  assert.equal((await call('PUT', `/users/${id}`, { username: 'con espacio' })).status, 400);
+});
+
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {
   assert.equal((await call('GET', '/audit', undefined, { as: sellerCookie })).status, 403);
   assert.equal((await call('GET', '/audit', undefined, { viewAs: sellerUserId })).status, 403, 'tampoco en la vista previa');

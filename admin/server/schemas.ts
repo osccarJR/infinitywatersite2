@@ -240,6 +240,12 @@ export const UserCreateInput = z.object({
 
 export const UserUpdateInput = z.object({
   name: requiredText('Escribe el nombre', 80).optional(),
+  username: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .regex(/^[a-z0-9._-]{3,40}$/, 'Usuario: de 3 a 40 letras, números, punto o guion (sin espacios)')
+    .optional(),
   active: z.boolean().optional(),
   password: newPassword.optional(),
   role: z.enum(['admin', 'member']).optional(),

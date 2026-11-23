@@ -6,7 +6,7 @@
  * exactamente como lo ve esa persona, sin poder guardar nada.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Boxes, Check, CreditCard, Eye, FileSpreadsheet, HandCoins, KeyRound, Plus, Receipt, ShieldCheck, UserCog, Users as UsersIcon, Wallet, Wrench, X, ClipboardSignature } from 'lucide-react';
+import { BarChart3, Boxes, Check, CreditCard, Eye, FileSpreadsheet, HandCoins, Plus, Receipt, ShieldCheck, Users as UsersIcon, Wallet, Wrench, X, ClipboardSignature } from 'lucide-react';
 import type { PermissionFlag, Permissions, User } from '../../../shared/domain.ts';
 import { ADMIN_PERMISSIONS, PERMISSION_AREAS, PERMISSION_PRESETS, areaSummary, mergePresets, normalizePermissions, permissionsSummary, presetsOf, redundantPresets } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
@@ -301,7 +301,6 @@ export function UserScreen({ id }: { id: number }) {
   const [saved, setSaved] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [access, setAccess] = useState<'name' | 'password' | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -448,15 +447,16 @@ export function UserScreen({ id }: { id: number }) {
       {lockedOwner ? (
         <p className="group-foot">Esta es la cuenta del dueño: solo {user.name.split(' ')[0]} puede cambiar su nombre, su contraseña o sus permisos.</p>
       ) : (
-      <Group label="Acceso">
-        <Row onClick={() => setAccess('name')} leading={<UserCog size={19} color="var(--text-2)" />} title="Cambiar nombre" value={user.name} />
-        <Row onClick={() => setAccess('password')} leading={<KeyRound size={19} color="var(--text-2)" />} title="Nueva contraseña" />
+      <>
+        <AccessCard user={user} onSaved={setUsers} />
         {!isMe && !user.owner && (
-          <button type="button" className={`row ${user.active ? 'danger' : 'action'}`} onClick={toggleActive}>
-            {user.active ? 'Quitarle el acceso' : 'Devolverle el acceso'}
-          </button>
+          <Group>
+            <button type="button" className={`row ${user.active ? 'danger' : 'action'}`} onClick={toggleActive}>
+              {user.active ? 'Quitarle el acceso' : 'Devolverle el acceso'}
+            </button>
+          </Group>
         )}
-      </Group>
+      </>
       )}
 
       {(dirty || error) && (
@@ -472,7 +472,6 @@ export function UserScreen({ id }: { id: number }) {
       )}
 
       <AreaSheet areaKey={area} perms={perms} onChange={setPerms} onClose={() => setArea(null)} />
-      <AccessSheet user={user} mode={access} onClose={() => setAccess(null)} onSaved={setUsers} />
     </Page>
   );
 }
@@ -590,63 +589,88 @@ function AreaSheet({ areaKey, perms, onChange, onClose }: { areaKey: string | nu
   );
 }
 
-function AccessSheet({ user, mode, onClose, onSaved }: { user: User; mode: 'name' | 'password' | null; onClose: () => void; onSaved: (users: User[]) => void }) {
+/**
+ * Usuario y contrasena, siempre a la vista al final: nombre, usuario y una
+ * contrasena nueva (vacia = sigue con la que tenia). La actual no se puede ver
+ * (se guarda cifrada); si la olvido, se le pone una nueva aqui.
+ */
+function AccessCard({ user, onSaved }: { user: User; onSaved: (users: User[]) => void }) {
   const { toast } = useFeedback();
-  const [value, setValue] = useState('');
+  const [name, setName] = useState(user.name);
+  const [username, setUsername] = useState(user.username);
+  const [password, setPassword] = useState('');
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [shown, setShown] = useState<string | null>(null);
+  const [shown, setShown] = useState<{ username: string; password: string } | null>(null);
 
   useEffect(() => {
-    if (!mode) return;
+    setName(user.name);
+    setUsername(user.username);
+    setPassword('');
     setError(null);
-    setShown(null);
-    setValue(mode === 'name' ? user.name : suggestPassword());
-  }, [mode, user]);
+  }, [user.id, user.name, user.username]);
+
+  const changed = name.trim() !== user.name || username !== user.username || password.length > 0;
 
   const save = async () => {
     setError(null);
+    if (!name.trim()) return setError('Escribe el nombre.');
+    if (!/^[a-z0-9._-]{3,40}$/.test(username)) return setError('El usuario va sin espacios: de 3 a 40 letras o números (puede llevar punto o guion).');
+    if (password && password.length < 10) return setError('La contraseña nueva necesita al menos 10 caracteres (o déjala vacía para mantener la actual).');
+    setBusy(true);
     try {
-      const { users } = await api<{ users: User[] }>(`/users/${user.id}`, { method: 'PUT', body: mode === 'name' ? { name: value } : { password: value } });
+      const body = {
+        ...(name.trim() !== user.name ? { name: name.trim() } : {}),
+        ...(username !== user.username ? { username } : {}),
+        ...(password ? { password } : {}),
+      };
+      const { users } = await api<{ users: User[] }>(`/users/${user.id}`, { method: 'PUT', body });
       onSaved(users);
-      if (mode === 'password') setShown(value);
-      else {
-        toast('Guardado');
-        onClose();
-      }
+      if (password) setShown({ username, password });
+      else toast('Guardado');
+      setPassword('');
     } catch (err: any) {
       setError(err.message);
+    } finally {
+      setBusy(false);
     }
   };
 
-  if (shown) {
-    return (
-      <Sheet open={mode != null} onClose={onClose} title="Contraseña nueva" left={<span />} right={<button type="button" className="link-btn strong" onClick={onClose}>OK</button>}>
-        <p className="muted" style={{ textAlign: 'center', marginBottom: 16 }}>Pásasela a {user.name}. Sus sesiones abiertas se cerraron.</p>
-        <Group>
-          <Row title="Usuario" value={<b style={{ color: 'var(--text)' }}>{user.username}</b>} />
-          <Row title="Contraseña" value={<b style={{ color: 'var(--text)', fontFamily: 'ui-monospace, monospace' }}>{shown}</b>} />
-        </Group>
-      </Sheet>
-    );
-  }
+  const message = shown ? `Tus datos para entrar al sistema:\nadmin.infinitywatersite.com\nUsuario: ${shown.username}\nContraseña: ${shown.password}` : '';
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(message);
+      toast('Copiado: pégalo en WhatsApp');
+    } catch {
+      toast('No se pudo copiar: anótalos a mano.', 'error');
+    }
+  };
 
   return (
-    <Sheet
-      open={mode != null}
-      onClose={onClose}
-      title={mode === 'name' ? 'Nombre' : 'Nueva contraseña'}
-      left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
-      onSubmit={save}
-      error={error}
-    >
-      <Group footer={mode === 'password' ? 'Sugerida automáticamente; puedes escribir otra (mínimo 10 caracteres). Al cambiarla se cierran sus sesiones.' : undefined}>
-        <TextField label={mode === 'name' ? 'Nombre' : 'Contraseña'} value={value} onChange={setValue} maxLength={mode === 'name' ? 80 : 200} />
-        {mode === 'password' && (
-          <button type="button" className="row action" onClick={() => setValue(suggestPassword())}>
-            <span className="row-label">Generar otra</span>
-          </button>
-        )}
+    <>
+      <Group label="Usuario y contraseña" footer="Así entra al sistema. La contraseña actual no se puede ver (se guarda protegida): si la olvidó, escribe una nueva o toca «Generar una». Si dejas la contraseña vacía, sigue con la que tenía. Al poner una nueva se cierran sus sesiones abiertas.">
+        <TextField label="Nombre" value={name} onChange={setName} maxLength={80} autoComplete="off" autoCapitalize="words" field="access-name" />
+        <TextField label="Usuario" value={username} onChange={(v) => setUsername(v.toLowerCase().replace(/\s/g, ''))} maxLength={40} autoComplete="off" field="access-username" />
+        <TextField label="Contraseña nueva" value={password} onChange={setPassword} placeholder="Vacía = mantener la actual" maxLength={200} autoComplete="off" field="access-password" />
+        <button type="button" className="row action" onClick={() => setPassword(suggestPassword())}>
+          <span className="row-label">Generar una contraseña</span>
+        </button>
       </Group>
-    </Sheet>
+      {error && <p className="form-error" role="alert">{error}</p>}
+      <button type="button" className="btn block access-save" onClick={save} disabled={!changed || busy}>
+        {busy ? 'Guardando…' : 'Guardar usuario y contraseña'}
+      </button>
+      <Sheet open={shown != null} onClose={() => setShown(null)} title="Listo" left={<span />} right={<button type="button" className="link-btn strong" onClick={() => setShown(null)}>OK</button>}>
+        <p className="muted" style={{ textAlign: 'center', marginBottom: 16 }}>Pásale estos datos a {user.name.split(' ')[0]}. La contraseña no se vuelve a mostrar.</p>
+        <Group>
+          <Row title="Dirección" value={<b style={{ color: 'var(--text)' }}>admin.infinitywatersite.com</b>} />
+          <Row title="Usuario" value={<b style={{ color: 'var(--text)' }}>{shown?.username}</b>} />
+          <Row title="Contraseña" value={<b style={{ color: 'var(--text)', fontFamily: 'ui-monospace, monospace' }}>{shown?.password}</b>} />
+        </Group>
+        <button type="button" className="btn block" onClick={copy}>
+          Copiar para mandar por WhatsApp
+        </button>
+      </Sheet>
+    </>
   );
 }
