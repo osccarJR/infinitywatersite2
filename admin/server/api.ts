@@ -516,6 +516,7 @@ export function buildApi(db: DB, dataDir: string) {
           { f: 'Fecha', b: fmtDate(input.issueDate) },
           ...data.lines.map((l) => ({ f: l.description, b: `${l.quantity} × ${usd(l.unitPrice)}` })),
           ...(t.discount ? [{ f: 'Descuento', b: usd(t.discount) }] : []),
+          ...(t.tax ? [{ f: 'Impuesto', b: `${usd(t.tax)} (${t.rate} %)` }] : []),
           { f: 'Total', b: usd(t.total) },
           { f: 'Saldo pendiente', b: usd(t.balance) },
         ],

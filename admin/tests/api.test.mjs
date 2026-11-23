@@ -694,6 +694,10 @@ test('factura: número correlativo, sin repetir, reemisión igual y permisos', a
   assert.equal(disc.status, 200, JSON.stringify(disc.data));
   assert.equal(disc.data.sale.invoice.discount, 50_000);
   assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ discount: 99_000_000 }))).status, 400);
+  // Impuesto escrito en dólares (calculado según el estado).
+  const tx = await call('POST', `/sales/${saleId}/invoice`, body({ taxAmount: 63_000 }));
+  assert.equal(tx.status, 200, JSON.stringify(tx.data));
+  assert.equal(tx.data.sale.invoice.taxAmount, 63_000);
   // Datos mal y permisos.
   assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ lines: [] }))).status, 400);
   assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ taxRate: 40 }))).status, 400);

@@ -186,6 +186,7 @@ export function invoiceDraft(sale: Sale, data: Data, nextNumber: number | null):
     terms: balance === 0 ? (m.financed ? `Financed${financier ? ` — ${financier}` : ''}` : 'Paid in full') : 'Due upon receipt',
     discount: 0,
     taxRate: 0,
+    taxAmount: null,
     amountPaid,
     financedAmount,
     financedBy: m.financed ? financier : '',

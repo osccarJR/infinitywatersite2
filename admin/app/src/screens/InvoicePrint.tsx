@@ -46,7 +46,7 @@ export function InvoicePrint({ id }: { id: number }) {
   const billCity = [client?.city, [client?.state, client?.zip].filter(Boolean).join(' ')].filter(Boolean).join(' ');
   const phones = [client?.phone, client?.phone2].filter(Boolean).join(' / ');
   const t = invoiceTotals(inv);
-  const taxed = inv.taxRate > 0;
+  const taxed = t.tax > 0;
   const brandName = inv.brand === 'magic' ? 'Magic Water' : 'Infinity Water';
   const upper = (s: string | null | undefined) => (s ?? '').toUpperCase();
 
@@ -195,7 +195,7 @@ export function InvoicePrint({ id }: { id: number }) {
               <dt>Due Date</dt>
               <dd>{ymd(inv.dueDate)}</dd>
               <dt>Tax Rate 1</dt>
-              <dd>{inv.taxRate} %</dd>
+              <dd>{t.rate} %</dd>
               <dt>Payment Terms</dt>
               <dd>{inv.terms}</dd>
             </dl>
@@ -214,7 +214,7 @@ export function InvoicePrint({ id }: { id: number }) {
               )}
               {taxed && (
                 <>
-                  <dt>Sales tax ({inv.taxRate} %)</dt>
+                  <dt>Sales tax ({t.rate} %)</dt>
                   <dd>{amount(t.tax)} USD</dd>
                 </>
               )}

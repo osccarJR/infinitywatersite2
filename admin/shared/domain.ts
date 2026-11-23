@@ -174,6 +174,8 @@ export interface InvoiceData {
   discount: number;
   /** Porcentaje de impuesto (0 a 15). */
   taxRate: number;
+  /** Impuesto escrito a mano en dolares (centavos); si esta, manda sobre el %. */
+  taxAmount?: number | null;
   /** Lo que pago el cliente (centavos). */
   amountPaid: number;
   /** Lo que cubre la financiera (centavos). */
@@ -193,15 +195,18 @@ export const FIRST_INVOICE = 2023;
 export const invoiceLabel = (n: number) => `${INVOICE_PREFIX}${n}`;
 
 /** Totales de una factura (centavos). */
-export function invoiceTotals(inv: Pick<InvoiceData, 'lines' | 'taxRate' | 'amountPaid' | 'financedAmount'> & { discount?: number }) {
+export function invoiceTotals(inv: Pick<InvoiceData, 'lines' | 'taxRate' | 'amountPaid' | 'financedAmount'> & { discount?: number; taxAmount?: number | null }) {
   const subtotal = inv.lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPrice), 0);
   const discount = Math.min(inv.discount ?? 0, subtotal);
   // El impuesto se cobra sobre lo que queda despues del descuento.
   const net = subtotal - discount;
-  const tax = Math.round((net * inv.taxRate) / 100);
+  const manualTax = inv.taxAmount != null;
+  const tax = manualTax ? inv.taxAmount! : Math.round((net * inv.taxRate) / 100);
+  /** Porcentaje que resulta (para mostrarlo cuando el impuesto se escribio en dolares). */
+  const rate = manualTax ? (net ? Math.round((tax / net) * 10000) / 100 : 0) : inv.taxRate;
   const total = net + tax;
   const balance = Math.max(total - inv.amountPaid - inv.financedAmount, 0);
-  return { subtotal, discount, net, tax, total, balance };
+  return { subtotal, discount, net, tax, rate, manualTax, total, balance };
 }
 
 export interface WarrantyLine {

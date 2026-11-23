@@ -266,6 +266,13 @@ function InvoiceSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onCl
   useEffect(() => setError(null), [form]);
 
   const t = invoiceTotals(form);
+  // El % se escribe como texto para poder poner decimales (6.5).
+  const [taxText, setTaxText] = useState('');
+  useEffect(() => {
+    if (open) setTaxText(form.taxRate ? String(form.taxRate) : '');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, form.taxAmount == null]);
+  const clientState = data.clientById.get(sale.clientId)?.state ?? (sale.installStateCode || '');
   const salePrice = sale.price ?? 0;
   const off = salePrice > 0 && t.net !== salePrice;
   const setLine = (i: number, patch: Partial<InvoiceLine>) => setForm((f) => ({ ...f, lines: f.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
@@ -412,20 +419,44 @@ function InvoiceSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onCl
         <MoneyField label="Pagado por el cliente" value={form.amountPaid} onChange={(v) => setForm({ ...form, amountPaid: v ?? 0 })} />
         <MoneyField label="Financiado" value={form.financedAmount} onChange={(v) => setForm({ ...form, financedAmount: v ?? 0 })} />
         {form.financedAmount > 0 && <TextField label="Financiera" value={form.financedBy} onChange={(financedBy) => setForm({ ...form, financedBy })} placeholder="Nombre de la financiera" maxLength={80} />}
-        <label className="row field-row">
-          <span className="row-label">Impuesto (%)</span>
-          <input
-            className="field-input num"
-            inputMode="decimal"
-            value={form.taxRate || ''}
-            placeholder="0"
-            onChange={(e) => {
-              const v = Number(e.target.value.replace(',', '.').replace(/[^\d.]/g, ''));
-              setForm({ ...form, taxRate: Number.isFinite(v) ? Math.min(15, v) : 0 });
-            }}
-          />
-        </label>
         <Row title="Saldo pendiente" value={<b>{moneyPlain(t.balance)}</b>} />
+      </Group>
+
+      <div className="group-label">Impuesto (tax)</div>
+      <Group footer={`Según el estado${clientState ? ` del cliente (${clientState})` : ''}. Escríbelo en % y se calcula solo, o pon el monto en dólares que ya calculaste.`}>
+        <div className="row field-row">
+          <span className="row-label">Cómo</span>
+          <div style={{ width: 200 }}>
+            <Segmented<'rate' | 'amount'>
+              options={[
+                { value: 'rate', label: 'Porcentaje' },
+                { value: 'amount', label: 'Monto $' },
+              ]}
+              value={form.taxAmount != null ? 'amount' : 'rate'}
+              onChange={(mode) => setForm(mode === 'amount' ? { ...form, taxAmount: t.tax, taxRate: 0 } : { ...form, taxAmount: null, taxRate: t.rate })}
+            />
+          </div>
+        </div>
+        {form.taxAmount != null ? (
+          <MoneyField label="Impuesto" value={form.taxAmount || null} onChange={(v) => setForm({ ...form, taxAmount: v ?? 0 })} field="tax" hint={t.net && t.tax ? `${t.rate} % de ${moneyPlain(t.net)}` : undefined} />
+        ) : (
+          <label className="row field-row" data-field="tax">
+            <span className="row-label">Impuesto (%)</span>
+            <input
+              className="field-input num"
+              inputMode="decimal"
+              value={taxText}
+              placeholder="0"
+              onChange={(e) => {
+                const text = e.target.value.replace(',', '.').replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+                setTaxText(text);
+                const v = Number(text);
+                setForm({ ...form, taxRate: Number.isFinite(v) ? Math.min(15, v) : 0 });
+              }}
+            />
+          </label>
+        )}
+        <Row title="Total con impuesto" value={<b>{moneyPlain(t.total)}</b>} />
       </Group>
 
       <Group>
@@ -440,6 +471,11 @@ function InvoiceSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onCl
         <DateField required quick="future" label="Vence" value={form.dueDate} onChange={(v) => setForm({ ...form, dueDate: v || form.dueDate })} />
         <TextField label="Customer PO" value={form.customerPo} onChange={(customerPo) => setForm({ ...form, customerPo })} placeholder="opcional" maxLength={40} />
       </Group>
+      {/paid in full/i.test(form.terms) && t.balance > 0 && (
+        <p className="group-foot" style={{ color: 'var(--orange, #c25e00)' }}>
+          Dice «Paid in full» pero quedan {moneyPlain(t.balance)} por cobrar: cambia las condiciones o lo pagado.
+        </p>
+      )}
       <p className="group-foot">El número no se repite entre ventas. Queda guardada: si la vuelves a abrir, sale igual.</p>
     </Sheet>
   );
