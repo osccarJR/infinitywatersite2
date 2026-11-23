@@ -864,6 +864,11 @@ test('créditos: solicitud cifrada, firmas, aprobación y autorización que crea
   assert.equal((await call('POST', `/credit/${glApp}/submit`, { consent: true, signatures: sigs }, { as: vc })).status, 200);
   assert.equal((await call('POST', `/credit/${glApp}/decision`, { result: 'approved', financierId: gl.id, approvedAmount: 950_000, apr: 9.99, termMonths: 120, monthlyPayment: 12_550 })).status, 200);
   assert.equal((await call('PUT', `/credit/${glApp}/contract`, contract, { as: vc })).status, 200);
+  assert.equal((await call('PUT', `/credit/${glApp}/contract`, { ...contract, installSlot: null }, { as: vc })).status, 200);
+  const noSlot = await call('POST', `/credit/${glApp}/contract/sign`, { consent: true, signatures: { ...csigs, glCustomer: png, glRep: png } }, { as: vc });
+  assert.equal(noSlot.status, 400);
+  assert.equal(noSlot.data.field, 'installSlot');
+  assert.equal((await call('PUT', `/credit/${glApp}/contract`, contract, { as: vc })).status, 200);
   const noGl = await call('POST', `/credit/${glApp}/contract/sign`, { consent: true, signatures: csigs }, { as: vc });
   assert.equal(noGl.status, 400);
   assert.equal(noGl.data.field, 'sig-gl');
@@ -898,8 +903,10 @@ test('GoodLeap: toda venta nueva con GoodLeap exige el formulario firmado', asyn
   // Editarla despues no vuelve a pedirlo.
   const edit = await call('PUT', `/sales/${sale.id}`, { ...base, client: { id: sale.clientId }, notes: 'ok', expectedUpdatedAt: sale.updatedAt });
   assert.equal(edit.status, 200, JSON.stringify(edit.data));
-  // Una venta "cliente anterior" (ya vendida) no lo pide.
-  assert.equal((await call('POST', '/sales', { ...base, isLegacy: true })).status, 200);
+  // Una venta "cliente anterior" (ya vendida, de hace tiempo) no lo pide...
+  assert.equal((await call('POST', '/sales', { ...base, isLegacy: true, saleDate: '2025-03-10' })).status, 200);
+  // ...pero marcar "cliente anterior" una venta reciente no sirve para saltárselo.
+  assert.equal((await call('POST', '/sales', { ...base, isLegacy: true })).status, 400);
   // Cambiar otra venta a GoodLeap si lo pide.
   const plain = (await call('POST', '/sales', { ...base, financierId: other.id })).data.sale;
   const toGl = await call('PUT', `/sales/${plain.id}`, { ...base, client: { id: plain.clientId }, expectedUpdatedAt: plain.updatedAt });

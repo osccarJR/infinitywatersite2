@@ -329,7 +329,9 @@ function Shell() {
         </div>
       </aside>
 
-      <main className="main" key={route.key + path}>
+      {/* La solicitud de credito nueva y la ya guardada son la misma pantalla: al guardarse
+          por primera vez cambia la direccion, pero no se vuelve a montar (no pierde lo que hacia). */}
+      <main className="main" key={/^\/creditos\/(nueva|\d+\/editar)$/.test(path) ? 'credit-form' : route.key + path}>
         <Suspense fallback={<div className="splash inline"><Spinner /></div>}>{route.node}</Suspense>
       </main>
 

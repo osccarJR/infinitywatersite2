@@ -63,7 +63,7 @@ import { dataVersion } from './version.ts';
 import { createHash } from 'node:crypto';
 import { creditRoutes, visibleCredit } from './creditApi.ts';
 import { imageHash, initCreditKey, readSaleFile, saveSaleFile, signatureHash, upgradeLegacyHashes } from './credit.ts';
-import { GOODLEAP_DOC_VERSION, isGoodLeap } from '../shared/goodleap.ts';
+import { GOODLEAP_DOC_VERSION, goodleapRequired } from '../shared/goodleap.ts';
 import { AUDIT_GROUPS, auditStats, deviceOf, diff, initAudit, listAudit, permissionChanges, snapshot, verifyAudit, writeAudit, type AuditEntry, type Change } from './audit.ts';
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
@@ -439,10 +439,9 @@ export function buildApi(db: DB, dataDir: string) {
 
   /* ------------- formulario de GoodLeap (obligatorio en ventas con GoodLeap) ------------- */
 
-  const financierIsGoodLeap = (id: number | null) => id != null && isGoodLeap(repo.listCatalog(db, 'financiers').find((f) => f.id === id)?.name);
   /** Venta nueva, activa y financiada con GoodLeap (no los "clientes anteriores", ya vendidos). */
-  const needsGoodLeap = (s: { paymentMethod: string | null; financierId: number | null; isLegacy: boolean; status: string }) =>
-    s.paymentMethod === 'financed' && s.status === 'active' && !s.isLegacy && financierIsGoodLeap(s.financierId);
+  const needsGoodLeap = (s: { paymentMethod: string | null; financierId: number | null; isLegacy: boolean; status: string; saleDate: string }) =>
+    goodleapRequired(s, s.financierId != null ? repo.listCatalog(db, 'financiers').find((f) => f.id === s.financierId)?.name : null, todayISO());
   const goodleapSignatures = (ctx: Ctx) => {
     const raw = (ctx.body as { goodleap?: unknown })?.goodleap;
     if (!raw) throw new HttpError(400, 'Con GoodLeap, el cliente y el vendedor tienen que firmar el formulario de GoodLeap antes de guardar.', 'goodleap');

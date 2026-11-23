@@ -23,7 +23,7 @@ import { AddressField, CityField, lookupZip } from '../ui/address.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
 import { SignSheet } from '../ui/signature.tsx';
 import { GoodLeapReading } from '../ui/goodleapDoc.tsx';
-import { isGoodLeap } from '../../../shared/goodleap.ts';
+import { goodleapRequired, isGoodLeap } from '../../../shared/goodleap.ts';
 
 interface SupplierLine {
   key: number;
@@ -249,6 +249,10 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   const [glOpen, setGlOpen] = useState(false);
   const glSigs = useRef<Record<string, string> | null>(null);
   const glAgain = useRef(false);
+  // Si cambia el cliente, la financiera o la forma de pago, las firmas ya no valen: se firma de nuevo.
+  useEffect(() => {
+    glSigs.current = null;
+  }, [form.client, form.financierId, form.paymentMethod, form.isLegacy]);
 
   useLeaveGuard(
     () => !leaving.current && JSON.stringify(form) !== initial.current,
@@ -284,9 +288,11 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
 
   /** Venta con GoodLeap que todavia no tiene el formulario firmado (las ya registradas antes no lo piden). */
   const financierName = (fid: number | null) => (fid ? data.financierById.get(fid)?.name : null);
-  const isGoodLeapSale = (x: { paymentMethod: string | null; financierId: number | null; status: string; isLegacy: boolean }) =>
-    x.paymentMethod === 'financed' && x.status === 'active' && !x.isLegacy && isGoodLeap(financierName(x.financierId));
-  const needsGoodLeap = isGoodLeapSale({ ...form, status: form.status }) && !existing?.goodleapForm && !(existing && isGoodLeapSale(existing)) && !savedId.current;
+  const isGoodLeapSale = (x: { paymentMethod: string | null; financierId: number | null; status: string; isLegacy: boolean; saleDate: string }) =>
+    goodleapRequired(x, financierName(x.financierId), data.today);
+  // La venta como esta guardada (al editar, o si ya se guardo en esta misma pantalla).
+  const savedSale = data.sales.find((x) => x.id === savedId.current) ?? existing;
+  const needsGoodLeap = isGoodLeapSale(form) && !savedSale?.goodleapForm && !(savedSale && isGoodLeapSale(savedSale));
   const customerName = form.client?.mode === 'existing' ? data.clientById.get(form.client.id)?.name ?? '' : form.client?.mode === 'new' ? form.client.draft.name : '';
   const repName = (a.personId ? data.personById.get(a.personId)?.name : null) ?? data.me.name;
 

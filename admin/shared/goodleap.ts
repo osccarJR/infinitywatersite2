@@ -42,3 +42,17 @@ export const GOODLEAP_DOC = {
     },
   ],
 };
+
+/**
+ * La venta necesita el formulario de GoodLeap firmado: financiada con GoodLeap y
+ * activa. Los "clientes anteriores" (ventas ya hechas que se pasan al sistema) no
+ * lo piden, salvo que la venta sea de los ultimos 14 dias: asi no sirve marcar
+ * "cliente anterior" para saltarse el formulario en una venta nueva.
+ */
+export function goodleapRequired(s: { paymentMethod: string | null; status: string; isLegacy: boolean; saleDate: string }, financierName: string | null | undefined, today: string) {
+  if (s.paymentMethod !== 'financed' || s.status !== 'active' || !isGoodLeap(financierName)) return false;
+  if (!s.isLegacy) return true;
+  const recent = new Date(`${today}T12:00:00Z`);
+  recent.setUTCDate(recent.getUTCDate() - 14);
+  return s.saleDate >= recent.toISOString().slice(0, 10);
+}

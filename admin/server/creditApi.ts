@@ -404,6 +404,8 @@ export function creditRoutes(api: Router, db: DB, log: Log) {
       [!c.installDate, 'Falta el día de la instalación.', 'installDate'],
       [Boolean(c.installDate && c.installDate < c.date), 'El día de la instalación ya pasó: elige otro.', 'installDate'],
       [Boolean(c.buyer2 && !c.buyer2.name), 'Falta el nombre del comprador 2.', 'buyer2.name'],
+      [!c.installSlot, 'Marca la hora de la instalación (mañana o tarde).', 'installSlot'],
+      [!c.waterSource, 'Marca la fuente de agua (ciudad o pozo).', 'waterSource'],
       [!c.cashPrice, 'Falta el precio.', 'cashPrice'],
     ];
     const bad = checks.find(([fail]) => fail);

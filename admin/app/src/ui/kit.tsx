@@ -8,6 +8,7 @@ import { Link, goBack } from '../lib/router.tsx';
 import { useStore } from '../lib/store.tsx';
 import { avatarStyle, centsToInput, initials, parseMoney } from '../lib/format.ts';
 import { waLink } from '../lib/whatsapp.ts';
+import { SignOutButton } from './signout.tsx';
 
 /* ------------------------------------------------------------------ */
 /* Pagina                                                               */
@@ -53,6 +54,7 @@ export function Page({ title, subtitle, back, actions, headerAction, narrow, hid
         <div className="topbar-actions">
           {seesMoney && <PrivacyToggle compact />}
           {actions}
+          <SignOutButton />
         </div>
       </div>
       {!hideTitle && (

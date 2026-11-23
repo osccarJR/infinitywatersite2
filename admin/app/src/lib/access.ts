@@ -42,7 +42,8 @@ const EDIT_FLAGS: Record<Section, PermissionFlag[]> = {
 
 export function accessOf(p: Permissions, owner = false): Access {
   const f = p.flags;
-  const can = (flag: PermissionFlag) => Boolean(f[flag]);
+  // Borrar es solo del dueno, aunque otro usuario sea administrador.
+  const can = (flag: PermissionFlag) => Boolean(f[flag]) && (owner || !flag.endsWith('.delete'));
   return {
     admin: p.admin,
     owner,

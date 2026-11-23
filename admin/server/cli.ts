@@ -95,7 +95,7 @@ async function main() {
   } else if (command === 'lista') {
     console.table(db.prepare('SELECT id, username, name, active, last_login_at FROM users').all());
   } else {
-    console.log('Uso:\n  crear <usuario> "<Nombre>"\n  clave <usuario>\n  lista\n  borrar-datos --confirmar');
+    console.log('Uso:\n  crear <usuario> "<Nombre>"\n  clave <usuario>\n  lista\n  aprobar-creditos <usuario>\n  solo-creditos <usuario>\n  borrar-datos --confirmar');
     process.exitCode = 1;
   }
 }

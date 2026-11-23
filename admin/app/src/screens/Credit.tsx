@@ -276,7 +276,7 @@ export function CreditForm({ id }: { id?: number }) {
     initial.current = JSON.stringify(form);
     if (!sid) {
       // La direccion pasa a ser la de la solicitud guardada.
-      leaving.current = true;
+      // Cambia la direccion a la de la solicitud guardada; la pantalla sigue montada (ver App.tsx).
       await navigate(`/creditos/${r.app.id}/editar`, { replace: true, force: true });
     }
     reload().catch(() => {});
@@ -429,7 +429,7 @@ export function CreditForm({ id }: { id?: number }) {
           <PickerRow label="Marca" value={brand || null} onOpen={() => setBrandOpen(true)} field="brandId" />
           <DateField field="appDate" label="Fecha" value={form.appDate} onChange={(v) => set({ appDate: v || data.today })} />
           <MoneyField field="amount" label="Monto a financiar" value={form.amount} onChange={(v) => set({ amount: v })} />
-          {(reviews || a.personId == null) && <PersonPicker field="sellerId" role="seller" label="Vendedor" value={form.sellerId} onChange={(v) => set({ sellerId: v })} />}
+          {reviews && <PersonPicker field="sellerId" role="seller" label="Vendedor" value={form.sellerId} onChange={(v) => set({ sellerId: v })} />}
           {a.can('clients.view') && (
             <PickerRow label="Cliente del sistema" value={form.clientId ? data.clientById.get(form.clientId)?.name : null} placeholder="Cliente nuevo" onOpen={() => setClientOpen(true)} field="clientId" />
           )}
