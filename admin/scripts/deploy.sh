@@ -20,7 +20,7 @@ HOST="nivusoftware-vps-principal"
 DIR="/opt/apps/infinitywater-admin"
 PORT=3042
 NAME="infinitywater-admin"
-SITE="https://www.infinitywatersite.com"
+SITE="https://admin.infinitywatersite.com"
 
 cd "$(dirname "$0")/.."
 

@@ -2,8 +2,11 @@
 
 Sistema interno del negocio: clientes, ventas, instalaciones, financieras,
 comisiones, proveedores y servicio técnico. Vive en
-`https://www.infinitywatersite.com/admin`, no está enlazado desde el sitio
-público y no se indexa (`X-Robots-Tag: noindex`).
+`https://admin.infinitywatersite.com/admin`, en su propio dominio, aparte del
+sitio público, que carga scripts de terceros. `www.infinitywatersite.com/admin`
+solo redirige ahí. No está enlazado desde el sitio público y no se indexa
+(`X-Robots-Tag: noindex`). La configuración de nginx está en
+`deploy/infinitywater-admin.conf`.
 
 ## Qué resuelve
 

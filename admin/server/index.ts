@@ -73,6 +73,9 @@ function baseHeaders(res: ServerResponse) {
   res.setHeader('X-Robots-Tag', 'noindex, nofollow, noarchive');
   // Solo por HTTPS (el sitio ya redirige; asi el navegador no vuelve a intentar por HTTP).
   if (PROD) res.setHeader('Strict-Transport-Security', 'max-age=31536000');
+  // Otro sitio (aunque sea del mismo dominio, como www) no puede incrustar ni leer
+  // lo que responde el panel: fotos de IDs, firmas, datos.
+  res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
   // nginx ya pone nosniff, Referrer-Policy y X-Frame-Options en produccion;
   // repetirlos duplicaria las cabeceras.
   if (!PROD) {
