@@ -1,5 +1,5 @@
 /**
- * Boton rojo "Salir", siempre arriba a la derecha en todas las pantallas:
+ * Boton rojo "Cerrar sesion", siempre arriba a la derecha en todas las pantallas:
  * cualquiera cierra su sesion de un toque (p. ej. al probar con el usuario de
  * un vendedor y volver al propio). En la vista previa ("Ver como") sale de ella.
  */
@@ -19,7 +19,7 @@ export function SignOutButton() {
   return (
     <button type="button" className="signout-btn" onClick={out} aria-label={previewing ? 'Salir de la vista previa' : 'Cerrar sesión'}>
       <LogOut size={17} strokeWidth={2.4} />
-      <span>{previewing ? 'Salir de vista' : 'Salir'}</span>
+      <span>{previewing ? 'Cerrar vista previa' : 'Cerrar sesión'}</span>
     </button>
   );
 }
