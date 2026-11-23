@@ -205,12 +205,19 @@ export function creditRoutes(api: Router, db: DB, log: Log) {
 
   api.add('DELETE', '/credit/:id', (ctx) => {
     const { user, app } = load(ctx);
-    // Firmada: queda ligada a la venta (salvo que la venta ya se haya borrado).
-    need(app.status !== 'signed' || (reviews(user) && !app.saleId), 'La instalación ya se autorizó: esta solicitud quedó ligada a la venta.');
-    need(reviews(user) || canEditDraft(user, app), 'Solo se puede borrar mientras está por firmar.');
-    db.prepare('DELETE FROM credit_apps WHERE id = ?').run(app.id);
-    log(ctx, { action: 'delete', entity: 'credit', entityId: app.id, label: label(app) });
-    return { ok: true };
+    // Borrar es solo del dueno. Si ya se firmo, se borra tambien la venta que creo
+    // (para quitar una solicitud de prueba entera).
+    need(user.owner && !ctx.viewer, 'Solo el dueño puede borrar. Pídeselo a él.');
+    const sale = app.saleId ? repo.getSale(db, app.saleId) : null;
+    db.transaction(() => {
+      if (sale) {
+        log(ctx, { action: 'delete', entity: 'sale', entityId: sale.id, label: `la venta #${sale.id} (de ${label(app)})` });
+        repo.deleteSale(db, sale.id);
+      }
+      db.prepare('DELETE FROM credit_apps WHERE id = ?').run(app.id);
+      log(ctx, { action: 'delete', entity: 'credit', entityId: app.id, label: label(app), ...(sale ? { changes: [{ f: 'También se borró', b: `la venta #${sale.id}` }] } : {}) });
+    })();
+    return { ok: true, saleDeleted: sale?.id ?? null };
   });
 
   /* ------------------------------ archivos ------------------------------ */

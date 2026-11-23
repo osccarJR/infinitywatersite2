@@ -151,6 +151,8 @@ export function PeopleScreen() {
 }
 
 function PersonSheet({ person, onClose }: { person: Person | 'new' | null; onClose: () => void }) {
+  // Borrar es solo del dueno.
+  const owner = useAccess().owner;
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
   const [form, setForm] = useState({ name: '', phone: '', isSeller: true, isInstaller: false, active: true });
@@ -220,7 +222,7 @@ function PersonSheet({ person, onClose }: { person: Person | 'new' | null; onClo
             <SwitchRow label="Activo" checked={form.active} onChange={(active) => setForm({ ...form, active })} />
           </Group>
         )}
-        {person !== 'new' && (
+        {person !== 'new' && owner && (
           <div className="group" style={{ marginTop: 22 }}>
             <button type="button" className="row danger" onClick={remove}>Borrar</button>
           </div>
@@ -286,6 +288,8 @@ export function CatalogScreen({ table }: { table: 'financiers' | 'suppliers' | '
 }
 
 function CatalogSheet({ table, item, onClose }: { table: 'financiers' | 'suppliers' | 'brands'; item: CatalogItem | 'new' | null; onClose: () => void }) {
+  // Borrar es solo del dueno.
+  const owner = useAccess().owner;
   const { reload } = useStore();
   const { toast, confirm } = useFeedback();
   const [name, setName] = useState('');
@@ -343,7 +347,7 @@ function CatalogSheet({ table, item, onClose }: { table: 'financiers' | 'supplie
           <TextField label="Nombre" value={name} onChange={setName} placeholder="Nombre" autoFocus={item === 'new'} maxLength={80} />
           {item !== 'new' && <SwitchRow label="Activa" checked={active} onChange={setActive} />}
         </Group>
-        {item !== 'new' && (
+        {item !== 'new' && owner && (
           <div className="group" style={{ marginTop: 22 }}>
             <button type="button" className="row danger" onClick={remove}>Borrar</button>
           </div>

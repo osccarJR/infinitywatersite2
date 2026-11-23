@@ -534,7 +534,7 @@ export function CreditForm({ id }: { id?: number }) {
             <Send size={18} /> Firmar y enviar
           </button>
         </div>
-        {savedId.current && (
+        {savedId.current && a.owner && (
           <div className="group" style={{ marginTop: 20 }}>
             <button type="button" className="row danger" onClick={remove}>
               Borrar solicitud
@@ -667,7 +667,12 @@ export function CreditDetail({ id }: { id: number }) {
   };
 
   const remove = async () => {
-    const ok = await confirm({ title: '¿Borrar esta solicitud?', message: 'Se borra con sus fotos y firmas. No se puede deshacer.', confirm: 'Borrar solicitud', danger: true });
+    const ok = await confirm({
+      title: '¿Borrar esta solicitud?',
+      message: app.saleId ? `Se borra con sus fotos y firmas, y también la venta #${app.saleId} que se creó al firmar. No se puede deshacer.` : 'Se borra con sus fotos y firmas. No se puede deshacer.',
+      confirm: app.saleId ? 'Borrar solicitud y venta' : 'Borrar solicitud',
+      danger: true,
+    });
     if (!ok) return;
     try {
       await api(`/credit/${id}`, { method: 'DELETE' });
@@ -878,7 +883,7 @@ export function CreditDetail({ id }: { id: number }) {
         <Row title={seller ?? '—'} leading={<UserRound size={20} />} />
       </Group>
 
-      {(reviews || (mine && app.status === 'draft')) && app.status !== 'signed' && (
+      {a.owner && (
         <div className="group" style={{ marginTop: 20 }}>
           <button type="button" className="row danger" onClick={remove}>
             <Trash2 size={18} /> Borrar solicitud

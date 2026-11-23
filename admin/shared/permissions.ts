@@ -88,7 +88,6 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'clients.contact', label: 'Ver teléfono, correo y dirección', hint: 'Sin esto ve solo el nombre y la ciudad: no se puede llevar la lista de clientes.' },
       { flag: 'clients.create', label: 'Agregar clientes', hint: 'Al registrar una venta o un servicio también puede crear el cliente.' },
       { flag: 'clients.edit', label: 'Editar datos de clientes' },
-      { flag: 'clients.delete', label: 'Borrar clientes', hint: 'Borra también sus ventas y servicios. Solo con alcance de todo el negocio.' },
     ],
   },
   {
@@ -100,7 +99,6 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'sales.create', label: 'Registrar ventas', hint: 'Incluye clientes anteriores. Lo que registra lo puede corregir el mismo día.' },
       { flag: 'sales.edit', label: 'Editar ventas' },
       { flag: 'sales.status', label: 'Cancelar, declinar o marcar desinstalada' },
-      { flag: 'sales.delete', label: 'Borrar ventas' },
     ],
   },
   {
@@ -111,7 +109,6 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'services.view', label: 'Ver servicios' },
       { flag: 'services.create', label: 'Registrar servicios' },
       { flag: 'services.edit', label: 'Editar y cerrar servicios' },
-      { flag: 'services.delete', label: 'Borrar servicios' },
     ],
   },
   {
@@ -156,7 +153,6 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'payables.charges', label: 'Registrar y editar gastos' },
       { flag: 'payables.pay', label: 'Registrar pagos' },
       { flag: 'payables.accounts', label: 'Crear y editar cuentas', hint: 'Solo si ve todas las cuentas.' },
-      { flag: 'payables.delete', label: 'Borrar gastos y pagos' },
     ],
   },
   {
@@ -168,7 +164,6 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'inventory.move', label: 'Registrar entradas y salidas' },
       { flag: 'inventory.count', label: 'Hacer conteos (ajustar existencia)' },
       { flag: 'inventory.products', label: 'Crear y editar productos' },
-      { flag: 'inventory.delete', label: 'Borrar productos y movimientos' },
     ],
   },
   {
@@ -372,6 +367,9 @@ export function normalizePermissions(raw: any, admin: boolean): Permissions {
   f['report.service'] &&= f['services.view'];
   f['report.expenses'] &&= f['payables.view'];
   f['report.inventory'] &&= f['inventory.view'];
+
+  // Borrar es solo del dueno (superadministrador): nadie mas lo tiene.
+  for (const k of FLAG_KEYS) if (k.endsWith('.delete')) f[k] = false;
 
   return {
     admin: false,

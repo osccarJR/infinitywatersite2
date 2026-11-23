@@ -6,7 +6,7 @@
  * exactamente como lo ve esa persona, sin poder guardar nada.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { BarChart3, Boxes, Check, CreditCard, Eye, FileSpreadsheet, HandCoins, KeyRound, Plus, Receipt, ShieldCheck, UserCog, Users as UsersIcon, Wallet, Wrench, X } from 'lucide-react';
+import { BarChart3, Boxes, Check, CreditCard, Eye, FileSpreadsheet, HandCoins, KeyRound, Plus, Receipt, ShieldCheck, UserCog, Users as UsersIcon, Wallet, Wrench, X, ClipboardSignature } from 'lucide-react';
 import type { PermissionFlag, Permissions, User } from '../../../shared/domain.ts';
 import { ADMIN_PERMISSIONS, PERMISSION_AREAS, PERMISSION_PRESETS, areaSummary, mergePresets, normalizePermissions, permissionsSummary, presetsOf, redundantPresets } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
@@ -280,6 +280,7 @@ const AREA_LOOK: Record<string, { icon: React.ReactNode; color: string }> = {
   clients: { icon: <UsersIcon size={17} />, color: '#0a72c2' },
   sales: { icon: <Receipt size={17} />, color: '#1d9a46' },
   services: { icon: <Wrench size={17} />, color: '#ff9500' },
+  credit: { icon: <ClipboardSignature size={17} />, color: '#1d9a46' },
   money: { icon: <Wallet size={17} />, color: '#6a3fdc' },
   payments: { icon: <HandCoins size={17} />, color: '#0f7a3c' },
   payables: { icon: <CreditCard size={17} />, color: '#e5484d' },
@@ -426,7 +427,7 @@ export function UserScreen({ id }: { id: number }) {
                 <Row
                   key={x.key}
                   onClick={() => setArea(x.key)}
-                  leading={<IconBox icon={AREA_LOOK[x.key].icon} color={off ? '#c7c7cc' : AREA_LOOK[x.key].color} />}
+                  leading={<IconBox icon={(AREA_LOOK[x.key] ?? AREA_LOOK.other).icon} color={off ? '#c7c7cc' : (AREA_LOOK[x.key] ?? AREA_LOOK.other).color} />}
                   title={x.label}
                   subtitle={<span className={off ? 'faint' : undefined}>{summary + accounts}</span>}
                 />

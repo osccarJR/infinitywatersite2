@@ -6,6 +6,7 @@
  *   node dist/server/cli.js clave <usuario>                  # nueva clave
  *   node dist/server/cli.js lista
  *   node dist/server/cli.js aprobar-creditos <usuario>     # le da "Aprobar o negar creditos"
+ *   node dist/server/cli.js solo-creditos <usuario>        # deja solo la pantalla de Creditos
  *   node dist/server/cli.js borrar-datos --confirmar          # deja el sistema en cero
  *
  * `borrar-datos` elimina clientes, ventas, servicios, equipo, financieras,
@@ -21,7 +22,7 @@ import { mkdirSync } from 'node:fs';
 import { openDatabase } from './db.ts';
 import { deleteUserSessions, hashPassword } from './auth.ts';
 import { initAudit, writeAudit, type AuditEntry } from './audit.ts';
-import { normalizePermissions } from '../shared/permissions.ts';
+import { normalizePermissions, permissionsSummary } from '../shared/permissions.ts';
 
 const dataDir = path.resolve(process.env.DATA_DIR ?? 'data');
 const db = openDatabase(dataDir);
@@ -82,6 +83,15 @@ async function main() {
     db.prepare('UPDATE users SET permissions = ? WHERE id = ?').run(JSON.stringify(next), user.id);
     log({ action: 'permissions', entity: 'user', entityId: user.id, label: `${user.name} (desde el servidor)`, changes: [{ f: 'Créditos', a: current.flags['credit.review'] ? 'Aprobar' : 'Sin aprobar', b: 'Llenar y aprobar o negar créditos' }] });
     console.log(`${user.name} ya puede aprobar o negar créditos.`);
+  } else if (command === 'solo-creditos' && username) {
+    const user = db.prepare('SELECT id, name, role, permissions FROM users WHERE username = ?').get(username) as { id: number; name: string; role: string; permissions: string | null } | undefined;
+    if (!user) throw new Error(`No existe el usuario ${username}`);
+    if (user.role === 'admin') throw new Error(`${username} es administrador: no se le cambian los permisos aqui`);
+    const current = normalizePermissions(JSON.parse(user.permissions ?? '{}'), false);
+    const next = normalizePermissions({ scope: 'own', personId: current.personId, flags: { 'credit.create': true }, payableAccounts: null, profiles: ['credit'] }, false);
+    db.prepare('UPDATE users SET permissions = ? WHERE id = ?').run(JSON.stringify(next), user.id);
+    log({ action: 'permissions', entity: 'user', entityId: user.id, label: `${user.name} (desde el servidor)`, changes: [{ f: 'Perfil', a: permissionsSummary(current), b: permissionsSummary(next) }] });
+    console.log(`${user.name}: ahora solo ve Créditos.`);
   } else if (command === 'lista') {
     console.table(db.prepare('SELECT id, username, name, active, last_login_at FROM users').all());
   } else {

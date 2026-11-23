@@ -138,7 +138,9 @@ test('perfiles combinables: Oficina + Técnico tiene lo más amplio de cada uno'
   assert.equal(sc.flags['payments.commissions'], false);
   assert.equal(sc.flags['sales.create'], true);
   // Ajustado a mano: personalizado.
-  assert.equal(presetsOf(normalizePermissions({ ...mergePresets(['seller'], 3), flags: { ...mergePresets(['seller'], 3).flags, 'sales.delete': true } }, false)), null);
+  assert.equal(presetsOf(normalizePermissions({ ...mergePresets(['seller'], 3), flags: { ...mergePresets(['seller'], 3).flags, 'services.create': true } }, false)), null);
+  // Borrar es solo del dueño: ningún usuario con permisos lo tiene.
+  assert.equal(normalizePermissions({ ...mergePresets(['office'], 3), flags: { ...mergePresets(['office'], 3).flags, 'sales.delete': true, 'clients.delete': true } }, false).flags['sales.delete'], false);
 });
 
 test('permisos detallados: dependencias que se corrigen solas', async () => {

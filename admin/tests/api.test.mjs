@@ -827,7 +827,13 @@ test('créditos: solicitud cifrada, firmas, aprobación y autorización que crea
   assert.equal(sale.waterSource, 'well');
   assert.equal(boot.clients.find((x) => x.id === sale.clientId).name, 'Ana Prueba');
   assert.equal((await call('POST', `/credit/${id}/contract/sign`, { consent: true, signatures: csigs }, { as: vc })).status, 403, 'no se firma dos veces');
-  assert.equal((await call('DELETE', `/credit/${id}`)).status, 403, 'ligada a la venta: no se borra');
+  // Borrar: solo el dueño. Si ya se firmó, se borra también la venta que creó.
+  assert.equal((await call('DELETE', `/credit/${id}`, undefined, { as: vc })).status, 403, 'solo el dueño borra');
+  assert.equal((await call('DELETE', `/sales/${sg.data.saleId}`, undefined, { as: sellerCookie })).status, 403, 'ni ventas');
+  const del = await call('DELETE', `/credit/${id}`);
+  assert.equal(del.status, 200, JSON.stringify(del.data));
+  assert.equal(del.data.saleDeleted, sg.data.saleId);
+  assert.ok(!(await call('GET', '/bootstrap')).data.sales.some((x) => x.id === sg.data.saleId), 'la venta de prueba también se fue');
 
   // El vendedor no la pone a nombre de otro ni de un cliente que no ve; no firma más de lo aprobado.
   const other = await call('POST', '/credit', { ...body, sellerId: 1, clientId: sale.clientId }, { as: vc });

@@ -184,6 +184,11 @@ async function handleApi(req: IncomingMessage, res: ServerResponse, url: URL) {
     token,
     secure,
   };
+  // Borrar es solo del dueno (el superadministrador). Lo demas que usa DELETE
+  // no borra datos: quitar la foto de perfil propia o una foto de ID mientras se llena.
+  if (req.method === 'DELETE' && user && !/^\/(auth\/avatar|credit\/\d+\/files\/[a-z0-9-]+)$/.test(apiPath)) {
+    if (!user.owner) throw new HttpError(403, 'Solo el dueño puede borrar. Pídeselo a él.');
+  }
   const result = await found.route.handler(ctx);
   // Toda escritura que llega hasta aqui cambia la version de los datos.
   if (req.method !== 'GET' && req.method !== 'HEAD') bumpVersion();
