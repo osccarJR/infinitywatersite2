@@ -9,6 +9,7 @@ import { useEffect, useId, useRef, useState, type KeyboardEvent, type ReactNode 
 import { Building2, Info, MapPin, Route } from 'lucide-react';
 import { api } from '../lib/api.ts';
 import { useData } from '../lib/store.tsx';
+import { noAutofill } from './kit.tsx';
 
 export interface AddressPick {
   address: string;
@@ -210,7 +211,7 @@ export function AddressField({
           className="field-input"
           value={value}
           placeholder={features.places ? 'Número y calle' : 'Calle y número'}
-          autoComplete="off"
+          {...noAutofill(`${field ?? id}addr`, 'words')}
           maxLength={200}
           role={features.places ? 'combobox' : undefined}
           aria-expanded={features.places ? showList : undefined}
@@ -313,7 +314,7 @@ export function CityField({
           className="field-input"
           value={value}
           placeholder="ej. Fort Myers"
-          autoComplete="off"
+          {...noAutofill(`${field ?? id}city`, 'words')}
           maxLength={80}
           role={features.places ? 'combobox' : undefined}
           aria-expanded={features.places ? showList : undefined}

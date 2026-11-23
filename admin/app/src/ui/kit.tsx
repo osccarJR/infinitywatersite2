@@ -257,6 +257,7 @@ interface TextFieldProps {
   type?: 'text' | 'tel' | 'email';
   inputMode?: 'text' | 'tel' | 'email' | 'numeric' | 'decimal';
   autoComplete?: string;
+  autoCapitalize?: 'none' | 'words' | 'sentences';
   list?: string;
   onBlur?: () => void;
   autoFocus?: boolean;
@@ -265,8 +266,27 @@ interface TextFieldProps {
   field?: string;
 }
 
-export function TextField({ label, value, onChange, type = 'text', field, ...rest }: TextFieldProps) {
+/**
+ * Sin autocompletar del iPhone ni autocorrector. Safari ignora
+ * autocomplete="off" y ofrece llenar con los contactos del telefono (pone el
+ * nombre de otro contacto encima del cliente); no lo hace si el name dice
+ * "search". El autocorrector en ingles cambia nombres hispanos por palabras.
+ */
+export const noAutofill = (key: string, autoCapitalize: 'none' | 'words' | 'sentences' = 'none') =>
+  ({
+    name: `search-${key.replace(/[^A-Za-z0-9_-]/g, '')}`,
+    autoComplete: 'off',
+    autoCorrect: 'off',
+    autoCapitalize,
+    spellCheck: false,
+    'data-1p-ignore': 'true',
+    'data-lpignore': 'true',
+    'data-form-type': 'other',
+  }) as const;
+
+export function TextField({ label, value, onChange, type = 'text', field, autoCapitalize, ...rest }: TextFieldProps) {
   const id = useId();
+  const guard = rest.autoComplete === 'off' ? noAutofill(field ?? id, autoCapitalize) : { autoCapitalize };
   return (
     <label className="row field-row" htmlFor={id} data-field={field}>
       <span className="row-label">{label}</span>
@@ -276,6 +296,7 @@ export function TextField({ label, value, onChange, type = 'text', field, ...res
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        {...guard}
         {...rest}
       />
     </label>

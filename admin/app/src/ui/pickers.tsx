@@ -11,7 +11,7 @@ import { useData, useStore } from '../lib/store.tsx';
 import { formatPhone } from '../lib/format.ts';
 import { Picker, Sheet, type PickerOption } from './sheet.tsx';
 import { AddressField, CityField, lookupZip } from './address.tsx';
-import { Avatar, Group, SearchBox, Segmented, TextField } from './kit.tsx';
+import { Avatar, Group, SearchBox, Segmented, TextField, noAutofill } from './kit.tsx';
 
 /** Fila que muestra el valor elegido y abre un selector al tocarla. */
 export function PickerRow({ label, value, placeholder = 'Elegir', onOpen, field }: { label: string; value: ReactNode; placeholder?: string; onOpen: () => void; field?: string }) {
@@ -165,7 +165,7 @@ export function ClientFields({ draft, onChange, autoFocus, prefix = '' }: { draf
   const set = <K extends keyof ClientDraft>(key: K) => (value: ClientDraft[K]) => onChange({ ...draft, [key]: value });
   return (
     <>
-      <TextField label="Nombre" value={draft.name} onChange={set('name')} placeholder="Nombre y apellido" autoComplete="off" autoFocus={autoFocus} maxLength={120} field={`${prefix}name`} />
+      <TextField label="Nombre" value={draft.name} onChange={set('name')} placeholder="Nombre y apellido" autoComplete="off" autoCapitalize="words" autoFocus={autoFocus} maxLength={120} field={`${prefix}name`} />
       <TextField
         field={`${prefix}phone`}
         label="Teléfono"
@@ -219,12 +219,12 @@ export function StateZipRow({ state, zip, onState, onZip, field }: { state: stri
           onChange={(e) => onState(e.target.value.replace(/[^a-zA-Z]/g, '').slice(0, 2).toUpperCase())}
           placeholder="FL"
           aria-label="Estado (dos letras)"
-          autoComplete="off"
+          {...noAutofill(`${field ?? ''}state`, 'none')}
         />
       </label>
       <label style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
         <span>ZIP</span>
-        <input className="field-input num" style={{ width: '9.5ch' }} value={zip} onChange={(e) => onZip(e.target.value)} placeholder="ej. 33916" inputMode="numeric" maxLength={10} autoComplete="off" aria-label="Código postal" />
+        <input className="field-input num" style={{ width: '9.5ch' }} value={zip} onChange={(e) => onZip(e.target.value)} placeholder="ej. 33916" inputMode="numeric" maxLength={10} aria-label="Código postal" {...noAutofill(`${field ?? ''}zip`)} />
       </label>
     </div>
   );
