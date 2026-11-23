@@ -121,6 +121,10 @@ export interface Signer {
   name: string;
   /** Lo que firma esta persona, si es distinto del texto general (p. ej. el vendedor). */
   agreement?: ReactNode;
+  /** Tiene que deslizar el documento hasta el final antes de poder firmar. */
+  mustRead?: boolean;
+  /** Titulo arriba del firmante (p. ej. "Formulario de GoodLeap"). */
+  document?: string;
 }
 
 /**
@@ -153,6 +157,7 @@ export function SignSheet({
   const [sigs, setSigs] = useState<Record<string, string>>({});
   const [current, setCurrent] = useState<string | null>(null);
   const [agreed, setAgreed] = useState(false);
+  const [read, setRead] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -168,6 +173,21 @@ export function SignSheet({
 
   const signer = signers[step];
   const lastStep = step === signers.length - 1;
+  const needsRead = Boolean(signer?.mustRead) && !read;
+
+  // Cada firmante que debe leer empieza sin haber leido; si el texto cabe entero, ya esta leido.
+  const box = useRef<HTMLDivElement>(null);
+  const checkRead = () => {
+    const el = box.current;
+    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 12) setRead(true);
+  };
+  useEffect(() => {
+    setRead(false);
+    // Cada firmante lee desde el principio (la caja es la misma entre pasos).
+    if (box.current) box.current.scrollTop = 0;
+    requestAnimationFrame(checkRead);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, open]);
   const started = step > 0 || Boolean(current) || agreed;
 
   /** Cerrar a mitad de las firmas: se pregunta, porque se pierden. */
@@ -179,6 +199,7 @@ export function SignSheet({
 
   const next = async () => {
     setError(null);
+    if (needsRead) return setError('Desliza el documento hasta el final para poder firmar.');
     if (!agreed) return setError('Marque la casilla para aceptar firmar electrónicamente.');
     if (!current) return setError('Falta la firma.');
     const all = { ...sigs, [signer.key]: current };
@@ -224,18 +245,22 @@ export function SignSheet({
           </span>
         ))}
       </div>
+      {signer.document && <div className="sig-document">{signer.document}</div>}
       <div className="sig-who">
         <span>{signer.role}</span>
         <b>{signer.name || '—'}</b>
       </div>
-      <div className="sig-agreement">{signer.agreement ?? agreement}</div>
-      {readMore && (
+      <div ref={box} className={`sig-agreement${signer.mustRead ? ' long' : ''}`} onScroll={checkRead}>
+        {signer.agreement ?? agreement}
+      </div>
+      {needsRead && <div className="sig-read-hint">↓ Desliza el documento hasta el final para poder firmar</div>}
+      {readMore && !signer.document && (
         <a className="btn block gray sig-read" href={readMore.href} target="_blank" rel="noopener">
           {readMore.label}
         </a>
       )}
       <label className="sig-consent">
-        <input type="checkbox" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />
+        <input type="checkbox" checked={agreed} disabled={needsRead} onChange={(e) => setAgreed(e.target.checked)} />
         <span>
           Yo, <b>{signer.name || signer.role}</b>, acepto firmar este documento electrónicamente y que mi firma electrónica vale igual que mi firma a mano.
           <i> I agree to sign this document electronically and that my electronic signature has the same effect as my handwritten signature.</i>

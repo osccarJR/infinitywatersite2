@@ -851,6 +851,22 @@ test('créditos: solicitud cifrada, firmas, aprobación y autorización que crea
   assert.equal((await call('PUT', `/credit/${ownId}/contract`, { ...contract, zip: '339901' }, { as: vc })).status, 400, 'ZIP mal escrito');
   assert.equal((await call('PUT', `/credit/${ownId}/contract`, { ...contract, installDate: '2026-11-01' }, { as: vc })).status, 400, 'instalación antes del contrato');
 
+  // GoodLeap: sin el formulario "Warranties & Right to Cancel" firmado por cliente y vendedor, no se termina.
+  const gl = (await call('POST', '/financiers', { name: 'GoodLeap' })).data.item;
+  const glApp = (await call('POST', '/credit', body, { as: vc })).data.app.id;
+  for (const k of ['id1-front', 'id2-front']) await call('PUT', `/credit/${glApp}/files/${k}`, { image: jpg }, { as: vc });
+  assert.equal((await call('POST', `/credit/${glApp}/submit`, { consent: true, signatures: sigs }, { as: vc })).status, 200);
+  assert.equal((await call('POST', `/credit/${glApp}/decision`, { result: 'approved', financierId: gl.id, approvedAmount: 950_000, apr: 9.99, termMonths: 120, monthlyPayment: 12_550 })).status, 200);
+  assert.equal((await call('PUT', `/credit/${glApp}/contract`, contract, { as: vc })).status, 200);
+  const noGl = await call('POST', `/credit/${glApp}/contract/sign`, { consent: true, signatures: csigs }, { as: vc });
+  assert.equal(noGl.status, 400);
+  assert.equal(noGl.data.field, 'sig-gl');
+  const withGl = await call('POST', `/credit/${glApp}/contract/sign`, { consent: true, signatures: { ...csigs, glCustomer: png, glRep: png } }, { as: vc });
+  assert.equal(withGl.status, 200, JSON.stringify(withGl.data));
+  assert.ok(withGl.data.app.files.includes('sig-gl-customer') && withGl.data.app.files.includes('sig-gl-rep'));
+  assert.equal(withGl.data.app.contractSignatures.glCustomer.name, 'Ana Prueba');
+  // Con otra financiera no hace falta (ya probado arriba con "Financiera Uno").
+
   const log = (await call('GET', '/audit?group=credit&limit=40')).data.entries.map((e) => e.action);
   for (const action of ['credit-submit', 'credit-return', 'credit-secret', 'credit-ids', 'credit-approve', 'contract-sign']) assert.ok(log.includes(action), action);
 });

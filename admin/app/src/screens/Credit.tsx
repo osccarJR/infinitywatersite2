@@ -43,6 +43,8 @@ import { PersonPicker, PickerRow, StateZipRow, useCatalogCreate } from '../ui/pi
 import { Picker, Sheet, useFeedback } from '../ui/sheet.tsx';
 import { IdPhoto } from '../ui/idphoto.tsx';
 import { SignSheet } from '../ui/signature.tsx';
+import { GoodLeapReading } from '../ui/goodleapDoc.tsx';
+import { isGoodLeap } from '../../../shared/goodleap.ts';
 
 const STATUS_TONE: Record<CreditStatus, Tone> = { draft: 'orange', submitted: 'blue', approved: 'green', declined: 'red', signed: 'violet' };
 /** Estado en palabras: "Devuelta" si la oficina la regreso para corregir; para el vendedor, "En la oficina". */
@@ -1132,7 +1134,7 @@ export function ContractForm({ id }: { id: number }) {
   };
 
   const sign = async (sigs: Record<string, string>) => {
-    const r = await api<{ app: CreditApp; saleId: number }>(`/credit/${id}/contract/sign`, { method: 'POST', body: { consent: true, expectedUpdatedAt: app.updatedAt, signatures: { buyer1: sigs.buyer1, buyer2: sigs.buyer2 ?? null, rep: sigs.rep } } });
+    const r = await api<{ app: CreditApp; saleId: number }>(`/credit/${id}/contract/sign`, { method: 'POST', body: { consent: true, expectedUpdatedAt: app.updatedAt, signatures: { buyer1: sigs.buyer1, buyer2: sigs.buyer2 ?? null, rep: sigs.rep, glCustomer: sigs.glCustomer ?? null, glRep: sigs.glRep ?? null } } });
     leaving.current = true;
     setApp(r.app);
     await reload();
@@ -1141,12 +1143,22 @@ export function ContractForm({ id }: { id: number }) {
     navigate(`/imprimir/autorizacion/${id}?firmado=1`, { replace: true, force: true });
   };
 
+  const repName = (a.personId ? data.personById.get(a.personId)?.name : null) ?? data.me.name;
+  const financier = app.decision?.financierId ? data.financierById.get(app.decision.financierId)?.name : null;
+  // GoodLeap exige su formulario "Warranties & Right to Cancel" firmado por el cliente y el vendedor.
+  const goodleap = isGoodLeap(financier) && (form.amountToFinance ?? 0) > 0;
+  const start = form.installDate ? dateWithYear(form.installDate) : '';
   const signers = [
     { key: 'buyer1', role: 'Comprador 1', name: form.buyer1.name },
     ...(form.buyer2 ? [{ key: 'buyer2', role: 'Comprador 2', name: form.buyer2.name }] : []),
-    { key: 'rep', role: 'Vendedor', name: (a.personId ? data.personById.get(a.personId)?.name : null) ?? data.me.name },
+    { key: 'rep', role: 'Vendedor', name: repName },
+    ...(goodleap
+      ? [
+          { key: 'glCustomer', role: 'Cliente', name: form.buyer1.name, document: 'Formulario de GoodLeap', mustRead: true, agreement: <GoodLeapReading start={start} signer="customer" /> },
+          { key: 'glRep', role: 'Vendedor', name: repName, document: 'Formulario de GoodLeap', mustRead: true, agreement: <GoodLeapReading start={start} signer="rep" /> },
+        ]
+      : []),
   ];
-  const financier = app.decision?.financierId ? data.financierById.get(app.decision.financierId)?.name : null;
 
   return (
     <Page title="Autorización de instalación" subtitle={`${brand} · ${app.applicantName}`} back={back} narrow>
@@ -1157,6 +1169,15 @@ export function ContractForm({ id }: { id: number }) {
           <div className="banner-text">Llénala con el cliente, revísenla juntos y firmen. Al firmar se registra la venta.</div>
         </div>
       </div>
+      {goodleap && (
+        <div className="banner blue">
+          <ClipboardSignature size={20} />
+          <div>
+            <div className="banner-title">GoodLeap: hay un formulario más</div>
+            <div className="banner-text">Además de la autorización, el cliente y tú firman el formulario de GoodLeap «Warranties &amp; Right to Cancel». Sin esas dos firmas no se puede terminar.</div>
+          </div>
+        </div>
+      )}
       <form onSubmit={submit} noValidate ref={formRef} className="credit-form">
         <Group label="Compradores">
           <TextField label="Comprador 1" value={form.buyer1.name} onChange={(v) => set({ buyer1: { ...form.buyer1, name: v } })} autoComplete="off" autoCapitalize="words" field="buyer1.name" />

@@ -27,6 +27,7 @@ import { api } from '../lib/api.ts';
 import { formatPhone } from '../lib/format.ts';
 import { ALIMONY_NOTE, COMPANY_ADDRESS, COMPANY_PHONES, CREDIT_AUTH, SECOND_OFFICE, contractText } from '../lib/creditText.ts';
 import { documentPdf, sharePdf } from '../lib/pdf.ts';
+import { GOODLEAP_DOC, isGoodLeap } from '../../../shared/goodleap.ts';
 
 const longEn = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const longEs = new Intl.DateTimeFormat('es-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
@@ -352,12 +353,16 @@ export function ContractPrint({ id, draft, justSigned }: { id: number; draft: bo
   const notice = { en: text.notice(dateEn(signedDay), dateEn(deadline)).en, es: text.notice(dateEs(signedDay), dateEs(deadline)).es };
   const signed = app.status === 'signed' && !draft;
   const seller = (app.sellerId ? data.personById.get(app.sellerId)?.name : null) ?? app.createdBy ?? '';
-  const sig = (who: 'buyer1' | 'buyer2' | 'rep') => {
+  type Who = 'buyer1' | 'buyer2' | 'rep' | 'glCustomer' | 'glRep';
+  const sig = (who: Who) => {
     const file = CONTRACT_SIGNATURE_FILE[who];
     return signed && app.files.includes(file) ? <img src={fileUrl(app, file)} alt="" /> : null;
   };
-  const proof = (who: 'buyer1' | 'buyer2' | 'rep') => (signed ? app.contractSignatures[who] : undefined);
+  const proof = (who: Who) => (signed ? app.contractSignatures[who] : undefined);
   const financeLine = c.payments && c.monthlyPayment ? `${c.payments} × ${usd(c.monthlyPayment)}` : c.payments ? String(c.payments) : usd(c.monthlyPayment);
+  // Formulario de GoodLeap: si ya se firmo, o si el credito es con GoodLeap (borrador).
+  const financierName = app.decision?.financierId ? data.financierById.get(app.decision.financierId)?.name : null;
+  const goodleap = Boolean(app.contractSignatures.glCustomer) || (app.status !== 'signed' && isGoodLeap(financierName) && (c.amountToFinance ?? 0) > 0);
   const pages = 3;
 
   const Header = () => (
@@ -676,6 +681,53 @@ export function ContractPrint({ id, draft, justSigned }: { id: number; draft: bo
         <Terms lang="es" />
         <Foot page={3} />
       </div>
+      {goodleap && (
+        <div className="wp-page gl-page">
+          {draft && <div className="ct-draft">DRAFT · BORRADOR</div>}
+          {/* Tal cual el formulario que manda GoodLeap. */}
+          <h1>{GOODLEAP_DOC.title}</h1>
+          <div className="gl-page-addr">{GOODLEAP_DOC.address}</div>
+          <h2>{GOODLEAP_DOC.heading}</h2>
+          <div className="gl-band">
+            {GOODLEAP_DOC.sections.map((x) => (
+              <p key={x.title}>
+                <u>{x.title}</u> {x.en}
+              </p>
+            ))}
+            <div className="gl-lines">
+              <div className="gl-line wide">
+                <span>Customer Signature:</span>
+                <i>{sig('glCustomer')}</i>
+              </div>
+              <div className="gl-line">
+                <span>Date:</span>
+                <i>{proof('glCustomer') ? mdy(floridaDay(proof('glCustomer')!.at)) : ''}</i>
+              </div>
+              <div className="gl-line wide">
+                <span>Contractor Signature:</span>
+                <i>{sig('glRep')}</i>
+              </div>
+              <div className="gl-line">
+                <span>Date:</span>
+                <i>{proof('glRep') ? mdy(floridaDay(proof('glRep')!.at)) : ''}</i>
+              </div>
+              <div className="gl-line">
+                <span>Estimated Start Date:</span>
+                <i>{mdy(c.installDate)}</i>
+              </div>
+              <div className="gl-line">
+                <span>Estimated Completion Date:</span>
+                <i>{mdy(c.installDate)}</i>
+              </div>
+            </div>
+            {proof('glCustomer') && (
+              <div className="gl-proof">
+                {stamp(proof('glCustomer'))} · {proof('glCustomer')!.name} / {proof('glRep')?.name}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

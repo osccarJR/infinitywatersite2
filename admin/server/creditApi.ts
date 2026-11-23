@@ -35,6 +35,7 @@ import {
   type SignatureProof,
 } from '../shared/credit.ts';
 import { todayISO, type User } from '../shared/domain.ts';
+import { GOODLEAP_DOC_VERSION, isGoodLeap } from '../shared/goodleap.ts';
 import { deviceOf, type AuditEntry } from './audit.ts';
 
 type Log = (ctx: Ctx, entry: AuditEntry) => void;
@@ -356,6 +357,10 @@ export function creditRoutes(api: Router, db: DB, log: Log) {
 
   /* ---------------------- autorizacion de instalacion ---------------------- */
 
+  /** La venta va financiada con GoodLeap: hace falta su formulario firmado. */
+  const needsGoodLeapForm = (financierId: number | null) =>
+    financierId != null && isGoodLeap((db.prepare('SELECT name FROM financiers WHERE id = ?').get(financierId) as { name: string } | undefined)?.name);
+
   /** El vendedor no puede firmar condiciones distintas a las que aprobo la financiera. */
   const withinDecision = (user: User, app: CreditApp, c: ContractData) => {
     if (reviews(user) || !app.decision) return;
@@ -398,23 +403,32 @@ export function creditRoutes(api: Router, db: DB, log: Log) {
     if (bad) throw new HttpError(400, bad[1], bad[2]);
     const input = parse(ContractSignInput, ctx.body);
     if (c.buyer2 && !input.signatures.buyer2) throw new HttpError(400, 'Falta la firma del comprador 2.', 'sig-buyer2');
+    const financierId = (c.amountToFinance ?? 0) > 0 && exists('financiers', app.decision?.financierId ?? null) ? app.decision?.financierId ?? null : null;
+    // Con GoodLeap, la financiera exige ademas su formulario "Warranties & Right to Cancel" firmado.
+    const goodleap = needsGoodLeapForm(financierId);
+    if (goodleap && (!input.signatures.glCustomer || !input.signatures.glRep)) {
+      throw new HttpError(400, 'Con GoodLeap, el cliente y el vendedor tienen que firmar también el formulario de GoodLeap.', 'sig-gl');
+    }
 
     const images = {
       buyer1: png(input.signatures.buyer1, 'sig-buyer1'),
       buyer2: c.buyer2 && input.signatures.buyer2 ? png(input.signatures.buyer2, 'sig-buyer2') : null,
       rep: png(input.signatures.rep, 'sig-rep'),
+      glCustomer: goodleap ? png(input.signatures.glCustomer!, 'sig-gl') : null,
+      glRep: goodleap ? png(input.signatures.glRep!, 'sig-gl') : null,
     };
     const hash = credit.signatureHash({
       doc: 'installation-contract', v: 1, id: app.id, brandId: app.brandId, contract: c, decision: app.decision,
       signatures: { buyer1: credit.imageHash(images.buyer1), buyer2: images.buyer2 ? credit.imageHash(images.buyer2) : null, rep: credit.imageHash(images.rep) },
+      ...(goodleap ? { goodleap: { doc: GOODLEAP_DOC_VERSION, customer: credit.imageHash(images.glCustomer!), rep: credit.imageHash(images.glRep!) } } : {}),
       consent: CONSENT_VERSION,
     });
     const signatures: Partial<Record<ContractSigner, SignatureProof>> = {
       buyer1: proof(ctx, c.buyer1.name, hash),
       ...(c.buyer2 ? { buyer2: proof(ctx, c.buyer2.name, hash) } : {}),
       rep: proof(ctx, signerName(user), hash),
+      ...(goodleap ? { glCustomer: proof(ctx, c.buyer1.name, hash), glRep: proof(ctx, signerName(user), hash) } : {}),
     };
-    const financierId = (c.amountToFinance ?? 0) > 0 && exists('financiers', app.decision?.financierId ?? null) ? app.decision?.financierId ?? null : null;
     const sellerId = exists('people', app.sellerId) ? app.sellerId : null;
     const { total } = contractTotals(c);
 
@@ -422,6 +436,8 @@ export function creditRoutes(api: Router, db: DB, log: Log) {
       credit.saveCreditFile(db, app.id, CONTRACT_SIGNATURE_FILE.buyer1, 'image/png', images.buyer1);
       if (images.buyer2) credit.saveCreditFile(db, app.id, CONTRACT_SIGNATURE_FILE.buyer2, 'image/png', images.buyer2);
       credit.saveCreditFile(db, app.id, CONTRACT_SIGNATURE_FILE.rep, 'image/png', images.rep);
+      if (images.glCustomer) credit.saveCreditFile(db, app.id, CONTRACT_SIGNATURE_FILE.glCustomer, 'image/png', images.glCustomer);
+      if (images.glRep) credit.saveCreditFile(db, app.id, CONTRACT_SIGNATURE_FILE.glRep, 'image/png', images.glRep);
 
       // El cliente: el que ya estaba elegido o uno nuevo con los datos del aplicante.
       let clientId = app.clientId && repo.getClient(db, app.clientId) ? app.clientId : null;

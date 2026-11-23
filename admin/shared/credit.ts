@@ -88,7 +88,8 @@ export interface SignatureProof {
 }
 
 export type CreditSigner = 'applicant' | 'coApplicant' | 'rep';
-export type ContractSigner = 'buyer1' | 'buyer2' | 'rep';
+/** glCustomer / glRep: formulario de GoodLeap (solo cuando el credito es con GoodLeap). */
+export type ContractSigner = 'buyer1' | 'buyer2' | 'rep' | 'glCustomer' | 'glRep';
 
 export interface CreditDecision {
   financierId: number | null;
@@ -174,7 +175,7 @@ export interface CreditApp extends CreditSummary {
 export const ID_PHOTOS = ['id1-front', 'id1-back', 'id2-front', 'id2-back'] as const;
 export type IdPhotoKind = (typeof ID_PHOTOS)[number];
 export const CREDIT_SIGNATURE_FILE: Record<CreditSigner, string> = { applicant: 'sig-applicant', coApplicant: 'sig-co', rep: 'sig-rep' };
-export const CONTRACT_SIGNATURE_FILE: Record<ContractSigner, string> = { buyer1: 'sig-buyer1', buyer2: 'sig-buyer2', rep: 'sig-rep2' };
+export const CONTRACT_SIGNATURE_FILE: Record<ContractSigner, string> = { buyer1: 'sig-buyer1', buyer2: 'sig-buyer2', rep: 'sig-rep2', glCustomer: 'sig-gl-customer', glRep: 'sig-gl-rep' };
 export const CREDIT_FILE_KINDS = [...ID_PHOTOS, ...Object.values(CREDIT_SIGNATURE_FILE), ...Object.values(CONTRACT_SIGNATURE_FILE)];
 
 /** Dias que se guardan el SSN, la licencia y las fotos de las IDs despues de decidir. */

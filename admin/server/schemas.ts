@@ -507,5 +507,8 @@ export const ContractSignInput = z.object({
     buyer1: signatureImage,
     buyer2: signatureImage.nullish().transform((v) => v ?? null),
     rep: signatureImage,
+    /** Formulario de GoodLeap: cliente y vendedor (solo si el credito es con GoodLeap). */
+    glCustomer: signatureImage.nullish().transform((v) => v ?? null),
+    glRep: signatureImage.nullish().transform((v) => v ?? null),
   }),
 });
