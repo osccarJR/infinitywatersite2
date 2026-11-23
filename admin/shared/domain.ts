@@ -42,7 +42,18 @@ export interface User {
 
 /* Los permisos detallados viven en ./permissions.ts (se reexportan aqui). */
 import type { Permissions } from './permissions.ts';
-import type { CreditSummary } from './credit.ts';
+import type { CreditSummary, SignatureProof } from './credit.ts';
+
+/** Evidencia del formulario de GoodLeap firmado en una venta. */
+export interface GoodLeapForm {
+  /** Donde se firmo: en la venta o en la autorizacion de instalacion (credito). */
+  source: 'sale' | 'credit';
+  creditId?: number;
+  doc: string;
+  installDate: string | null;
+  customer: SignatureProof;
+  rep: SignatureProof;
+}
 export * from './permissions.ts';
 
 /** Persona del equipo: puede vender, instalar o ambas cosas. */
@@ -144,6 +155,8 @@ export interface Sale {
   warranty: WarrantyData | null;
   /** Factura emitida (se reimprime igual, con el mismo numero). */
   invoice: InvoiceData | null;
+  /** Formulario de GoodLeap firmado (cliente y vendedor), si la venta es con GoodLeap. */
+  goodleapForm: GoodLeapForm | null;
   suppliers: SaleSupplier[];
   createdAt: string;
   updatedAt: string;

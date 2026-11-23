@@ -484,6 +484,13 @@ export function creditRoutes(api: Router, db: DB, log: Log) {
         notes: `Autorización de instalación firmada (solicitud de crédito #${app.id}).`,
       });
       const id = repo.insertSale(db, sale, clientId!, user.id);
+      // La venta guarda tambien el formulario de GoodLeap (asi se ve e imprime desde la venta).
+      if (images.glCustomer && images.glRep) {
+        credit.saveSaleFile(db, id, 'gl-customer', 'image/png', images.glCustomer);
+        credit.saveSaleFile(db, id, 'gl-rep', 'image/png', images.glRep);
+        const form = { source: 'credit', creditId: app.id, doc: GOODLEAP_DOC_VERSION, installDate: c.installDate, customer: signatures.glCustomer, rep: signatures.glRep };
+        db.prepare('UPDATE sales SET goodleap_form = ? WHERE id = ?').run(JSON.stringify(form), id);
+      }
       credit.setCreditFields(db, app.id, user.id, {
         status: 'signed',
         contract_signatures: JSON.stringify(signatures),

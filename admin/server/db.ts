@@ -343,6 +343,18 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (app_id, kind)
   );
   `,
+  /* 15: formulario de GoodLeap ("Warranties & Right to Cancel") firmado en la
+        venta: evidencia en la venta y las firmas (cifradas) aparte. */ `
+  ALTER TABLE sales ADD COLUMN goodleap_form TEXT;
+  CREATE TABLE sale_files (
+    sale_id INTEGER NOT NULL REFERENCES sales(id) ON DELETE CASCADE,
+    kind TEXT NOT NULL,
+    mime TEXT NOT NULL,
+    data BLOB NOT NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    PRIMARY KEY (sale_id, kind)
+  );
+  `,
 ];
 
 export type DB = Database.Database;

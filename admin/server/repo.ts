@@ -200,6 +200,7 @@ const toSale = (r: any, suppliers: Sale['suppliers']): Sale => ({
   installTime: r.install_time ?? null,
   warranty: parseWarranty(r.warranty),
   invoice: parseWarranty(r.invoice ?? null),
+  goodleapForm: parseWarranty(r.goodleap_form ?? null),
   suppliers,
   createdAt: r.created_at,
   updatedAt: r.updated_at,

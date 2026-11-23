@@ -27,6 +27,7 @@ import {
   ServiceInputNoAmount,
   WarrantyInput,
   InvoiceInput,
+  GoodLeapSignInput,
   UserCreateInput,
   UserUpdateInput,
   PayableAccountInput,
@@ -61,7 +62,8 @@ import { todayISO } from '../shared/domain.ts';
 import { dataVersion } from './version.ts';
 import { createHash } from 'node:crypto';
 import { creditRoutes, visibleCredit } from './creditApi.ts';
-import { initCreditKey, upgradeLegacyHashes } from './credit.ts';
+import { imageHash, initCreditKey, readSaleFile, saveSaleFile, signatureHash, upgradeLegacyHashes } from './credit.ts';
+import { GOODLEAP_DOC_VERSION, isGoodLeap } from '../shared/goodleap.ts';
 import { AUDIT_GROUPS, auditStats, deviceOf, diff, initAudit, listAudit, permissionChanges, snapshot, verifyAudit, writeAudit, type AuditEntry, type Change } from './audit.ts';
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
@@ -435,15 +437,62 @@ export function buildApi(db: DB, dataDir: string) {
 
   /* ------------------------------ ventas ------------------------------ */
 
+  /* ------------- formulario de GoodLeap (obligatorio en ventas con GoodLeap) ------------- */
+
+  const financierIsGoodLeap = (id: number | null) => id != null && isGoodLeap(repo.listCatalog(db, 'financiers').find((f) => f.id === id)?.name);
+  /** Venta nueva, activa y financiada con GoodLeap (no los "clientes anteriores", ya vendidos). */
+  const needsGoodLeap = (s: { paymentMethod: string | null; financierId: number | null; isLegacy: boolean; status: string }) =>
+    s.paymentMethod === 'financed' && s.status === 'active' && !s.isLegacy && financierIsGoodLeap(s.financierId);
+  const goodleapSignatures = (ctx: Ctx) => {
+    const raw = (ctx.body as { goodleap?: unknown })?.goodleap;
+    if (!raw) throw new HttpError(400, 'Con GoodLeap, el cliente y el vendedor tienen que firmar el formulario de GoodLeap antes de guardar.', 'goodleap');
+    const input = parse(GoodLeapSignInput, raw);
+    const png = (dataUrl: string) => {
+      const data = Buffer.from(dataUrl.split(',')[1], 'base64');
+      if (data.subarray(0, 8).toString('hex') !== '89504e470d0a1a0a') throw new HttpError(400, 'La firma no es válida. Fírmala otra vez.', 'goodleap');
+      return data;
+    };
+    return { customer: png(input.customer), rep: png(input.rep) };
+  };
+  /** Guarda las firmas (cifradas) y la evidencia en la venta. */
+  const saveGoodLeap = (ctx: Ctx, user: User, saleId: number, images: { customer: Buffer; rep: Buffer }) => {
+    const sale = repo.getSale(db, saleId)!;
+    const customerName = repo.getClient(db, sale.clientId)?.name ?? '';
+    const repName = (user.permissions.personId ? repo.listPeople(db).find((p) => p.id === user.permissions.personId)?.name : null) ?? user.name;
+    const hash = signatureHash({ doc: GOODLEAP_DOC_VERSION, saleId, clientId: sale.clientId, installDate: sale.installDate, customer: imageHash(images.customer), rep: imageHash(images.rep) });
+    const at = new Date().toISOString();
+    const device = deviceOf(String(ctx.req.headers['user-agent'] ?? ''));
+    const proof = (name: string) => ({ name, at, ip: ctx.ip, device, hash, alg: 'hmac-v1' });
+    saveSaleFile(db, saleId, 'gl-customer', 'image/png', images.customer);
+    saveSaleFile(db, saleId, 'gl-rep', 'image/png', images.rep);
+    const form = { source: 'sale', doc: GOODLEAP_DOC_VERSION, installDate: sale.installDate, customer: proof(customerName), rep: proof(repName) };
+    db.prepare('UPDATE sales SET goodleap_form = ? WHERE id = ?').run(JSON.stringify(form), saleId);
+    log(ctx, { action: 'goodleap-form', entity: 'sale', entityId: saleId, label: saleLabel(sale), changes: [{ f: 'Firmaron', b: `${customerName} y ${repName}` }], extra: { huella: hash } });
+  };
+
+  api.add('GET', '/sales/:id/goodleap/:kind', (ctx) => {
+    const user = allowed(ctx, can('sales.view'));
+    need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
+    const kind = ctx.params.kind;
+    need(kind === 'customer' || kind === 'rep', 'Archivo no válido');
+    const file = readSaleFile(db, num(ctx), `gl-${kind}`);
+    notFound(file ? 1 : 0, 'La firma');
+    ctx.res.writeHead(200, { 'Content-Type': file!.mime, 'Content-Length': file!.data.length, 'Cache-Control': 'private, no-store' });
+    ctx.res.end(file!.data);
+    return undefined;
+  });
+
   api.add('POST', '/sales', (ctx) => {
     const user = allowed(ctx, can('sales.create'));
     const input = parse(SaleInput, protectSaleBody(ctx.body, null, user.permissions));
+    const goodleap = needsGoodLeap(input) ? goodleapSignatures(ctx) : null;
     const id = friendly(() =>
       db.transaction(() => {
         const clientId = resolveClient(ctx, input.client, user.id, user);
         const saleId = repo.insertSale(db, input, clientId, user.id);
         const sale = repo.getSale(db, saleId);
         log(ctx, { action: 'create', entity: 'sale', entityId: saleId, label: saleLabel(sale), changes: snapshot(db, 'sale', sale) });
+        if (goodleap) saveGoodLeap(ctx, user, saleId, goodleap);
         return saleId;
       })()
     );
@@ -458,6 +507,8 @@ export function buildApi(db: DB, dataDir: string) {
     need(user.permissions.flags['sales.edit'] || (user.permissions.flags['sales.create'] && createdTodayBy(db, 'sales', num(ctx), user.id)));
     need(seesSale(scopeOf(db, user), num(ctx)), 'No tienes acceso a esta venta.');
     const input = parse(SaleInput, protectSaleBody(ctx.body, existing, user.permissions));
+    // Si en esta edicion pasa a ser con GoodLeap (y no tiene el formulario), se firma ahora.
+    const goodleap = needsGoodLeap(input) && !existing!.goodleapForm && !needsGoodLeap(existing!) ? goodleapSignatures(ctx) : null;
     friendly(() =>
       db.transaction(() => {
         checkVersion(db, 'sales', num(ctx), input.expectedUpdatedAt);
@@ -467,6 +518,7 @@ export function buildApi(db: DB, dataDir: string) {
         const after = repo.getSale(db, num(ctx));
         const changes = diff(db, 'sale', existing, after);
         if (changes.length) log(ctx, { action: 'update', entity: 'sale', entityId: num(ctx), label: saleLabel(after), changes });
+        if (goodleap) saveGoodLeap(ctx, user, num(ctx), goodleap);
       })()
     );
     return { sale: shapeSale(repo.getSale(db, num(ctx))!, user.permissions) };

@@ -41,6 +41,7 @@ const CreditDetail = lazy(() => import('./screens/Credit.tsx').then((m) => ({ de
 const ContractForm = lazy(() => import('./screens/Credit.tsx').then((m) => ({ default: m.ContractForm })));
 const CreditPrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.CreditPrint })));
 const ContractPrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.ContractPrint })));
+const GoodLeapSalePrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.GoodLeapSalePrint })));
 const Audit = lazy(() => import('./screens/Audit.tsx').then((m) => ({ default: m.Audit })));
 
 export function App() {
@@ -105,6 +106,14 @@ function Gate() {
     return (
       <Suspense fallback={<div className="splash"><Spinner /></div>}>
         <ContractPrint id={Number(printContract.id)} draft={new URLSearchParams(location.search).get('borrador') === '1'} justSigned={new URLSearchParams(location.search).get('firmado') === '1'} />
+      </Suspense>
+    );
+  }
+  const printGoodLeap = matchRoute('/imprimir/goodleap/:id', path);
+  if (printGoodLeap && /^\d+$/.test(printGoodLeap.id)) {
+    return (
+      <Suspense fallback={<div className="splash"><Spinner /></div>}>
+        <GoodLeapSalePrint id={Number(printGoodLeap.id)} />
       </Suspense>
     );
   }

@@ -15,12 +15,15 @@ import { useAccess, visibleMissing } from '../lib/access.ts';
 import { goBack, navigate, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
-import { moneyPlain as money, parseMoney, percent } from '../lib/format.ts';
+import { dateWithYear, moneyPlain as money, parseMoney, percent } from '../lib/format.ts';
 import { Empty, Group, MoneyField, hasInvalidMoney, Page, Row, SegmentedRow, StackField, SwitchRow, TextField } from '../ui/kit.tsx';
 import { DateField, TimeSlotsField } from '../ui/date.tsx';
 import { BrandPicker, ClientPicker, FinancierPicker, PersonPicker, StateZipRow, clientRef, useCatalogCreate, type ClientChoice } from '../ui/pickers.tsx';
 import { AddressField, CityField, lookupZip } from '../ui/address.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
+import { SignSheet } from '../ui/signature.tsx';
+import { GoodLeapReading } from '../ui/goodleapDoc.tsx';
+import { isGoodLeap } from '../../../shared/goodleap.ts';
 
 interface SupplierLine {
   key: number;
@@ -242,6 +245,10 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   // Venta nueva: solo lo esencial a la vista. Al editar se ve todo.
   const [more, setMore] = useState(Boolean(id));
   const [legacyCount, setLegacyCount] = useState(() => readLegacyCount(data.today));
+  // Formulario de GoodLeap: obligatorio para guardar una venta con GoodLeap.
+  const [glOpen, setGlOpen] = useState(false);
+  const glSigs = useRef<Record<string, string> | null>(null);
+  const glAgain = useRef(false);
 
   useLeaveGuard(
     () => !leaving.current && JSON.stringify(form) !== initial.current,
@@ -275,6 +282,14 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   // El aviso de cambios sin guardar lo hace useLeaveGuard.
   const cancel = () => goBack(back.to);
 
+  /** Venta con GoodLeap que todavia no tiene el formulario firmado (las ya registradas antes no lo piden). */
+  const financierName = (fid: number | null) => (fid ? data.financierById.get(fid)?.name : null);
+  const isGoodLeapSale = (x: { paymentMethod: string | null; financierId: number | null; status: string; isLegacy: boolean }) =>
+    x.paymentMethod === 'financed' && x.status === 'active' && !x.isLegacy && isGoodLeap(financierName(x.financierId));
+  const needsGoodLeap = isGoodLeapSale({ ...form, status: form.status }) && !existing?.goodleapForm && !(existing && isGoodLeapSale(existing)) && !savedId.current;
+  const customerName = form.client?.mode === 'existing' ? data.clientById.get(form.client.id)?.name ?? '' : form.client?.mode === 'new' ? form.client.draft.name : '';
+  const repName = (a.personId ? data.personById.get(a.personId)?.name : null) ?? data.me.name;
+
   /** Muestra el error y lleva al campo; si esta dentro de "Mas detalles", lo abre. */
   const fail = (message: string, field?: string) => {
     setError(message);
@@ -287,6 +302,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   const submit = async (event?: FormEvent, again = false) => {
     event?.preventDefault();
     setError(null);
+    const signingGoodLeap = needsGoodLeap && !glSigs.current;
     if (!form.client) return fail('Elige el cliente o créalo.', 'client');
     if (form.client.mode === 'new' && !form.client.draft.name.trim()) return fail('Escribe el nombre del cliente nuevo.', 'client.create.name');
     if (!form.saleDate) return fail(form.isLegacy ? 'Pon la fecha de la venta (aproximada está bien).' : 'Pon la fecha de la venta.', 'saleDate');
@@ -310,13 +326,26 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
       if (!ok) return;
     }
 
+    // Con GoodLeap: primero firman el formulario (salta solo); sin las firmas no se guarda.
+    if (signingGoodLeap) {
+      glAgain.current = again;
+      setGlOpen(true);
+      return;
+    }
+
     setBusy(true);
     let sale: Sale;
     try {
       const saveId = savedId.current;
+      const gl = glSigs.current;
       ({ sale } = await api<{ sale: Sale }>(saveId ? `/sales/${saveId}` : '/sales', {
         method: saveId ? 'PUT' : 'POST',
-        body: { client: savedClientId.current ? { id: savedClientId.current } : clientRef(form.client), ...body, ...(saveId ? { expectedUpdatedAt: version.current } : {}) },
+        body: {
+          client: savedClientId.current ? { id: savedClientId.current } : clientRef(form.client),
+          ...body,
+          ...(saveId ? { expectedUpdatedAt: version.current } : {}),
+          ...(gl ? { goodleap: { consent: true, customer: gl.glCustomer, rep: gl.glRep } } : {}),
+        },
       }));
     } catch (err: any) {
       setBusy(false);
@@ -356,6 +385,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
   };
 
   const financed = form.paymentMethod === 'financed';
+  const glChosen = financed && isGoodLeap(form.financierId ? data.financierById.get(form.financierId)?.name : null);
 
   return (
     <Page
@@ -475,6 +505,13 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
               {financed && (
                 <>
                   <FinancierPicker value={form.financierId} onChange={(v) => set('financierId', v)} />
+                  {glChosen && (existing?.goodleapForm || needsGoodLeap) && (
+                    <Row
+                      title="Formulario de GoodLeap"
+                      subtitle={existing?.goodleapForm ? 'Firmado por el cliente y el vendedor' : 'Al guardar, el cliente y el vendedor lo firman. Sin las firmas no se guarda.'}
+                      value={existing?.goodleapForm ? 'Firmado ✓' : 'Obligatorio'}
+                    />
+                  )}
                   {a.prices && <SwitchRow label="El cliente abonó cash" checked={form.cashDownOn} onChange={(v) => set('cashDownOn', v)} />}
                   {a.prices && form.cashDownOn && <MoneyField field="cashDown" label="Abono en cash" value={form.cashDown} onChange={(v) => set('cashDown', v)} />}
                   {a.prices && <Row title="Se financió" value={form.price == null ? '—' : money(m.financedAmount)} />}
@@ -677,6 +714,25 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
           </button>
         </div>
       </form>
+      <SignSheet
+        open={glOpen}
+        onClose={() => {
+          setGlOpen(false);
+          setError('Sin las firmas del formulario de GoodLeap no se puede guardar una venta con GoodLeap.');
+        }}
+        title="Formulario de GoodLeap"
+        signers={[
+          { key: 'glCustomer', role: 'Cliente', name: customerName, document: 'Formulario de GoodLeap', mustRead: true, agreement: <GoodLeapReading start={form.installDate ? dateWithYear(form.installDate) : ''} signer="customer" /> },
+          { key: 'glRep', role: 'Vendedor', name: repName, document: 'Formulario de GoodLeap', mustRead: true, agreement: <GoodLeapReading start={form.installDate ? dateWithYear(form.installDate) : ''} signer="rep" /> },
+        ]}
+        agreement={null}
+        finishLabel="Firmar y guardar la venta"
+        onDone={async (sigs) => {
+          glSigs.current = sigs;
+          setGlOpen(false);
+          await submit(undefined, glAgain.current);
+        }}
+      />
     </Page>
   );
 }

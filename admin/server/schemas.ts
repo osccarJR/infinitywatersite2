@@ -512,3 +512,10 @@ export const ContractSignInput = z.object({
     glRep: signatureImage.nullish().transform((v) => v ?? null),
   }),
 });
+
+/** Formulario de GoodLeap firmado al guardar una venta con GoodLeap. */
+export const GoodLeapSignInput = z.object({
+  consent: z.literal(true, { error: 'Marca que aceptan firmar electrónicamente.' }),
+  customer: signatureImage,
+  rep: signatureImage,
+});

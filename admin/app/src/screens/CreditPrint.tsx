@@ -27,7 +27,8 @@ import { api } from '../lib/api.ts';
 import { formatPhone } from '../lib/format.ts';
 import { ALIMONY_NOTE, COMPANY_ADDRESS, COMPANY_PHONES, CREDIT_AUTH, SECOND_OFFICE, contractText } from '../lib/creditText.ts';
 import { documentPdf, sharePdf } from '../lib/pdf.ts';
-import { GOODLEAP_DOC, isGoodLeap } from '../../../shared/goodleap.ts';
+import { isGoodLeap } from '../../../shared/goodleap.ts';
+import { GoodLeapPage } from '../ui/goodleapDoc.tsx';
 
 const longEn = new Intl.DateTimeFormat('en-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
 const longEs = new Intl.DateTimeFormat('es-US', { month: 'long', day: 'numeric', year: 'numeric', timeZone: 'UTC' });
@@ -682,52 +683,45 @@ export function ContractPrint({ id, draft, justSigned }: { id: number; draft: bo
         <Foot page={3} />
       </div>
       {goodleap && (
-        <div className="wp-page gl-page">
-          {draft && <div className="ct-draft">DRAFT · BORRADOR</div>}
-          {/* Tal cual el formulario que manda GoodLeap. */}
-          <h1>{GOODLEAP_DOC.title}</h1>
-          <div className="gl-page-addr">{GOODLEAP_DOC.address}</div>
-          <h2>{GOODLEAP_DOC.heading}</h2>
-          <div className="gl-band">
-            {GOODLEAP_DOC.sections.map((x) => (
-              <p key={x.title}>
-                <u>{x.title}</u> {x.en}
-              </p>
-            ))}
-            <div className="gl-lines">
-              <div className="gl-line wide">
-                <span>Customer Signature:</span>
-                <i>{sig('glCustomer')}</i>
-              </div>
-              <div className="gl-line">
-                <span>Date:</span>
-                <i>{proof('glCustomer') ? mdy(floridaDay(proof('glCustomer')!.at)) : ''}</i>
-              </div>
-              <div className="gl-line wide">
-                <span>Contractor Signature:</span>
-                <i>{sig('glRep')}</i>
-              </div>
-              <div className="gl-line">
-                <span>Date:</span>
-                <i>{proof('glRep') ? mdy(floridaDay(proof('glRep')!.at)) : ''}</i>
-              </div>
-              <div className="gl-line">
-                <span>Estimated Start Date:</span>
-                <i>{mdy(c.installDate)}</i>
-              </div>
-              <div className="gl-line">
-                <span>Estimated Completion Date:</span>
-                <i>{mdy(c.installDate)}</i>
-              </div>
-            </div>
-            {proof('glCustomer') && (
-              <div className="gl-proof">
-                {stamp(proof('glCustomer'))} · {proof('glCustomer')!.name} / {proof('glRep')?.name}
-              </div>
-            )}
-          </div>
-        </div>
+        <GoodLeapPage
+          draft={draft}
+          customerImg={sig('glCustomer') ? fileUrl(app, CONTRACT_SIGNATURE_FILE.glCustomer) : null}
+          repImg={sig('glRep') ? fileUrl(app, CONTRACT_SIGNATURE_FILE.glRep) : null}
+          customerDate={proof('glCustomer') ? mdy(floridaDay(proof('glCustomer')!.at)) : ''}
+          repDate={proof('glRep') ? mdy(floridaDay(proof('glRep')!.at)) : ''}
+          start={mdy(c.installDate)}
+          proofLine={proof('glCustomer') ? `${stamp(proof('glCustomer'))} · ${proof('glCustomer')!.name} / ${proof('glRep')?.name ?? ''}` : undefined}
+        />
       )}
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Formulario de GoodLeap firmado en una venta                          */
+/* ------------------------------------------------------------------ */
+
+export function GoodLeapSalePrint({ id }: { id: number }) {
+  const data = useData();
+  const sale = data.sales.find((x) => x.id === id);
+  const form = sale?.goodleapForm;
+  useEffect(() => {
+    if (sale) document.title = `GoodLeap · ${data.clientById.get(sale.clientId)?.name ?? ''}`;
+  }, [sale, data]);
+  if (!sale || !form) return <Missing error={sale ? 'Esta venta no tiene el formulario de GoodLeap firmado.' : 'Esta venta no existe o no tienes acceso.'} />;
+  const client = data.clientById.get(sale.clientId)?.name ?? '';
+  const v = encodeURIComponent(sale.updatedAt);
+  return (
+    <div className="wp-root">
+      <Toolbar title={`Formulario GoodLeap · ${client}`} filename={`GoodLeap-${client.replace(/\s+/g, '-')}.pdf`} />
+      <GoodLeapPage
+        customerImg={`/admin/api/sales/${id}/goodleap/customer?v=${v}`}
+        repImg={`/admin/api/sales/${id}/goodleap/rep?v=${v}`}
+        customerDate={mdy(floridaDay(form.customer.at))}
+        repDate={mdy(floridaDay(form.rep.at))}
+        start={mdy(form.installDate ?? sale.installDate)}
+        proofLine={`${stamp(form.customer)} · ${form.customer.name} / ${form.rep.name}`}
+      />
     </div>
   );
 }

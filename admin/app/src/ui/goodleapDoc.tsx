@@ -22,3 +22,65 @@ export function GoodLeapReading({ start, signer }: { start: string; signer: 'cus
     </div>
   );
 }
+
+/** Pagina impresa del formulario, tal cual el de GoodLeap, con las firmas. */
+export function GoodLeapPage({
+  customerImg,
+  repImg,
+  customerDate,
+  repDate,
+  start,
+  proofLine,
+  draft,
+}: {
+  customerImg: string | null;
+  repImg: string | null;
+  customerDate: string;
+  repDate: string;
+  start: string;
+  proofLine?: string;
+  draft?: boolean;
+}) {
+  return (
+    <div className="wp-page gl-page">
+      {draft && <div className="ct-draft">DRAFT · BORRADOR</div>}
+      <h1>{GOODLEAP_DOC.title}</h1>
+      <div className="gl-page-addr">{GOODLEAP_DOC.address}</div>
+      <h2>{GOODLEAP_DOC.heading}</h2>
+      <div className="gl-band">
+        {GOODLEAP_DOC.sections.map((x) => (
+          <p key={x.title}>
+            <u>{x.title}</u> {x.en}
+          </p>
+        ))}
+        <div className="gl-lines">
+          <div className="gl-line wide">
+            <span>Customer Signature:</span>
+            <i>{customerImg && <img src={customerImg} alt="" />}</i>
+          </div>
+          <div className="gl-line">
+            <span>Date:</span>
+            <i>{customerDate}</i>
+          </div>
+          <div className="gl-line wide">
+            <span>Contractor Signature:</span>
+            <i>{repImg && <img src={repImg} alt="" />}</i>
+          </div>
+          <div className="gl-line">
+            <span>Date:</span>
+            <i>{repDate}</i>
+          </div>
+          <div className="gl-line">
+            <span>Estimated Start Date:</span>
+            <i>{start}</i>
+          </div>
+          <div className="gl-line">
+            <span>Estimated Completion Date:</span>
+            <i>{start}</i>
+          </div>
+        </div>
+        {proofLine && <div className="gl-proof">{proofLine}</div>}
+      </div>
+    </div>
+  );
+}

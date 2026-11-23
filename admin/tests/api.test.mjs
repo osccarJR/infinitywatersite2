@@ -871,6 +871,36 @@ test('créditos: solicitud cifrada, firmas, aprobación y autorización que crea
   for (const action of ['credit-submit', 'credit-return', 'credit-secret', 'credit-ids', 'credit-approve', 'contract-sign']) assert.ok(log.includes(action), action);
 });
 
+test('GoodLeap: toda venta nueva con GoodLeap exige el formulario firmado', async () => {
+  const boot = (await call('GET', '/bootstrap')).data;
+  const gl = boot.financiers.find((f) => f.name === 'GoodLeap') ?? (await call('POST', '/financiers', { name: 'GoodLeap' })).data.item;
+  const other = boot.financiers.find((f) => f.name !== 'GoodLeap');
+  const png = 'data:image/png;base64,' + Buffer.from('89504e470d0a1a0a0000000d49484452', 'hex').toString('base64');
+  const base = { client: { create: { name: 'Cliente GoodLeap' } }, saleDate: '2026-11-23', equipment: EQ, price: 800_000, paymentMethod: 'financed', financierId: gl.id };
+  const no = await call('POST', '/sales', base);
+  assert.equal(no.status, 400);
+  assert.equal(no.data.field, 'goodleap');
+  const bad = await call('POST', '/sales', { ...base, goodleap: { consent: true, customer: 'data:image/png;base64,' + Buffer.from('<svg>').toString('base64'), rep: png } });
+  assert.equal(bad.status, 400, 'firma que no es PNG');
+  const ok = await call('POST', '/sales', { ...base, goodleap: { consent: true, customer: png, rep: png } });
+  assert.equal(ok.status, 200, JSON.stringify(ok.data));
+  const sale = ok.data.sale;
+  assert.equal(sale.goodleapForm.source, 'sale');
+  assert.equal(sale.goodleapForm.customer.name, 'Cliente GoodLeap');
+  const img = await fetch(`${BASE}/admin/api/sales/${sale.id}/goodleap/customer`, { headers: { Cookie: cookie } });
+  assert.equal(img.status, 200);
+  // Editarla despues no vuelve a pedirlo.
+  const edit = await call('PUT', `/sales/${sale.id}`, { ...base, client: { id: sale.clientId }, notes: 'ok', expectedUpdatedAt: sale.updatedAt });
+  assert.equal(edit.status, 200, JSON.stringify(edit.data));
+  // Una venta "cliente anterior" (ya vendida) no lo pide.
+  assert.equal((await call('POST', '/sales', { ...base, isLegacy: true })).status, 200);
+  // Cambiar otra venta a GoodLeap si lo pide.
+  const plain = (await call('POST', '/sales', { ...base, financierId: other.id })).data.sale;
+  const toGl = await call('PUT', `/sales/${plain.id}`, { ...base, client: { id: plain.clientId }, expectedUpdatedAt: plain.updatedAt });
+  assert.equal(toGl.status, 400);
+  assert.equal(toGl.data.field, 'goodleap');
+});
+
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {
   assert.equal((await call('GET', '/audit', undefined, { as: sellerCookie })).status, 403);
   assert.equal((await call('GET', '/audit', undefined, { viewAs: sellerUserId })).status, 403, 'tampoco en la vista previa');

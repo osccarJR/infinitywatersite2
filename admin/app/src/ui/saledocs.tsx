@@ -57,6 +57,17 @@ export function SaleDocs({ sale }: { sale: Sale }) {
             </span>
           </button>
         )}
+        {sale.goodleapForm && (
+          <button type="button" className="doc-action" onClick={() => navigate(`/imprimir/goodleap/${sale.id}`)}>
+            <span className="doc-icon invoice">
+              <ShieldCheck size={20} />
+            </span>
+            <span>
+              <b>Formulario GoodLeap</b>
+              <span>Firmado · {dateWithYear(sale.goodleapForm.customer.at.slice(0, 10))}</span>
+            </span>
+          </button>
+        )}
       </div>
       <OrderSheet sale={sale} open={open === 'order'} onClose={() => setOpen(null)} />
       {canWarranty && <WarrantySheet sale={sale} open={open === 'warranty'} onClose={() => setOpen(null)} />}

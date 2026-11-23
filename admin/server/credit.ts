@@ -285,3 +285,19 @@ export function upgradeLegacyHashes(db: DB): number {
   if (changed) db.pragma('wal_checkpoint(TRUNCATE)');
   return changed;
 }
+
+/* ------------------------------------------------------------------ */
+/* Firmas guardadas en una venta (formulario de GoodLeap)               */
+/* ------------------------------------------------------------------ */
+
+export function saveSaleFile(db: DB, saleId: number, kind: string, mime: string, data: Buffer) {
+  db.prepare(
+    `INSERT INTO sale_files (sale_id, kind, mime, data) VALUES (?, ?, ?, ?)
+     ON CONFLICT(sale_id, kind) DO UPDATE SET mime = excluded.mime, data = excluded.data, created_at = datetime('now')`
+  ).run(saleId, kind, mime, encrypt(data));
+}
+
+export function readSaleFile(db: DB, saleId: number, kind: string): { mime: string; data: Buffer } | null {
+  const row = db.prepare('SELECT mime, data FROM sale_files WHERE sale_id = ? AND kind = ?').get(saleId, kind) as { mime: string; data: Buffer } | undefined;
+  return row ? { mime: row.mime, data: decrypt(row.data) } : null;
+}

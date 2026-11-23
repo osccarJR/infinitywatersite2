@@ -154,6 +154,8 @@ function sentence(e: Entry): { who: string; text: string } {
       return { who, text: `vio las fotos de las IDs de ${label}` };
     case 'credit-purge':
       return { who: 'El sistema', text: `borró el seguro social, la licencia y las fotos de las IDs de ${label} (ya pasó el tiempo de guardarlos)` };
+    case 'goodleap-form':
+      return { who, text: `registró el formulario de GoodLeap firmado de ${label}` };
     case 'contract-sign':
       return { who, text: `firmó la autorización de instalación de ${label}` };
     case 'avatar':
