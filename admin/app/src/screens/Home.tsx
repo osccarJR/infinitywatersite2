@@ -466,7 +466,7 @@ function Agenda() {
   for (const service of data.services) {
     if (service.status !== 'open' || !service.visitDate || service.visitDate > end) continue;
     const late = service.visitDate < data.today;
-    items.push({ key: `v${service.id}`, day: late ? data.today : service.visitDate, kind: 'visit', clientId: service.clientId, to: `/servicio/${service.id}`, detail: service.problem, late });
+    items.push({ key: `v${service.id}`, day: late ? data.today : service.visitDate, kind: 'visit', clientId: service.clientId, to: `/servicio/${service.id}`, detail: `${service.visitTime ? `${service.visitTime} · ` : ''}${service.problem}`, late });
   }
   items.sort((a, b) => a.day.localeCompare(b.day) || Number(b.late ?? 0) - Number(a.late ?? 0));
 

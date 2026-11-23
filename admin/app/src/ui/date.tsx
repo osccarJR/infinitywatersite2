@@ -218,3 +218,25 @@ function Calendar({ value, min, max, onPick, quick }: { value: string; min?: str
     </div>
   );
 }
+
+/** Franjas que se le dan al cliente; tambien se puede escribir otra. */
+const TIME_SLOTS = ['8:00 am – 10:00 am', '10:00 am – 12:00 pm', '12:00 pm – 2:00 pm', '2:00 pm – 4:00 pm', '4:00 pm – 6:00 pm'];
+
+/** Hora de una cita (instalacion o visita): franjas a un toque o texto libre. */
+export function TimeSlotsField({ field, label, value, onChange }: { field: string; label: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <div className="row-block" data-field={field}>
+      <div className="row-title" style={{ marginBottom: 10 }}>
+        {label} <span className="muted" style={{ fontSize: 14 }}>· la que se le dio al cliente</span>
+      </div>
+      <div className="time-slots" role="group" aria-label={label}>
+        {TIME_SLOTS.map((slot) => (
+          <button key={slot} type="button" className={`pay-method${value === slot ? ' on' : ''}`} aria-pressed={value === slot} onClick={() => onChange(value === slot ? '' : slot)}>
+            {slot.replace(':00', '').replace(':00', '')}
+          </button>
+        ))}
+      </div>
+      <input className="field-input time-custom" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Otra hora: 9:30 am, en la tarde…" maxLength={40} aria-label="Otra hora" />
+    </div>
+  );
+}

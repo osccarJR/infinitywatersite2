@@ -7,13 +7,13 @@ import type { Service, ServiceBilling, ServiceKind, ServicePayment, ServiceStatu
 import { SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipmentSummary, serviceMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { useAccess } from '../lib/access.ts';
-import { Eye } from 'lucide-react';
-import { goBack, useLeaveGuard } from '../lib/router.tsx';
+import { Eye, FileText } from 'lucide-react';
+import { goBack, navigate, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
 import { dateWithYear, localDate, moneyPlain } from '../lib/format.ts';
 import { Empty, Group, MoneyField, hasInvalidMoney, Page, Row, SegmentedRow, StackField, SwitchRow } from '../ui/kit.tsx';
-import { DateField } from '../ui/date.tsx';
+import { DateField, TimeSlotsField } from '../ui/date.tsx';
 import { ClientPicker, PersonPicker, PickerRow, clientRef, type ClientChoice } from '../ui/pickers.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
 
@@ -26,6 +26,7 @@ interface FormState {
   solution: string;
   technicianId: number | null;
   visitDate: string;
+  visitTime: string;
   status: ServiceStatus;
   closedDate: string;
   billing: ServiceBilling | null;
@@ -60,6 +61,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
       solution: existing?.solution ?? '',
       technicianId: existing?.technicianId ?? null,
       visitDate: existing?.visitDate ?? '',
+      visitTime: existing?.visitTime ?? '',
       status: existing?.status ?? 'open',
       closedDate: existing?.closedDate ?? '',
       billing: existing?.billing ?? null,
@@ -81,6 +83,8 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
   const savedClientId = useRef<number | null>(null);
   const version = useRef<string | undefined>(existing?.updatedAt);
   const leaving = useRef(false);
+  /** Al guardar, abrir el reporte de mantenimiento para imprimir. */
+  const printAfter = useRef(false);
 
   useEffect(() => setError(null), [form]);
 
@@ -124,6 +128,8 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
   const submit = async (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    const wantReport = printAfter.current;
+    printAfter.current = false;
     if (!form.client) return fail('Elige el cliente o créalo.', 'client');
     if (form.client.mode === 'new' && !form.client.draft.name.trim()) return fail('Escribe el nombre del cliente nuevo.', 'client.create.name');
     if (!form.problem.trim()) return fail('Describe el problema o el motivo de la visita.', 'problem');
@@ -150,6 +156,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           solution: form.solution || null,
           technicianId: form.technicianId,
           visitDate: form.visitDate || null,
+          visitTime: form.visitDate && form.visitTime.trim() ? form.visitTime.trim() : null,
           status: form.status,
           closedDate: form.status === 'closed' ? form.closedDate || data.today : null,
           billing: form.billing,
@@ -178,9 +185,26 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
       return;
     }
     leaving.current = true;
+    if (wantReport) {
+      // Si era nuevo, al volver del reporte se llega al servicio ya guardado.
+      if (!id) await navigate(`/servicio/${service.id}`, { replace: true, force: true });
+      navigate(`/imprimir/servicio/${service.id}`, { force: true });
+      return;
+    }
     toast(id ? 'Servicio actualizado' : 'Servicio registrado');
     goBack(back.to, { force: true });
   };
+
+  /** Reporte para el tecnico: si hay cambios sin guardar, primero se guardan. */
+  const report = () => {
+    if (existing && (readOnly || JSON.stringify(form) === initial.current)) {
+      navigate(`/imprimir/servicio/${existing.id}`);
+      return;
+    }
+    printAfter.current = true;
+    formRef.current?.requestSubmit();
+  };
+  const reportMissing = [!form.technicianId && 'el técnico', !form.visitDate && 'la fecha', form.visitDate && !form.visitTime.trim() && 'la hora'].filter(Boolean);
 
   const remove = async () => {
     const ok = await confirm({ title: '¿Borrar este servicio?', message: 'No se puede deshacer.', confirm: 'Borrar servicio', danger: true });
@@ -205,6 +229,25 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
             <div className="banner-title">Solo lectura</div>
             <div className="banner-text">Puedes ver este servicio, pero no cambiarlo.</div>
           </div>
+        </div>
+      )}
+      {(existing || !readOnly) && (
+        <div className="doc-actions">
+          <button type="button" className="doc-action" onClick={report} disabled={busy}>
+            <span className="doc-icon report">
+              <FileText size={20} />
+            </span>
+            <span>
+              <b>Generar reporte de mantenimiento</b>
+              <span>
+                {reportMissing.length && !readOnly
+                  ? `Falta ${reportMissing.join(', ')} de la visita`
+                  : existing
+                    ? 'Para el técnico: cliente, dirección, fecha, hora y motivo'
+                    : 'Registra el servicio y lo abre para imprimir'}
+              </span>
+            </span>
+          </button>
         </div>
       )}
       <form onSubmit={submit} noValidate ref={formRef}>
@@ -256,6 +299,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
         <Group label="Atención">
           <PersonPicker field="technicianId" role="installer" label="Técnico" value={form.technicianId} onChange={(v) => set('technicianId', v)} />
           <DateField field="visitDate" label="Fecha de la visita" value={form.visitDate} onChange={(v) => set('visitDate', v)} quick="future" />
+          {form.visitDate && <TimeSlotsField field="visitTime" label="Hora de la visita" value={form.visitTime} onChange={(v) => set('visitTime', v)} />}
           <StackField field="solution" label="Qué se hizo" value={form.solution} onChange={(v) => set('solution', v)} placeholder="Se cambió el cartucho de sedimento…" multiline />
         </Group>
 

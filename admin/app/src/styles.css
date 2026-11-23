@@ -1948,3 +1948,40 @@ a.pay-card:active { transform: perspective(900px) scale(0.98); }
 .ip-meta dl { grid-template-columns: 1.5fr 1fr; }
 .ip-lines td:nth-child(2) { width: 42%; }
 .inv-number-prefix { margin-left: auto; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.doc-icon.report { background: linear-gradient(135deg, #e07a12, #f2a541); }
+.doc-action:disabled { opacity: 0.6; }
+
+/* Reporte de mantenimiento (servicio) */
+.sp-page { padding: 0.3in 0.55in 0.24in; font-size: 9.4pt; height: auto; min-height: 11in; overflow: visible; }
+.sp-page .wp-header { margin-bottom: 8px; padding-bottom: 6px; }
+.sp-page .wp-header img { width: 1.7in; }
+.sp-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 0 8px; padding: 7px 14px; background: #1a8fc9; color: #fff; }
+.sp-title h1 { margin: 0; font-size: 15pt; font-weight: 700; }
+.sp-title span { font-size: 9.6pt; font-weight: 600; white-space: nowrap; }
+.sp-table { margin-bottom: 8px; }
+.sp-table td { padding: 2px 12px; }
+.sp-table tr:not(.wp-label) td { padding: 4px 12px 5px; }
+.sp-big { font-size: 11pt; font-weight: 700; }
+.sp-muted { color: #555; }
+.sp-map { display: block; margin-top: 2px; font-size: 8.4pt; color: #1a6fa8; }
+.sp-box { border: 1px solid #b9dcef; margin-bottom: 8px; }
+.sp-box h2, .sp-history h2 { margin: 0; padding: 3px 12px; background: #e8f4fb; color: #2b3a44; font-size: 8.6pt; font-weight: 700; }
+.sp-box p { margin: 0; padding: 5px 12px 6px; line-height: 1.4; white-space: pre-wrap; }
+.sp-reason p { font-size: 11pt; font-weight: 600; }
+.sp-history { margin-bottom: 8px; break-inside: avoid; border: 1px solid #b9dcef; }
+.sp-history table { width: 100%; border-collapse: collapse; font-size: 8.3pt; line-height: 1.3; }
+.sp-history th { text-align: left; font-weight: 700; padding: 2px 8px; border-bottom: 1px solid #b9dcef; color: #2b3a44; }
+.sp-history td { padding: 2px 8px; border-top: 1px solid #e3eff6; vertical-align: top; }
+.sp-nowrap { white-space: nowrap; }
+.sp-detail { width: 50%; }
+.sp-clamp { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.sp-fill { padding-bottom: 8px; }
+.sp-fields { display: flex; justify-content: space-between; gap: 12px; padding: 6px 12px 0; }
+.sp-fill, .sp-sign { break-inside: avoid; }
+.sp-label { padding: 6px 12px 0; font-weight: 700; font-size: 8.8pt; color: #2b3a44; }
+.sp-lines { margin: 0 12px; background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(0.25in - 1px), #9aa5ad calc(0.25in - 1px), #9aa5ad 0.25in); }
+.sp-fill p.sp-written { padding-top: 4px; }
+.sp-sign { margin-top: 4px; }
+.sp-sign .wp-sign-line { height: 26px; }
+.sp-sign td { padding: 5px 12px; }
+@media print { .sp-title, .sp-box h2, .sp-history h2 { -webkit-print-color-adjust: exact; print-color-adjust: exact; } .sp-map { color: #1a6fa8; } }

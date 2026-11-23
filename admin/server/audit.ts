@@ -223,6 +223,7 @@ export const SPECS: Record<string, Spec[]> = {
     ['solution', 'Qué se hizo', text],
     ['technicianId', 'Técnico', nameFrom('people')],
     ['visitDate', 'Visita', date],
+    ['visitTime', 'Hora de la visita', text],
     ['status', 'Estado', enumOf({ open: 'Abierto', closed: 'Resuelto' })],
     ['closedDate', 'Cierre', date],
     ['billing', 'Cobro', enumOf({ warranty: 'Garantía', charged: 'Se cobró' })],

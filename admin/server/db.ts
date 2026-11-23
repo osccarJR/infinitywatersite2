@@ -303,6 +303,9 @@ const MIGRATIONS: string[] = [
   ALTER TABLE sales ADD COLUMN invoice_no INTEGER;
   CREATE UNIQUE INDEX sales_invoice_no ON sales(invoice_no) WHERE invoice_no IS NOT NULL;
   `,
+  /* 13: hora de la visita de servicio (sale en el reporte de mantenimiento). */ `
+  ALTER TABLE services ADD COLUMN visit_time TEXT;
+  `,
 ];
 
 export type DB = Database.Database;

@@ -11,9 +11,10 @@ const notifyNow = () => listeners.forEach((fn) => fn());
 
 /** Cambio de pantalla con transicion suave donde el navegador la soporta. */
 const notify = () => {
-  const doc = document as Document & { startViewTransition?: (cb: () => void) => unknown };
+  const doc = document as Document & { startViewTransition?: (cb: () => void) => { ready?: Promise<void> } };
   if (doc.startViewTransition && !window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    doc.startViewTransition(() => flushSync(notifyNow));
+    // Dos cambios seguidos cancelan la primera transicion: no es un error.
+    doc.startViewTransition(() => flushSync(notifyNow)).ready?.catch(() => {});
   } else notifyNow();
 };
 /* ------------------------------------------------------------------ */

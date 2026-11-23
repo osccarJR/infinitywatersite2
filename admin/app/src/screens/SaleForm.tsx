@@ -17,7 +17,7 @@ import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
 import { moneyPlain as money, parseMoney, percent } from '../lib/format.ts';
 import { Empty, Group, MoneyField, hasInvalidMoney, Page, Row, SegmentedRow, StackField, SwitchRow, TextField } from '../ui/kit.tsx';
-import { DateField } from '../ui/date.tsx';
+import { DateField, TimeSlotsField } from '../ui/date.tsx';
 import { BrandPicker, ClientPicker, FinancierPicker, PersonPicker, StateZipRow, clientRef, useCatalogCreate, type ClientChoice } from '../ui/pickers.tsx';
 import { AddressField, CityField, lookupZip } from '../ui/address.tsx';
 import { Picker, useFeedback } from '../ui/sheet.tsx';
@@ -539,7 +539,7 @@ export function SaleForm({ id, clientId = null, legacy = false }: { id?: number;
             <Group label="Fechas e instalación" footer="Deja la instalación vacía si todavía no se instala: aparecerá en “Por instalar”.">
               {!form.isLegacy && <DateField field="saleDate" label="Fecha de venta" value={form.saleDate} onChange={(v) => set('saleDate', v)} />}
               <DateField field="installDate" label="Fecha de instalación" value={form.installDate} onChange={(v) => set('installDate', v)} min={form.saleDate || undefined} quick="future" />
-              {form.installDate && <InstallTimeField value={form.installTime} onChange={(v) => set('installTime', v)} />}
+              {form.installDate && <TimeSlotsField field="installTime" label="Hora de instalación" value={form.installTime} onChange={(v) => set('installTime', v)} />}
               <PersonPicker field="installerId" role="installer" label="Técnico que instaló" value={form.installerId} onChange={(v) => set('installerId', v)} />
               <SwitchRow label="En la dirección del cliente" checked={form.sameAddress} onChange={(v) => set('sameAddress', v)} />
               {!form.sameAddress && (
@@ -828,26 +828,5 @@ function CostInput({ value, onChange }: { value: number | null; onChange: (cents
         if (parsed !== undefined) onChange(parsed);
       }}
     />
-  );
-}
-
-/** Franjas que se le dan al cliente; tambien se puede escribir otra. */
-const TIME_SLOTS = ['8:00 am – 10:00 am', '10:00 am – 12:00 pm', '12:00 pm – 2:00 pm', '2:00 pm – 4:00 pm', '4:00 pm – 6:00 pm'];
-
-function InstallTimeField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  return (
-    <div className="row-block" data-field="installTime">
-      <div className="row-title" style={{ marginBottom: 10 }}>
-        Hora de instalación <span className="muted" style={{ fontSize: 14 }}>· la que se le dio al cliente</span>
-      </div>
-      <div className="time-slots" role="group" aria-label="Hora de instalación">
-        {TIME_SLOTS.map((slot) => (
-          <button key={slot} type="button" className={`pay-method${value === slot ? ' on' : ''}`} aria-pressed={value === slot} onClick={() => onChange(value === slot ? '' : slot)}>
-            {slot.replace(':00', '').replace(':00', '')}
-          </button>
-        ))}
-      </div>
-      <input className="field-input time-custom" value={value} onChange={(e) => onChange(e.target.value)} placeholder="Otra hora: 9:30 am, en la tarde…" maxLength={40} aria-label="Otra hora" />
-    </div>
   );
 }

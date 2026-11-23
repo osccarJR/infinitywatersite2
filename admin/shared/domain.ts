@@ -233,6 +233,8 @@ export interface Service {
   solution: string | null;
   technicianId: number | null;
   visitDate: string | null;
+  /** Hora o franja de la visita ("10:00 am – 12:00 pm"). */
+  visitTime: string | null;
   status: ServiceStatus;
   closedDate: string | null;
   billing: ServiceBilling | null;

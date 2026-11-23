@@ -655,6 +655,19 @@ test('hora de instalación y garantía guardada', async () => {
   assert.equal((await call('POST', `/sales/${saleId}/warranty`, { issueDate: '2026-11-07', representative: 'X', lines: [{ item: 'Y' }] }, { as: techCookie })).status, 403, 'el técnico solo ve ventas');
 });
 
+test('servicio: hora de la visita (para el reporte de mantenimiento)', async () => {
+  const owner = (await call('GET', '/bootstrap')).data.sales.find((x) => x.id === saleId).clientId;
+  const base = { client: { id: owner }, saleId, reportedDate: '2026-11-21', kind: 'maintenance', problem: 'Limpieza y ajustes del equipo' };
+  const r = await call('POST', '/services', { ...base, visitDate: '2026-11-23', visitTime: '10:00 am – 12:00 pm' });
+  assert.equal(r.status, 200, JSON.stringify(r.data));
+  assert.equal(r.data.service.visitTime, '10:00 am – 12:00 pm');
+  // Sin fecha de visita no se guarda una hora suelta.
+  const noDate = await call('POST', '/services', { ...base, visitTime: '9:30 am' });
+  assert.equal(noDate.data.service.visitTime, null);
+  const old = await call('POST', '/services', base);
+  assert.equal(old.data.service.visitTime, null, 'quien no manda la hora no rompe nada');
+});
+
 test('factura: número correlativo, sin repetir, reemisión igual y permisos', async () => {
   const body = (extra = {}) => ({
     issueDate: '2026-11-22',

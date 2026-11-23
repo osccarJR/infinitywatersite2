@@ -95,6 +95,7 @@ export function exportServices(services: Service[], data: Data, access: Access) 
       { label: 'Solución', value: (s) => s.solution },
       { label: 'Técnico', value: (s) => (s.technicianId ? data.personById.get(s.technicianId)?.name : '') },
       { label: 'Visita', value: (s) => s.visitDate },
+      { label: 'Hora', value: (s) => s.visitTime },
       { label: 'Estado', value: (s) => (s.status === 'open' ? 'Abierto' : 'Resuelto') },
       { label: 'Cerrado', value: (s) => s.closedDate },
       { label: 'Cobro', value: (s) => (s.billing === 'warranty' ? 'Garantía' : s.billing === 'charged' ? 'Cobrado' : '') },

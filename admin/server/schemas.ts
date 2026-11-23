@@ -147,6 +147,7 @@ const ServiceBase = z.object({
   solution: text(4000),
   technicianId: optionalId,
   visitDate: optionalDate,
+  visitTime: text(40),
   status: z.enum(['open', 'closed']).default('open'),
   closedDate: optionalDate,
   billing: z.enum(['warranty', 'charged']).nullish().transform((v) => v ?? null),
