@@ -170,6 +170,8 @@ export interface InvoiceData {
   brand: InvoiceBrand;
   /** "Paid in full", "Financed — X", "Net 30"... */
   terms: string;
+  /** Descuento sobre la suma de las lineas (centavos). */
+  discount: number;
   /** Porcentaje de impuesto (0 a 15). */
   taxRate: number;
   /** Lo que pago el cliente (centavos). */
@@ -191,12 +193,15 @@ export const FIRST_INVOICE = 2023;
 export const invoiceLabel = (n: number) => `${INVOICE_PREFIX}${n}`;
 
 /** Totales de una factura (centavos). */
-export function invoiceTotals(inv: Pick<InvoiceData, 'lines' | 'taxRate' | 'amountPaid' | 'financedAmount'>) {
+export function invoiceTotals(inv: Pick<InvoiceData, 'lines' | 'taxRate' | 'amountPaid' | 'financedAmount'> & { discount?: number }) {
   const subtotal = inv.lines.reduce((sum, l) => sum + Math.round(l.quantity * l.unitPrice), 0);
-  const tax = Math.round((subtotal * inv.taxRate) / 100);
-  const total = subtotal + tax;
+  const discount = Math.min(inv.discount ?? 0, subtotal);
+  // El impuesto se cobra sobre lo que queda despues del descuento.
+  const net = subtotal - discount;
+  const tax = Math.round((net * inv.taxRate) / 100);
+  const total = net + tax;
   const balance = Math.max(total - inv.amountPaid - inv.financedAmount, 0);
-  return { subtotal, tax, total, balance };
+  return { subtotal, discount, net, tax, total, balance };
 }
 
 export interface WarrantyLine {

@@ -1,5 +1,5 @@
 /**
- * Factura en ingles emitida por Global Innovations Group, LLC, lista para
+ * Factura en ingles emitida por Global Innovation Group, LLC, lista para
  * imprimir o guardar en PDF (tamano carta). Sigue el formato de las facturas
  * de proveedor que usa el negocio: datos del emisor y numero arriba, Sold To /
  * Ship To, lineas con SN# y el pie con vencimiento, condiciones y total.
@@ -200,10 +200,16 @@ export function InvoicePrint({ id }: { id: number }) {
               <dd>{inv.terms}</dd>
             </dl>
             <dl className="ip-sums">
-              {(taxed || t.total !== t.balance) && (
+              {(taxed || t.discount > 0 || t.total !== t.balance) && (
                 <>
                   <dt>Subtotal</dt>
                   <dd>{amount(t.subtotal)} USD</dd>
+                </>
+              )}
+              {t.discount > 0 && (
+                <>
+                  <dt>Discount</dt>
+                  <dd>-{amount(t.discount)} USD</dd>
                 </>
               )}
               {taxed && (

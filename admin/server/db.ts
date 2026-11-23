@@ -297,7 +297,7 @@ const MIGRATIONS: string[] = [
   ALTER TABLE sales ADD COLUMN install_time TEXT;
   ALTER TABLE sales ADD COLUMN warranty TEXT;
   `,
-  /* 12: factura en ingles emitida por Global Innovations Group (una por
+  /* 12: factura en ingles emitida por Global Innovation Group (una por
         venta, con numero unico y correlativo). */ `
   ALTER TABLE sales ADD COLUMN invoice TEXT;
   ALTER TABLE sales ADD COLUMN invoice_no INTEGER;

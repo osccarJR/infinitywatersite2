@@ -267,7 +267,7 @@ function InvoiceSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onCl
 
   const t = invoiceTotals(form);
   const salePrice = sale.price ?? 0;
-  const off = salePrice > 0 && t.subtotal !== salePrice;
+  const off = salePrice > 0 && t.net !== salePrice;
   const setLine = (i: number, patch: Partial<InvoiceLine>) => setForm((f) => ({ ...f, lines: f.lines.map((l, j) => (j === i ? { ...l, ...patch } : l)) }));
 
   const generate = async () => {
@@ -300,7 +300,7 @@ function InvoiceSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onCl
       error={error}
     >
       <p className="muted" style={{ textAlign: 'center', margin: '0 4px 14px', fontSize: 14.5 }}>
-        Sale en inglés a nombre de Global Innovations Group, LLC, con los datos del cliente y lo que se vendió. Revisa y emite: se abre lista para imprimir o guardar en PDF.
+        Sale en inglés a nombre de Global Innovation Group, LLC, con los datos del cliente y lo que se vendió. Revisa y emite: se abre lista para imprimir o guardar en PDF.
       </p>
 
       <Group>
@@ -389,13 +389,19 @@ function InvoiceSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onCl
         )}
       </div>
 
+      <Group footer="Pon los precios normales en las líneas y aquí lo que le rebajaste al cliente. Cuadrar reparte las líneas para que, con el descuento, dé el precio de la venta.">
+        <MoneyField label="Descuento" value={form.discount || null} onChange={(v) => setForm({ ...form, discount: v ?? 0 })} field="discount" />
+      </Group>
+
       <div className={`inv-check${off ? ' off' : ''}`}>
         <div>
-          <b>Suma de las líneas: {moneyPlain(t.subtotal)}</b>
-          <span>{salePrice > 0 ? (off ? `La venta es de ${moneyPlain(salePrice)}: no cuadra por ${moneyPlain(Math.abs(salePrice - t.subtotal))}.` : 'Cuadra con el precio de la venta ✓') : 'La venta no tiene precio registrado.'}</span>
+          <b>
+            {t.discount ? `Líneas ${moneyPlain(t.subtotal)} − descuento ${moneyPlain(t.discount)} = ${moneyPlain(t.net)}` : `Suma de las líneas: ${moneyPlain(t.subtotal)}`}
+          </b>
+          <span>{salePrice > 0 ? (off ? `La venta es de ${moneyPlain(salePrice)}: no cuadra por ${moneyPlain(Math.abs(salePrice - t.net))}.` : 'Cuadra con el precio de la venta ✓') : 'La venta no tiene precio registrado.'}</span>
         </div>
         {off && (
-          <button type="button" className="btn small" onClick={() => setForm({ ...form, lines: fitToTotal(form.lines, salePrice) })}>
+          <button type="button" className="btn small" onClick={() => setForm({ ...form, lines: fitToTotal(form.lines, salePrice + form.discount) })}>
             Cuadrar
           </button>
         )}

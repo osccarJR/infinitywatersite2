@@ -265,6 +265,7 @@ export const InvoiceInput = z.object({
   taxRate: z.number().min(0, 'El impuesto no puede ser negativo').max(15, 'Impuesto máximo 15 %'),
   amountPaid: z.number().int().min(0, 'Lo pagado no puede ser negativo').max(100_000_000),
   financedAmount: z.number().int().min(0, 'Lo financiado no puede ser negativo').max(100_000_000),
+  discount: z.number().int().min(0, 'El descuento no puede ser negativo').max(100_000_000).nullish().transform((v) => v ?? 0),
   financedBy: text(80).transform((v) => v ?? ''),
   customerPo: text(40).transform((v) => v ?? ''),
   lines: z

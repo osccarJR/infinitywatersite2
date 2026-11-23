@@ -689,6 +689,11 @@ test('factura: número correlativo, sin repetir, reemisión igual y permisos', a
   assert.equal(dup.status, 409);
   assert.match(dup.data.error, /300-2024/);
   assert.equal((await call('POST', `/sales/${other.id}/invoice`, body({ number: 2024 }))).status, 200);
+  // Descuento: se resta antes del total; no puede pasar la suma de las líneas.
+  const disc = await call('POST', `/sales/${saleId}/invoice`, body({ discount: 50_000, amountPaid: 0, financedAmount: 0 }));
+  assert.equal(disc.status, 200, JSON.stringify(disc.data));
+  assert.equal(disc.data.sale.invoice.discount, 50_000);
+  assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ discount: 99_000_000 }))).status, 400);
   // Datos mal y permisos.
   assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ lines: [] }))).status, 400);
   assert.equal((await call('POST', `/sales/${saleId}/invoice`, body({ taxRate: 40 }))).status, 400);

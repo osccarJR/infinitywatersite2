@@ -499,6 +499,7 @@ export function buildApi(db: DB, dataDir: string) {
     const fmtDate = (d: string) => d.split('-').reverse().join('/');
     db.transaction(() => {
       const number = input.number ?? sale!.invoice?.number ?? repo.nextInvoiceNumber(db);
+      if (input.discount > invoiceTotals({ ...input, discount: 0 }).subtotal) throw new HttpError(400, 'El descuento no puede ser mayor que la suma de las líneas.', 'discount');
       const owner = repo.invoiceNumberOwner(db, number, num(ctx));
       if (owner) throw new HttpError(409, `La factura ${invoiceLabel(number)} ya es de la venta #${owner}. La siguiente libre es la ${invoiceLabel(repo.nextInvoiceNumber(db))}.`, 'number');
       const data = { ...input, number, issuedAt: new Date().toISOString() };
@@ -514,6 +515,7 @@ export function buildApi(db: DB, dataDir: string) {
           { f: 'Número', b: invoiceLabel(number) },
           { f: 'Fecha', b: fmtDate(input.issueDate) },
           ...data.lines.map((l) => ({ f: l.description, b: `${l.quantity} × ${usd(l.unitPrice)}` })),
+          ...(t.discount ? [{ f: 'Descuento', b: usd(t.discount) }] : []),
           { f: 'Total', b: usd(t.total) },
           { f: 'Saldo pendiente', b: usd(t.balance) },
         ],

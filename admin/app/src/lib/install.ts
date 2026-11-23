@@ -94,12 +94,12 @@ export function warrantyDraft(sale: Sale, data: Data): Omit<WarrantyData, 'gener
 }
 
 /* ------------------------------------------------------------------ */
-/* Factura (Global Innovations Group, en ingles)                        */
+/* Factura (Global Innovation Group, en ingles)                        */
 /* ------------------------------------------------------------------ */
 
 /** Quien emite la factura (los mismos datos del encabezado de la garantia). */
 export const INVOICE_COMPANY = {
-  name: 'Global Innovations Group, LLC',
+  name: 'Global Innovation Group, LLC',
   street: '3940 Metro Pkwy, Office 109',
   cityLine: 'Fort Myers, FL 33916',
   phone: '+1 (239) 223-5394 | +1 (475) 685-8464',
@@ -128,8 +128,8 @@ function invoiceItems(sale: Sale, prefix: string): DraftLine[] {
 
 /**
  * Reparte un total entre las lineas en proporcion a su peso (o a lo que ya
- * tienen). La linea de mano de obra en $0 ("Included") no entra. Los centavos
- * que sobran del redondeo van a la primera linea de cantidad 1.
+ * tienen), en dolares redondos. La linea de mano de obra en $0 ("Included")
+ * no entra. Lo que sobra del redondeo va a la primera linea de cantidad 1.
  */
 export function fitToTotal(lines: InvoiceLine[], total: number, weights?: number[]): InvoiceLine[] {
   const current = lines.map((l) => Math.round(l.quantity * l.unitPrice));
@@ -138,7 +138,8 @@ export function fitToTotal(lines: InvoiceLine[], total: number, weights?: number
   if (!sum || total <= 0) return lines;
   const out = lines.map((l, i) => {
     const target = (total * base[i]) / sum;
-    return { ...l, unitPrice: base[i] ? Math.floor(target / l.quantity) : l.unitPrice };
+    // En dolares redondos; lo que sobra va a una sola linea.
+    return { ...l, unitPrice: base[i] ? Math.floor(target / l.quantity / 100) * 100 : l.unitPrice };
   });
   const diff = total - out.reduce((a, l) => a + Math.round(l.quantity * l.unitPrice), 0);
   const fix = out.findIndex((l, i) => base[i] > 0 && l.quantity === 1);
@@ -156,7 +157,7 @@ const addDays = (iso: string, days: number) => {
 export type InvoiceForm = Omit<InvoiceData, 'issuedAt' | 'number'> & { number: number | null };
 
 export function invoiceDraft(sale: Sale, data: Data, nextNumber: number | null): InvoiceForm {
-  if (sale.invoice) return sale.invoice;
+  if (sale.invoice) return { ...sale.invoice, discount: sale.invoice.discount ?? 0 };
   const brandName = (sale.brandId ? data.brands.find((b) => b.id === sale.brandId)?.name : '') ?? '';
   const brand: InvoiceBrand = /magic/i.test(brandName) ? 'magic' : 'infinity';
   const items = invoiceItems(sale, brand === 'magic' ? 'MW-' : 'IW-');
@@ -183,6 +184,7 @@ export function invoiceDraft(sale: Sale, data: Data, nextNumber: number | null):
     dueDate: issueDate,
     brand,
     terms: balance === 0 ? (m.financed ? `Financed${financier ? ` — ${financier}` : ''}` : 'Paid in full') : 'Due upon receipt',
+    discount: 0,
     taxRate: 0,
     amountPaid,
     financedAmount,
