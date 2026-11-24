@@ -89,12 +89,42 @@ export function SaleDocs({ sale }: { sale: Sale }) {
 
 function OrderSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onClose: () => void }) {
   const data = useData();
-  const { toast } = useFeedback();
-  const text = installOrderText(sale, data);
   const tech = sale.installerId ? data.personById.get(sale.installerId) : undefined;
+  const missing = [!sale.installDate && 'la fecha', !sale.installTime && 'la hora', !sale.installerId && 'el técnico'].filter(Boolean) as string[];
+  return (
+    <SendOrderSheet
+      open={open}
+      onClose={onClose}
+      title="Orden para el técnico"
+      text={installOrderText(sale, data)}
+      tech={tech}
+      missing={missing}
+      missingHint="Ponlo en Editar → Fechas e instalación para que la orden salga completa."
+    />
+  );
+}
+
+/** Orden para mandar por WhatsApp (instalacion o servicio): al tecnico, a otra persona o copiar. */
+export function SendOrderSheet({
+  open,
+  onClose,
+  title,
+  text,
+  tech,
+  missing,
+  missingHint,
+}: {
+  open: boolean;
+  onClose: () => void;
+  title: string;
+  text: string;
+  tech?: { name: string; phone: string | null };
+  missing: string[];
+  missingHint: string;
+}) {
+  const { toast } = useFeedback();
   const waMode = useWaMode();
   const computer = !isPhoneDevice();
-  const missing = [!sale.installDate && 'la fecha', !sale.installTime && 'la hora', !sale.installerId && 'el técnico'].filter(Boolean);
 
   const copy = async () => {
     try {
@@ -106,12 +136,12 @@ function OrderSheet({ sale, open, onClose }: { sale: Sale; open: boolean; onClos
   };
 
   return (
-    <Sheet open={open} onClose={onClose} title="Orden para el técnico">
+    <Sheet open={open} onClose={onClose} title={title}>
       {missing.length > 0 && (
         <div className="banner">
           <div>
             <div className="banner-title">Falta {missing.join(', ')}</div>
-            <div className="banner-text">Ponlo en Editar → Fechas e instalación para que la orden salga completa.</div>
+            <div className="banner-text">{missingHint}</div>
           </div>
         </div>
       )}

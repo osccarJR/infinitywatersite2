@@ -7,7 +7,9 @@ import type { Service, ServiceBilling, ServiceKind, ServicePayment, ServiceStatu
 import { SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipmentSummary, serviceMoney } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { useAccess } from '../lib/access.ts';
-import { Eye, FileText } from 'lucide-react';
+import { ClipboardList, Eye, FileText } from 'lucide-react';
+import { SendOrderSheet } from '../ui/saledocs.tsx';
+import { serviceOrderText } from '../lib/install.ts';
 import { goBack, navigate, useLeaveGuard } from '../lib/router.tsx';
 import { focusField, focusInvalid } from '../lib/focus.ts';
 import { api } from '../lib/api.ts';
@@ -83,6 +85,7 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
   const savedClientId = useRef<number | null>(null);
   const version = useRef<string | undefined>(existing?.updatedAt);
   const leaving = useRef(false);
+  const [orderOpen, setOrderOpen] = useState(false);
   /** Al guardar, abrir el reporte de mantenimiento para imprimir. */
   const printAfter = useRef(false);
 
@@ -246,6 +249,15 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
                     ? 'Para el técnico: cliente, dirección, fecha, hora y motivo'
                     : 'Registra el servicio y lo abre para imprimir'}
               </span>
+            </span>
+          </button>
+          <button type="button" className="doc-action" onClick={() => setOrderOpen(true)}>
+            <span className="doc-icon order">
+              <ClipboardList size={20} />
+            </span>
+            <span>
+              <b>Generar orden de servicio</b>
+              <span>Para el técnico por WhatsApp: cliente, dirección, fecha y motivo</span>
             </span>
           </button>
         </div>
@@ -415,6 +427,19 @@ export function ServiceForm({ id, clientId = null, saleId = null }: { id?: numbe
           </>
         )}
       </form>
+      <SendOrderSheet
+        open={orderOpen}
+        onClose={() => setOrderOpen(false)}
+        title="Orden de servicio"
+        text={serviceOrderText(
+          { clientId: form.client?.mode === 'existing' ? form.client.id : null, saleId: form.saleId, technicianId: form.technicianId, visitDate: form.visitDate, visitTime: form.visitTime, problem: form.problem },
+          data,
+          form.client?.mode === 'new' ? form.client.draft.name : undefined
+        )}
+        tech={form.technicianId ? data.personById.get(form.technicianId) : undefined}
+        missing={[!form.technicianId && 'el técnico', !form.visitDate && 'la fecha', form.visitDate && !form.visitTime.trim() && 'la hora', !form.problem.trim() && 'el motivo'].filter(Boolean) as string[]}
+        missingHint="Complétalo abajo en el servicio para que la orden salga completa."
+      />
     </Page>
   );
 }

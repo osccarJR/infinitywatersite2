@@ -2239,3 +2239,4 @@ ol.ct-terms li { margin-bottom: 4px; }
 .print-chip { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px; border-radius: 999px; background: var(--red-soft); color: var(--red); font-weight: 700; font-size: 14px; z-index: 1; }
 .print-chip:active { opacity: 0.6; }
 .row-with-action + .row-with-action > .row, .row-with-action + .row { border-top: 0.5px solid var(--sep); }
+.btn.pay-btn { background: var(--green); color: #fff; }

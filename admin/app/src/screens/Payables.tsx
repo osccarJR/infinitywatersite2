@@ -91,8 +91,8 @@ export function Payables({ action }: { action: string | null }) {
         (canCharge || canPay) && data.payableAccounts.length > 0 ? (
           <span style={{ display: 'flex', gap: 8 }}>
             {canPay && (
-              <button type="button" className="btn small gray" onClick={() => setEditing({ kind: 'payment' })}>
-                <CircleCheck size={17} /> <span className="add-label">Pagar</span>
+              <button type="button" className="btn small pay-btn" onClick={() => setEditing({ kind: 'payment' })}>
+                <CircleCheck size={17} /> <span className="add-label">Ingresar pago</span>
               </button>
             )}
             {canCharge && (
@@ -376,7 +376,7 @@ export function PayableAccountScreen({ id }: { id: number }) {
           {canPay && (
             <button type="button" className="quick-action" onClick={() => setEditing({ kind: 'payment', accountId: account.id })} disabled={status.balance === 0}>
               <CircleCheck size={22} />
-              {account.kind === 'supplier' ? 'Pagar factura' : 'Registrar pago'}
+              {account.kind === 'supplier' ? 'Pagar factura' : 'Ingresar pago'}
             </button>
           )}
           {canCharge && (
@@ -857,7 +857,8 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
     setError(null);
     const s = statuses.find((x) => x.account.id === accountId);
     const target = payableId ? s?.items.find((i) => i.payable.id === payableId) : undefined;
-    setForm({ accountId: accountId ?? null, payableId: payableId ?? null, amount: target ? target.remaining : s ? s.balance || null : null, date: data.today, method: null, notes: '' });
+    // El monto se escribe (p. ej. $500): no se pone el saldo completo de entrada, para no pagar todo por error.
+    setForm({ accountId: accountId ?? null, payableId: payableId ?? null, amount: target ? target.remaining : null, date: data.today, method: null, notes: '' });
   }, [open, accountId, payableId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const save = async () => {
@@ -866,9 +867,13 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
     if (!form.amount) return setError('Pon cuánto pagaste.');
     setBusy(true);
     try {
+      if (status && form.amount > status.balance) {
+        setBusy(false);
+        return setError(`El pago es mayor que lo que se debe en ${status.account.name} (${money(status.balance)}).`);
+      }
       await api('/payable-payments', { method: 'POST', body: { ...form, notes: form.notes || null } });
       await reload();
-      toast('Pago registrado');
+      toast(status ? `Pago registrado · ${status.account.name} queda en ${money(Math.max(status.balance - form.amount, 0))}` : 'Pago registrado');
       onClose();
     } catch (err: any) {
       setError(err.message);
@@ -883,16 +888,16 @@ function PaymentSheet({ open, accountId, payableId, onClose }: { open: boolean; 
     <Sheet
       open={open}
       onClose={onClose}
-      title={isSupplier ? "Pagar factura" : "Registrar pago"}
+      title={isSupplier ? "Pagar factura" : "Ingresar pago"}
       left={<button type="button" className="link-btn" onClick={onClose}>Cancelar</button>}
       onSubmit={save}
-      submitLabel="Registrar pago"
+      submitLabel="Guardar pago"
       busy={busy}
       error={error}
       guard
     >
       <Group footer={status ? `Saldo de ${status.account.name}: ${money(status.balance)}${status.overdue ? ` · vencido ${money(status.overdue)}` : ''}` : undefined}>
-        <AccountPicker value={form.accountId} onChange={(id) => { const s = statuses.find((x) => x.account.id === id); setForm({ ...form, accountId: id, payableId: null, amount: s?.balance || null }); }} />
+        <AccountPicker value={form.accountId} onChange={(id) => setForm({ ...form, accountId: id, payableId: null })} />
         <MoneyField field="amount" label="Cuánto pagaste" value={form.amount} onChange={(amount) => setForm({ ...form, amount })} />
       </Group>
       {status && status.balance > 0 && (

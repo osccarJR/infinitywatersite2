@@ -54,6 +54,31 @@ export function installOrderText(sale: Sale, data: Data): string {
   return lines.filter((l) => l !== null).join('\n');
 }
 
+/** Orden de servicio corta para el tecnico: cliente, direccion, fecha y hora, y motivo. */
+export function serviceOrderText(
+  v: { clientId: number | null; saleId: number | null; technicianId: number | null; visitDate: string; visitTime: string; problem: string },
+  data: Data,
+  clientName?: string
+): string {
+  const client = v.clientId ? data.clientById.get(v.clientId) : undefined;
+  const sale = v.saleId ? data.sales.find((x) => x.id === v.saleId) : undefined;
+  const tech = v.technicianId ? data.personById.get(v.technicianId) : undefined;
+  const address = sale ? installAddress(sale, client) : installAddress({ installAddress: null, installCity: null, installStateCode: null, installZip: null } as unknown as Sale, client);
+  const lines = [
+    tech ? `Hola ${tech.name.split(' ')[0]}, esta es tu orden de servicio:` : null,
+    '*ORDEN DE SERVICIO*',
+    '',
+    `👤 *Cliente:* ${client?.name ?? clientName ?? '—'}`,
+    `📍 *Dirección:* ${address.street || '—'}`,
+    address.cityLine ? `     ${address.cityLine}` : null,
+    address.full ? `🗺️ *Mapa:* ${mapsLink(address.full)}` : null,
+    `📅 *Fecha:* ${v.visitDate ? cap(longDate(v.visitDate)) : 'por confirmar'}${v.visitTime ? ` · ${v.visitTime}` : ''}`,
+    '',
+    `🔧 *Motivo:* ${v.problem.trim() || '—'}`,
+  ];
+  return lines.filter((l) => l !== null).join('\n');
+}
+
 /* ------------------------------------------------------------------ */
 /* Garantia                                                             */
 /* ------------------------------------------------------------------ */
