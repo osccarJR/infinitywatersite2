@@ -7,18 +7,88 @@ import type { DB } from './db.ts';
 import { HttpError, type Ctx, type Router } from './http.ts';
 import { need } from './permissions.ts';
 import { BankAccountInput, BankMovementInput, firstIssue } from './schemas.ts';
-import type { BankAccount, BankMovement, User } from '../shared/domain.ts';
+import type { BankAccount, BankMovement, BankPending, User } from '../shared/domain.ts';
 import type { AuditEntry } from './audit.ts';
 import type { z } from 'zod';
 
 const toAccount = (r: any): BankAccount => ({ id: r.id, name: r.name, openingBalance: r.opening_balance, openingDate: r.opening_date, notes: r.notes, active: Boolean(r.active) });
-const toMovement = (r: any): BankMovement => ({ id: r.id, accountId: r.account_id, date: r.date, kind: r.kind, amount: r.amount, description: r.description, notes: r.notes, createdAt: r.created_at, createdBy: r.created_by_name ?? null });
+const toMovement = (r: any): BankMovement => ({ id: r.id, accountId: r.account_id, date: r.date, kind: r.kind, amount: r.amount, description: r.description, notes: r.notes, createdAt: r.created_at, createdBy: r.created_by_name ?? null, source: r.source ?? null });
 
 export const listBankAccounts = (db: DB) => (db.prepare('SELECT * FROM bank_accounts ORDER BY active DESC, name COLLATE NOCASE').all() as any[]).map(toAccount);
 export const listBankMovements = (db: DB) =>
   (db.prepare('SELECT m.*, (SELECT name FROM users WHERE id = m.created_by) AS created_by_name FROM bank_movements m ORDER BY m.date DESC, m.id DESC').all() as any[]).map(toMovement);
 
 export const managesBank = (u: User) => Boolean(u.permissions.flags['bank.manage']);
+
+/**
+ * Lo que ya se registro en el sistema y es dinero que entro o salio:
+ *  - pagos a tarjetas, proveedores y prestamos (cuentas por pagar): egreso
+ *  - comisiones pagadas a vendedores (por vendedor y dia): egreso
+ *  - pagos a tecnicos, de instalaciones y servicios (por tecnico y dia): egreso
+ *  - lo que pagaron las financieras (por financiera y dia): ingreso
+ * Cada uno tiene una clave ("source") para no pasarlo dos veces a caja.
+ */
+export function systemMovements(db: DB): Omit<BankPending, 'movementId' | 'previousAmount'>[] {
+  const out: Omit<BankPending, 'movementId' | 'previousAmount'>[] = [];
+  const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+  for (const r of db
+    .prepare(`SELECT p.id, p.date, p.amount, p.method, a.name AS account FROM payable_payments p JOIN payable_accounts a ON a.id = p.account_id`)
+    .all() as any[]) {
+    out.push({ source: `payable-payment:${r.id}`, date: r.date, kind: 'out', amount: r.amount, description: `Pago a ${r.account}` });
+  }
+  for (const r of db
+    .prepare(
+      `SELECT s.seller_id AS pid, s.commission_paid_date AS date, SUM(s.commission) AS amount, COUNT(*) AS n, p.name
+         FROM sales s LEFT JOIN people p ON p.id = s.seller_id
+        WHERE s.commission_paid = 1 AND s.commission_paid_date IS NOT NULL AND COALESCE(s.commission, 0) > 0
+        GROUP BY s.seller_id, s.commission_paid_date`
+    )
+    .all() as any[]) {
+    out.push({ source: `commission:${r.pid ?? 0}:${r.date}`, date: r.date, kind: 'out', amount: r.amount, description: `Comisión ${r.name ?? 'vendedor'} (${plural(r.n, 'venta', 'ventas')})` });
+  }
+  const tech = new Map<string, { pid: number; date: string; amount: number; n: number; name: string }>();
+  for (const r of db
+    .prepare(
+      `SELECT s.installer_id AS pid, s.installer_paid_date AS date, s.installer_pay AS amount, p.name FROM sales s LEFT JOIN people p ON p.id = s.installer_id
+        WHERE s.installer_paid = 1 AND s.installer_paid_date IS NOT NULL AND COALESCE(s.installer_pay, 0) > 0
+       UNION ALL
+       SELECT v.technician_id, v.technician_paid_date, v.technician_pay, p.name FROM services v LEFT JOIN people p ON p.id = v.technician_id
+        WHERE v.technician_paid = 1 AND v.technician_paid_date IS NOT NULL AND COALESCE(v.technician_pay, 0) > 0`
+    )
+    .all() as any[]) {
+    const key = `${r.pid ?? 0}:${r.date}`;
+    const t = tech.get(key) ?? { pid: r.pid ?? 0, date: r.date, amount: 0, n: 0, name: r.name ?? 'técnico' };
+    t.amount += r.amount;
+    t.n += 1;
+    tech.set(key, t);
+  }
+  for (const t of tech.values()) out.push({ source: `technician:${t.pid}:${t.date}`, date: t.date, kind: 'out', amount: t.amount, description: `Pago técnico ${t.name} (${plural(t.n, 'trabajo', 'trabajos')})` });
+  for (const r of db
+    .prepare(
+      `SELECT s.financier_id AS fid, s.funded_date AS date, SUM(s.funded_amount) AS amount, COUNT(*) AS n, f.name
+         FROM sales s LEFT JOIN financiers f ON f.id = s.financier_id
+        WHERE s.funded_paid = 1 AND s.funded_date IS NOT NULL AND COALESCE(s.funded_amount, 0) > 0
+        GROUP BY s.financier_id, s.funded_date`
+    )
+    .all() as any[]) {
+    out.push({ source: `funded:${r.fid ?? 0}:${r.date}`, date: r.date, kind: 'in', amount: r.amount, description: `Pago de ${r.name ?? 'la financiera'} (${plural(r.n, 'venta', 'ventas')})` });
+  }
+  return out.sort((a, b) => b.date.localeCompare(a.date) || a.description.localeCompare(b.description));
+}
+
+/** Lo del sistema que falta pasar a caja desde una fecha (o que cambio de monto). */
+export function pendingFor(db: DB, since: string): BankPending[] {
+  const imported = new Map((db.prepare('SELECT id, source, amount FROM bank_movements WHERE source IS NOT NULL').all() as { id: number; source: string; amount: number }[]).map((m) => [m.source, m]));
+  const ignored = new Set((db.prepare('SELECT source FROM bank_ignored').all() as { source: string }[]).map((r) => r.source));
+  const list: BankPending[] = [];
+  for (const m of systemMovements(db)) {
+    if (m.date < since || ignored.has(m.source)) continue;
+    const done = imported.get(m.source);
+    if (done && done.amount === m.amount) continue;
+    list.push({ ...m, movementId: done?.id ?? null, previousAmount: done?.amount ?? null });
+  }
+  return list;
+}
 
 function parse<T extends z.ZodType>(schema: T, data: unknown): z.infer<T> {
   const result = schema.safeParse(data);
@@ -91,6 +161,51 @@ export function bankRoutes(api: Router, db: DB, log: (ctx: Ctx, entry: AuditEntr
 
   const movementLabel = (m: { kind: string; amount: number; description: string; account_id?: number; accountId?: number }) =>
     `${m.kind === 'in' ? 'un ingreso' : 'un egreso'} de ${dollars(m.amount)} (${m.description}) en ${account(m.accountId ?? m.account_id!)?.name ?? 'una cuenta'}`;
+
+  /* ------------- traer lo del sistema (sin duplicar) ------------- */
+
+  api.add('GET', '/bank-accounts/:id/pending', (ctx) => {
+    me(ctx);
+    const acc = account(num(ctx));
+    if (!acc) throw new HttpError(404, 'La cuenta no existe');
+    return { pending: pendingFor(db, acc.opening_date) };
+  });
+
+  api.add('POST', '/bank-accounts/:id/import', (ctx) => {
+    const user = me(ctx);
+    const acc = account(num(ctx));
+    if (!acc) throw new HttpError(404, 'La cuenta no existe');
+    const wanted = (ctx.body as { sources?: unknown })?.sources;
+    if (!Array.isArray(wanted) || !wanted.length || wanted.some((x) => typeof x !== 'string')) throw new HttpError(400, 'Elige qué movimientos agregar.');
+    // Los montos se vuelven a calcular aqui (no se confia en lo que manda la app).
+    const pending = new Map(pendingFor(db, acc.opening_date).map((p) => [p.source, p]));
+    const chosen = (wanted as string[]).map((s) => pending.get(s)).filter((p): p is BankPending => Boolean(p));
+    if (!chosen.length) throw new HttpError(409, 'Esos movimientos ya se agregaron. Recarga la página.');
+    db.transaction(() => {
+      for (const p of chosen) {
+        if (p.movementId) {
+          db.prepare(`UPDATE bank_movements SET amount = ?, date = ?, description = ?, updated_at = datetime('now') WHERE id = ?`).run(p.amount, p.date, p.description, p.movementId);
+        } else {
+          db.prepare('INSERT INTO bank_movements (account_id, date, kind, amount, description, notes, created_by, source) VALUES (?, ?, ?, ?, ?, ?, ?, ?)').run(acc.id, p.date, p.kind, p.amount, p.description, 'Del sistema', user.id, p.source);
+        }
+      }
+    })();
+    log(ctx, { action: 'create', entity: 'bank-movement', label: `${chosen.length} ${chosen.length === 1 ? 'movimiento' : 'movimientos'} del sistema en ${acc.name}`, changes: chosen.map((p) => ({ f: p.date, b: `${p.kind === 'in' ? '+' : '−'} ${dollars(p.amount)} · ${p.description}` })) });
+    return { ...fresh(), pending: pendingFor(db, acc.opening_date) };
+  });
+
+  /** "No va en caja": no se vuelve a ofrecer (p. ej. se pago desde otra cuenta). */
+  api.add('POST', '/bank-accounts/:id/ignore', (ctx) => {
+    me(ctx);
+    const acc = account(num(ctx));
+    if (!acc) throw new HttpError(404, 'La cuenta no existe');
+    const sources = (ctx.body as { sources?: unknown })?.sources;
+    if (!Array.isArray(sources) || sources.some((x) => typeof x !== 'string' || x.length > 80)) throw new HttpError(400, 'Datos no válidos');
+    const ins = db.prepare('INSERT OR IGNORE INTO bank_ignored (source) VALUES (?)');
+    for (const s of sources as string[]) ins.run(s);
+    log(ctx, { action: 'update', entity: 'bank-movement', label: `${sources.length} ${sources.length === 1 ? 'movimiento' : 'movimientos'} del sistema que no van en caja` });
+    return { pending: pendingFor(db, acc.opening_date) };
+  });
 
   api.add('POST', '/bank-movements', (ctx) => {
     const user = me(ctx);

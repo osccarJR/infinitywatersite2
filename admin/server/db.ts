@@ -381,6 +381,16 @@ const MIGRATIONS: string[] = [
   );
   CREATE INDEX bank_movements_account ON bank_movements(account_id, date);
   `,
+  /* 17: movimientos de caja traidos del sistema (pagos a tarjetas, comisiones,
+        tecnicos, financieras): de donde vienen, para no duplicarlos, y los que
+        el dueno marco como "no va en caja". */ `
+  ALTER TABLE bank_movements ADD COLUMN source TEXT;
+  CREATE UNIQUE INDEX bank_movements_source ON bank_movements(source) WHERE source IS NOT NULL;
+  CREATE TABLE bank_ignored (
+    source TEXT PRIMARY KEY,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  `,
 ];
 
 export type DB = Database.Database;

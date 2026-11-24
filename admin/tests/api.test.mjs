@@ -947,6 +947,26 @@ test('caja y bancos: saldo inicial, ingresos y egresos; solo con su permiso', as
   const mid = moves.find((m) => m.kind === 'out').id;
   assert.equal((await call('PUT', `/bank-movements/${mid}`, { accountId: id, date: '2026-11-24', kind: 'out', amount: 40_000, description: 'Pago tarjeta Visa' })).status, 200);
   assert.equal((await call('DELETE', `/bank-movements/${mid}`)).status, 200);
+  // Traer del sistema: un pago a una tarjeta registrado hoy aparece y se agrega una sola vez.
+  const card = (await call('POST', '/payable-accounts', { name: 'Visa caja prueba', kind: 'card' })).data;
+  const cardId = (card.account ?? card.accounts?.find((x) => x.name === 'Visa caja prueba'))?.id ?? (await call('GET', '/bootstrap')).data.payableAccounts.find((x) => x.name === 'Visa caja prueba').id;
+  await call('POST', '/payables', { accountId: cardId, date: '2026-11-24', description: 'Saldo', amount: 200_000 });
+  assert.equal((await call('POST', '/payable-payments', { accountId: cardId, date: '2026-11-24', amount: 50_000 })).status, 200);
+  const pend = (await call('GET', `/bank-accounts/${id}/pending`)).data.pending;
+  const pay = pend.find((p) => p.source.startsWith('payable-payment:') && p.amount === 50_000);
+  assert.ok(pay, JSON.stringify(pend));
+  assert.equal(pay.kind, 'out');
+  const imp = await call('POST', `/bank-accounts/${id}/import`, { sources: [pay.source] });
+  assert.equal(imp.status, 200, JSON.stringify(imp.data));
+  assert.ok(imp.data.bankMovements.some((m) => m.source === pay.source && m.amount === 50_000));
+  assert.ok(!imp.data.pending.some((p) => p.source === pay.source), 'ya no está pendiente');
+  assert.equal((await call('POST', `/bank-accounts/${id}/import`, { sources: [pay.source] })).status, 409, 'no se duplica');
+  // "No va": desaparece de la lista.
+  const rest = imp.data.pending;
+  if (rest.length) {
+    const ign = await call('POST', `/bank-accounts/${id}/ignore`, { sources: [rest[0].source] });
+    assert.ok(!ign.data.pending.some((p) => p.source === rest[0].source));
+  }
 });
 
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {

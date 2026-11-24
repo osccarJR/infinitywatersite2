@@ -4,8 +4,8 @@
  * saldo despues de cada movimiento.
  */
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowDownLeft, ArrowUpRight, Landmark, Plus } from 'lucide-react';
-import type { BankAccount, BankMovement } from '../../../shared/domain.ts';
+import { ArrowDownLeft, ArrowUpRight, Check, Landmark, Plus, RefreshCw, Trash2 } from 'lucide-react';
+import type { BankAccount, BankMovement, BankPending } from '../../../shared/domain.ts';
 import { bankBalance } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
 import { useAccess } from '../lib/access.ts';
@@ -82,6 +82,20 @@ export function BankAccountScreen({ id }: { id: number }) {
   const account = data.bankAccounts.find((a) => a.id === id);
   const [moving, setMoving] = useState<{ kind: 'in' | 'out'; movement?: BankMovement } | null>(null);
   const [editing, setEditing] = useState<BankAccount | null>(null);
+  const a = useAccess();
+  const { reload } = useStore();
+  const { toast, confirm } = useFeedback();
+  /** Borrar un movimiento que se registro mal (solo el dueno). Si vino del sistema, vuelve a "Del sistema". */
+  const removeMovement = async (m: BankMovement) => {
+    if (!(await confirm({ title: '¿Borrar este movimiento?', message: `${m.description} · ${signed(m)}${m.source ? '. Vuelve a aparecer en «Del sistema» por si lo quieres pasar a otra cuenta.' : ''}`, confirm: 'Borrar', danger: true }))) return;
+    try {
+      await api(`/bank-movements/${m.id}`, { method: 'DELETE' });
+      await reload();
+      toast('Movimiento borrado');
+    } catch (err: any) {
+      toast(err.message, 'error');
+    }
+  };
 
   // Movimientos de la cuenta, del mas nuevo al mas viejo, con el saldo despues de cada uno.
   const rows = useMemo(() => {
@@ -132,20 +146,28 @@ export function BankAccountScreen({ id }: { id: number }) {
         </button>
       </div>
 
+      <SystemPending account={account} />
+
       {rows.length === 0 && <Empty title="Sin movimientos todavía" text="Toca Ingreso o Egreso para registrar lo que entra y lo que sale." />}
       {months.map(([month, list]) => (
         <div key={month}>
           <div className="group-label">{monthLabel(`${month}-01`)}</div>
           <Group>
             {list.map(({ m, after }) => (
-              <Row
-                key={m.id}
-                onClick={() => setMoving({ kind: m.kind, movement: m })}
-                title={m.description}
-                subtitle={`${dateWithYear(m.date)} · saldo ${money(after)}${m.notes ? ` · ${m.notes}` : ''}`}
-                value={<b className={m.kind === 'in' ? 'bank-in' : 'bank-out'}>{signed(m)}</b>}
-                chevron={false}
-              />
+              <div key={m.id} className={`row-with-action${a.owner ? '' : ' no-action'}`}>
+                <Row
+                  onClick={() => setMoving({ kind: m.kind, movement: m })}
+                  title={m.description}
+                  subtitle={`${dateWithYear(m.date)} · saldo ${money(after)}${m.source ? ' · del sistema' : m.notes ? ` · ${m.notes}` : ''}`}
+                  value={<b className={m.kind === 'in' ? 'bank-in' : 'bank-out'}>{signed(m)}</b>}
+                  chevron={false}
+                />
+                {a.owner && (
+                  <button type="button" className="trash-chip" onClick={() => removeMovement(m)} aria-label={`Borrar ${m.description}`}>
+                    <Trash2 size={17} />
+                  </button>
+                )}
+              </div>
             ))}
           </Group>
         </div>
@@ -322,5 +344,95 @@ function MovementSheet({ account, state, onClose }: { account: BankAccount; stat
         </div>
       )}
     </Sheet>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/* Del sistema: pagos ya registrados que se pasan a la cuenta           */
+/* ------------------------------------------------------------------ */
+
+function SystemPending({ account }: { account: BankAccount }) {
+  const data = useData();
+  const { reload } = useStore();
+  const { toast } = useFeedback();
+  const [pending, setPending] = useState<BankPending[] | null>(null);
+  const [busy, setBusy] = useState(false);
+
+  // Se vuelve a pedir cada vez que cambian los datos (un pago nuevo, una comision marcada...).
+  useEffect(() => {
+    let alive = true;
+    api<{ pending: BankPending[] }>(`/bank-accounts/${account.id}/pending`)
+      .then((r) => alive && setPending(r.pending))
+      .catch(() => alive && setPending([]));
+    return () => {
+      alive = false;
+    };
+  }, [account.id, data]);
+
+  if (!pending || pending.length === 0) return null;
+
+  const add = async (sources: string[]) => {
+    setBusy(true);
+    try {
+      const r = await api<{ pending: BankPending[] }>(`/bank-accounts/${account.id}/import`, { method: 'POST', body: { sources } });
+      setPending(r.pending);
+      await reload();
+      toast(sources.length === 1 ? 'Agregado a la cuenta' : `${sources.length} movimientos agregados`);
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+  const skip = async (source: string) => {
+    setBusy(true);
+    try {
+      const r = await api<{ pending: BankPending[] }>(`/bank-accounts/${account.id}/ignore`, { method: 'POST', body: { sources: [source] } });
+      setPending(r.pending);
+    } catch (err: any) {
+      toast(err.message, 'error');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const net = pending.reduce((n, p) => n + (p.kind === 'in' ? p.amount : -p.amount) - (p.previousAmount != null ? (p.kind === 'in' ? p.previousAmount : -p.previousAmount) : 0), 0);
+  return (
+    <div className="bank-pending">
+      <div className="bank-pending-head">
+        <RefreshCw size={18} />
+        <div>
+          <b>Del sistema: {pending.length === 1 ? '1 movimiento' : `${pending.length} movimientos`} para agregar</b>
+          <span>Pagos que ya están en el panel desde el {dateWithYear(account.openingDate)} (tarjetas, comisiones, técnicos, financieras)</span>
+        </div>
+      </div>
+      <div className="group">
+        {pending.map((p) => (
+          <div key={p.source} className="bank-pending-row">
+            <div className="bank-pending-text">
+              <b>{p.description}</b>
+              <span>
+                {dateWithYear(p.date)}
+                {p.previousAmount != null && ` · antes ${money(p.previousAmount)}`}
+              </span>
+            </div>
+            <b className={p.kind === 'in' ? 'bank-in' : 'bank-out'}>{signed(p)}</b>
+            <div className="bank-pending-buttons">
+              <button type="button" className="chip-btn add" onClick={() => add([p.source])} disabled={busy}>
+                <Check size={15} /> {p.movementId ? 'Actualizar' : 'Agregar'}
+              </button>
+              <button type="button" className="chip-btn" onClick={() => skip(p.source)} disabled={busy}>
+                No va
+              </button>
+            </div>
+          </div>
+        ))}
+      </div>
+      {pending.length > 1 && (
+        <button type="button" className="btn block" onClick={() => add(pending.map((p) => p.source))} disabled={busy}>
+          Agregar todos ({net >= 0 ? '+' : '−'} {money(Math.abs(net))})
+        </button>
+      )}
+    </div>
   );
 }

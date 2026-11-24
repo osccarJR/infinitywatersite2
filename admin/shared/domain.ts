@@ -296,6 +296,20 @@ export interface BankMovement {
   notes: string | null;
   createdAt: string;
   createdBy: string | null;
+  /** Si vino del sistema (pago a tarjeta, comision, tecnico, financiera). */
+  source: string | null;
+}
+
+/** Movimiento que ya esta en el sistema y se puede pasar a caja y bancos. */
+export interface BankPending {
+  source: string;
+  date: string;
+  kind: 'in' | 'out';
+  amount: number;
+  description: string;
+  /** Ya estaba en caja con otro monto (p. ej. se marco otra comision ese dia). */
+  movementId: number | null;
+  previousAmount: number | null;
 }
 
 /** Saldo de una cuenta: inicial + ingresos − egresos. */
