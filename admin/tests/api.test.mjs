@@ -928,6 +928,27 @@ test('usuarios: el dueño cambia usuario y contraseña; se puede entrar con el n
   assert.equal((await call('PUT', `/users/${id}`, { username: 'con espacio' })).status, 400);
 });
 
+test('caja y bancos: saldo inicial, ingresos y egresos; solo con su permiso', async () => {
+  const acc = await call('POST', '/bank-accounts', { name: 'Caja', openingBalance: 500_000, openingDate: '2026-11-24' });
+  assert.equal(acc.status, 200, JSON.stringify(acc.data));
+  const id = acc.data.bankAccounts.find((a) => a.name === 'Caja').id;
+  assert.equal((await call('POST', '/bank-accounts', { name: 'caja', openingBalance: 0, openingDate: '2026-11-24' })).status, 409, 'nombre repetido');
+  assert.equal((await call('POST', '/bank-movements', { accountId: id, date: '2026-11-24', kind: 'in', amount: 100_000, description: 'Depósito venta' })).status, 200);
+  const out = await call('POST', '/bank-movements', { accountId: id, date: '2026-11-24', kind: 'out', amount: 30_000, description: 'Pago tarjeta' });
+  assert.equal(out.status, 200);
+  const moves = out.data.bankMovements.filter((m) => m.accountId === id);
+  const balance = moves.reduce((n, m) => n + (m.kind === 'in' ? m.amount : -m.amount), 500_000);
+  assert.equal(balance, 570_000, '5,000 + 1,000 − 300');
+  assert.equal((await call('POST', '/bank-movements', { accountId: id, date: '2026-11-24', kind: 'out', amount: 0, description: 'x' })).status, 400);
+  // Sin el permiso: ni lo ve ni lo toca.
+  assert.equal((await call('GET', '/bootstrap', undefined, { as: sellerCookie })).data.bankAccounts.length, 0);
+  assert.equal((await call('POST', '/bank-movements', { accountId: id, date: '2026-11-24', kind: 'in', amount: 1, description: 'x' }, { as: sellerCookie })).status, 403);
+  // Editar y borrar un movimiento (el dueño).
+  const mid = moves.find((m) => m.kind === 'out').id;
+  assert.equal((await call('PUT', `/bank-movements/${mid}`, { accountId: id, date: '2026-11-24', kind: 'out', amount: 40_000, description: 'Pago tarjeta Visa' })).status, 200);
+  assert.equal((await call('DELETE', `/bank-movements/${mid}`)).status, 200);
+});
+
 test('registro: solo el dueño lo ve, con quién, equipo y qué cambió', async () => {
   assert.equal((await call('GET', '/audit', undefined, { as: sellerCookie })).status, 403);
   assert.equal((await call('GET', '/audit', undefined, { viewAs: sellerUserId })).status, 403, 'tampoco en la vista previa');

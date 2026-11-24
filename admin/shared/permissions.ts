@@ -31,6 +31,7 @@ export const FLAG_KEYS = [
   'services.delete',
   'credit.create',
   'credit.review',
+  'bank.manage',
   'money.prices',
   'money.financier',
   'money.commissions',
@@ -119,6 +120,12 @@ export const PERMISSION_AREAS: { key: string; label: string; text: string; flags
       { flag: 'credit.create', label: 'Llenar solicitudes de crédito', hint: 'Ve solo las que llenó. Después de enviarla no ve el seguro social completo.' },
       { flag: 'credit.review', label: 'Aprobar o negar créditos', hint: 'Ve todas las solicitudes con el seguro social, la licencia y las fotos de las IDs. Solo para quien pasa los datos a la financiera.' },
     ],
+  },
+  {
+    key: 'bank',
+    label: 'Caja y bancos',
+    text: 'Saldo y movimientos de caja y bancos',
+    flags: [{ flag: 'bank.manage', label: 'Ver y registrar caja y bancos', hint: 'Lo que entra y sale de la caja y del banco. Solo para quien maneja el dinero: no viene en ningún perfil.' }],
   },
   {
     key: 'money',
@@ -452,6 +459,7 @@ export function areaSummary(p: Permissions, areaKey: string): string {
     'sales.view': 'Ver', 'sales.create': 'registrar', 'sales.edit': 'editar', 'sales.status': 'cancelar', 'sales.delete': 'borrar',
     'services.view': 'Ver', 'services.create': 'registrar', 'services.edit': 'editar', 'services.delete': 'borrar',
     'credit.create': 'Llenar', 'credit.review': 'aprobar',
+    'bank.manage': 'Ver y registrar',
     'money.prices': 'Precios', 'money.financier': 'financieras', 'money.commissions': 'comisiones', 'money.techpay': 'técnicos', 'money.costs': 'costos', 'money.profit': 'ganancias',
     'payments.view': 'Ver', 'payments.commissions': 'comisiones', 'payments.technicians': 'técnicos', 'payments.financiers': 'financieras',
     'payables.view': 'Ver', 'payables.charges': 'gastos', 'payables.pay': 'pagos', 'payables.accounts': 'cuentas', 'payables.delete': 'borrar',

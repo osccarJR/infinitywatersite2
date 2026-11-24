@@ -65,6 +65,7 @@ const GROUPS = [
   { key: 'clients', label: 'Clientes' },
   { key: 'services', label: 'Servicio' },
   { key: 'credit', label: 'Créditos' },
+  { key: 'bank', label: 'Caja y bancos' },
   { key: 'payments', label: 'Pagos' },
   { key: 'payables', label: 'Cuentas por pagar' },
   { key: 'inventory', label: 'Inventario' },
@@ -102,6 +103,8 @@ const ENTITY_VERB: Record<string, [create: string, update: string, del: string]>
   user: ['creó', 'editó', 'borró'],
   database: ['creó', 'editó', 'borró'],
   credit: ['empezó', 'editó', 'borró'],
+  'bank-account': ['creó', 'editó', 'borró'],
+  'bank-movement': ['registró', 'editó', 'borró'],
 };
 
 /** "Adriana editó la venta de María Pérez (#123)". */

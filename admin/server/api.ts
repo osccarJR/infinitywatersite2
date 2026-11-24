@@ -63,6 +63,7 @@ import { todayISO } from '../shared/domain.ts';
 import { dataVersion } from './version.ts';
 import { createHash } from 'node:crypto';
 import { creditRoutes, visibleCredit } from './creditApi.ts';
+import { bankRoutes, listBankAccounts, listBankMovements } from './bank.ts';
 import { imageHash, initCreditKey, readSaleFile, saveSaleFile, signatureHash, upgradeLegacyHashes } from './credit.ts';
 import { GOODLEAP_DOC_VERSION, goodleapRequired } from '../shared/goodleap.ts';
 import { AUDIT_GROUPS, auditStats, deviceOf, diff, initAudit, listAudit, permissionChanges, snapshot, verifyAudit, writeAudit, type AuditEntry, type Change } from './audit.ts';
@@ -328,6 +329,8 @@ export function buildApi(db: DB, dataDir: string) {
       // Telefonos del equipo solo para quien trabaja con ventas, servicios o el equipo.
       people: f['sales.view'] || f['services.view'] || f['clients.view'] || f['catalogs.team'] ? repo.listPeople(db) : repo.listPeople(db).map((x) => ({ ...x, phone: null })),
       credit: visibleCredit(db, user),
+      bankAccounts: f['bank.manage'] ? listBankAccounts(db) : [],
+      bankMovements: f['bank.manage'] ? listBankMovements(db) : [],
       financiers: repo.listCatalog(db, 'financiers'),
       suppliers: costs || f['inventory.view'] || f['catalogs.suppliers'] ? repo.listCatalog(db, 'suppliers') : [],
       brands: repo.listCatalog(db, 'brands'),
@@ -436,6 +439,7 @@ export function buildApi(db: DB, dataDir: string) {
   /* ------------------------- solicitudes de credito ------------------------- */
 
   creditRoutes(api, db, log);
+  bankRoutes(api, db, log);
 
   /* ------------------------------ ventas ------------------------------ */
 

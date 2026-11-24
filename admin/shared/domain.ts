@@ -274,6 +274,35 @@ export interface Service {
 export type PayableAccountKind = 'card' | 'supplier' | 'loan' | 'person' | 'other';
 
 /** A quien se le debe: una tarjeta (Visa, Mastercard, la personal de alguien), un proveedor, un prestamo... */
+/** Caja o cuenta de banco: saldo inicial y movimientos (estado de cuenta). */
+export interface BankAccount {
+  id: number;
+  name: string;
+  /** Centavos. */
+  openingBalance: number;
+  openingDate: string;
+  notes: string | null;
+  active: boolean;
+}
+
+export interface BankMovement {
+  id: number;
+  accountId: number;
+  date: string;
+  /** in = ingreso (+), out = egreso (−). */
+  kind: 'in' | 'out';
+  amount: number;
+  description: string;
+  notes: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+/** Saldo de una cuenta: inicial + ingresos − egresos. */
+export function bankBalance(account: BankAccount, movements: BankMovement[]) {
+  return movements.filter((m) => m.accountId === account.id).reduce((n, m) => n + (m.kind === 'in' ? m.amount : -m.amount), account.openingBalance);
+}
+
 export interface PayableAccount {
   id: number;
   name: string;
@@ -423,6 +452,9 @@ export interface Bootstrap {
   inventoryMovements: InventoryMovement[];
   /** Solicitudes de credito que ve este usuario (sin datos de identidad). */
   credit: CreditSummary[];
+  /** Caja y bancos (solo con el permiso "bank.manage"). */
+  bankAccounts: BankAccount[];
+  bankMovements: BankMovement[];
 }
 
 /* ------------------------------------------------------------------ */

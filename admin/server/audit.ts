@@ -323,6 +323,7 @@ export const AUDIT_GROUPS: Record<string, { entities?: string[]; actions?: strin
   clients: { entities: ['client'] },
   services: { entities: ['service'] },
   credit: { entities: ['credit'] },
+  bank: { entities: ['bank-account', 'bank-movement'] },
   payments: { actions: ['mark', 'mark-batch', 'tech-payment'] },
   payables: { entities: ['payable', 'payable-account', 'payable-payment'] },
   inventory: { entities: ['inventory-item', 'inventory-movement'] },

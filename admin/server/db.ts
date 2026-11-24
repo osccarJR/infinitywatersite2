@@ -355,6 +355,32 @@ const MIGRATIONS: string[] = [
     PRIMARY KEY (sale_id, kind)
   );
   `,
+  /* 16: caja y bancos: cuentas con saldo inicial y sus ingresos y egresos
+        (como un estado de cuenta). Modulo aparte, con su propio permiso. */ `
+  CREATE TABLE bank_accounts (
+    id INTEGER PRIMARY KEY,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    opening_balance INTEGER NOT NULL DEFAULT 0,
+    opening_date TEXT NOT NULL,
+    notes TEXT,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE TABLE bank_movements (
+    id INTEGER PRIMARY KEY,
+    account_id INTEGER NOT NULL REFERENCES bank_accounts(id) ON DELETE CASCADE,
+    date TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('in', 'out')),
+    amount INTEGER NOT NULL CHECK (amount > 0),
+    description TEXT NOT NULL,
+    notes TEXT,
+    created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL DEFAULT (datetime('now')),
+    updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+  );
+  CREATE INDEX bank_movements_account ON bank_movements(account_id, date);
+  `,
 ];
 
 export type DB = Database.Database;

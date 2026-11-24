@@ -519,6 +519,23 @@ export const ContractSignInput = z.object({
   }),
 });
 
+export const BankAccountInput = z.object({
+  name: requiredText('Escribe el nombre de la cuenta (ej. Caja, Bank of America)', 80),
+  openingBalance: z.number({ error: 'Pon el saldo inicial (puede ser 0)' }).int().min(-1_000_000_000).max(1_000_000_000),
+  openingDate: date,
+  notes: text(1000),
+  active: z.boolean().default(true),
+});
+
+export const BankMovementInput = z.object({
+  accountId: id,
+  date,
+  kind: z.enum(['in', 'out'], { error: 'Elige si es ingreso o egreso' }),
+  amount: z.number({ error: 'Pon el monto' }).int().min(1, 'Pon el monto').max(1_000_000_000),
+  description: requiredText('Escribe de qué es el movimiento', 200),
+  notes: text(1000),
+});
+
 /** Formulario de GoodLeap firmado al guardar una venta con GoodLeap. */
 export const GoodLeapSignInput = z.object({
   consent: z.literal(true, { error: 'Marca que aceptan firmar electrónicamente.' }),

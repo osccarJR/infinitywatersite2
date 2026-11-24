@@ -3,7 +3,7 @@
  * pestanas abajo en el telefono), boton "+" y rutas.
  */
 import { Suspense, lazy, useEffect, useState, type ReactNode } from 'react';
-import { BarChart3, Boxes, ChevronRight, ClipboardSignature, ShieldCheck, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench } from 'lucide-react';
+import { BarChart3, Boxes, ChevronRight, ClipboardSignature, ShieldCheck, CreditCard, Eye, HandCoins, History, House, LayoutGrid, Lock, PackagePlus, Plus, Receipt, Settings, UserPlus, Users, Wrench, Landmark } from 'lucide-react';
 import { StoreProvider, useData, useStore } from './lib/store.tsx';
 import { accessOf, type Access } from './lib/access.ts';
 import { permissionsSummary } from '../../shared/domain.ts';
@@ -42,6 +42,8 @@ const ContractForm = lazy(() => import('./screens/Credit.tsx').then((m) => ({ de
 const CreditPrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.CreditPrint })));
 const ContractPrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.ContractPrint })));
 const GoodLeapSalePrint = lazy(() => import('./screens/CreditPrint.tsx').then((m) => ({ default: m.GoodLeapSalePrint })));
+const BankScreen = lazy(() => import('./screens/Bank.tsx').then((m) => ({ default: m.BankScreen })));
+const BankAccountScreen = lazy(() => import('./screens/Bank.tsx').then((m) => ({ default: m.BankAccountScreen })));
 const Audit = lazy(() => import('./screens/Audit.tsx').then((m) => ({ default: m.Audit })));
 
 export function App() {
@@ -150,6 +152,8 @@ const ROUTES: [string, (p: Record<string, string>, q: URLSearchParams) => ReactN
   ['/creditos/:id', (p) => <CreditDetail id={Number(p.id)} />],
   ['/creditos/:id/editar', (p) => <CreditForm id={Number(p.id)} />],
   ['/creditos/:id/autorizacion', (p) => <ContractForm id={Number(p.id)} />],
+  ['/caja', () => <BankScreen />],
+  ['/caja/:id', (p) => <BankAccountScreen id={Number(p.id)} />],
   ['/pagos', (_, q) => <Payments initialTab={q.get('tab')} />],
   ['/pagar', (_, q) => <Payables action={q.get('nuevo')} />],
   ['/pagar/:id', (p) => <PayableAccountScreen id={Number(p.id)} />],
@@ -178,6 +182,7 @@ const ROUTE_ACCESS: [RegExp, (a: Access) => boolean][] = [
   [/^\/clientes\/\d+\/editar$/, (a) => a.can('clients.edit')],
   [/^\/clientes/, (a) => a.can('clients.view')],
   [/^\/creditos/, (a) => a.can('credit.create') || a.can('credit.review')],
+  [/^\/caja/, (a) => a.can('bank.manage')],
   [/^\/pagos/, (a) => a.canSee('payments')],
   [/^\/pagar/, (a) => a.canSee('payables')],
   [/^\/inventario/, (a) => a.canSee('inventory')],
@@ -240,6 +245,7 @@ const NAV: NavItem[] = [
   { to: '/servicio', label: 'Servicio técnico', short: 'Servicio', icon: Wrench, color: '#ff9500', show: (a) => a.canSee('services') },
   { to: '/creditos', label: 'Créditos', icon: ClipboardSignature, color: '#1d9a46', show: (a) => a.can('credit.create') || a.can('credit.review') },
   { to: '/pagos', label: 'Pagos', icon: HandCoins, color: '#1d9a46', show: (a) => a.canSee('payments') },
+  { to: '/caja', label: 'Caja y bancos', short: 'Caja', icon: Landmark, color: '#0a72c2', show: (a) => a.can('bank.manage') },
   { to: '/pagar', label: 'Cuentas por pagar', short: 'Por pagar', icon: CreditCard, color: '#e5484d', show: (a) => a.canSee('payables') },
   { to: '/inventario', label: 'Inventario', icon: Boxes, color: '#6a3fdc', show: (a) => a.canSee('inventory') },
   { to: '/reportes', label: 'Reportes', icon: BarChart3, color: '#16a3c4', show: (a) => a.reports },
