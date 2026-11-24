@@ -4,6 +4,8 @@ import { SALE_STATUS_LABEL, SERVICE_KIND_LABEL, SERVICE_PAYMENT_LABEL, equipment
 import type { Data } from '../lib/store.tsx';
 import { date, daysBetween, money, moneyRound } from '../lib/format.ts';
 import { Avatar, Badge, Row } from './kit.tsx';
+import { Printer } from 'lucide-react';
+import { navigate } from '../lib/router.tsx';
 import { useAccess, visibleMissing } from '../lib/access.ts';
 
 export function SaleBadges({ sale, data, hideMissing }: { sale: Sale; data: Data; hideMissing?: boolean }) {
@@ -110,7 +112,9 @@ export function ServiceBadge({ service }: { service: Service }) {
 export function ServiceRow({ service, data, showClient = true }: { service: Service; data: Data; showClient?: boolean }) {
   const client = data.clientById.get(service.clientId);
   const technician = service.technicianId ? data.personById.get(service.technicianId)?.name : null;
+  // El reporte para el tecnico (cliente, direccion, telefono, que pasa, fecha y hora), a un toque.
   return (
+    <div className="row-with-action">
     <Row
       to={`/servicio/${service.id}`}
       leading={<span className={`timeline-dot ${service.status}`} style={{ alignSelf: 'flex-start', marginTop: 8 }} />}
@@ -134,5 +138,9 @@ export function ServiceRow({ service, data, showClient = true }: { service: Serv
         </>
       }
     />
+      <button type="button" className="print-chip" onClick={() => navigate(`/imprimir/servicio/${service.id}`)} aria-label="Imprimir el reporte para el técnico">
+        <Printer size={15} strokeWidth={2.4} /> Imprimir
+      </button>
+    </div>
   );
 }

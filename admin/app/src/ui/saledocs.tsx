@@ -4,7 +4,7 @@
  *  - Garantia MAGIC WATER (se revisa, se genera e imprime / guarda en PDF).
  */
 import { useEffect, useState } from 'react';
-import { ClipboardList, Copy, FileText, MessageCircle, Plus, ShieldCheck, Trash2 } from 'lucide-react';
+import { ClipboardList, Copy, FileText, MessageCircle, Plus, ShieldCheck, Trash2, Wrench } from 'lucide-react';
 import type { InvoiceBrand, InvoiceLine, Sale, WarrantyLine } from '../../../shared/domain.ts';
 import { INVOICE_PREFIX, invoiceLabel, invoiceTotals } from '../../../shared/domain.ts';
 import { useData, useStore } from '../lib/store.tsx';
@@ -54,6 +54,17 @@ export function SaleDocs({ sale }: { sale: Sale }) {
             <span>
               <b>Factura</b>
               <span>{sale.invoice ? `Factura ${invoiceLabel(sale.invoice.number)} · ${dateWithYear(sale.invoice.issueDate)}` : 'Emitir factura en inglés (imprimir o PDF)'}</span>
+            </span>
+          </button>
+        )}
+        {a.can('services.create') && (
+          <button type="button" className="doc-action" onClick={() => navigate(`/servicio/nuevo?cliente=${sale.clientId}&venta=${sale.id}`)}>
+            <span className="doc-icon report">
+              <Wrench size={20} />
+            </span>
+            <span>
+              <b>Servicio técnico</b>
+              <span>Reportar qué pasa y mandarle el reporte al técnico</span>
             </span>
           </button>
         )}

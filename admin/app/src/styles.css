@@ -2232,3 +2232,10 @@ ol.ct-terms li { margin-bottom: 4px; }
 .signout-btn:focus-visible { outline: 2.5px solid var(--red); outline-offset: 2px; }
 .signout-btn span { white-space: nowrap; }
 .access-save { margin: -8px 0 22px; }
+
+/* Servicio con boton "Imprimir" (reporte para el tecnico) al lado */
+.row-with-action { position: relative; }
+.row-with-action > .row { padding-right: 118px; }
+.print-chip { position: absolute; right: 14px; top: 50%; transform: translateY(-50%); display: inline-flex; align-items: center; gap: 5px; height: 36px; padding: 0 12px; border-radius: 999px; background: var(--red-soft); color: var(--red); font-weight: 700; font-size: 14px; z-index: 1; }
+.print-chip:active { opacity: 0.6; }
+.row-with-action + .row-with-action > .row, .row-with-action + .row { border-top: 0.5px solid var(--sep); }
