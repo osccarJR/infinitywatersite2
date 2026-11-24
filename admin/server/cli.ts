@@ -7,6 +7,7 @@
  *   node dist/server/cli.js lista
  *   node dist/server/cli.js aprobar-creditos <usuario>     # le da "Aprobar o negar creditos"
  *   node dist/server/cli.js solo-creditos <usuario>        # deja solo la pantalla de Creditos
+ *   node dist/server/cli.js equipo <usuario> <idPersona>   # a quien del equipo corresponde el usuario
  *   node dist/server/cli.js borrar-datos --confirmar          # deja el sistema en cero
  *
  * `borrar-datos` elimina clientes, ventas, servicios, equipo, financieras,
@@ -92,10 +93,21 @@ async function main() {
     db.prepare('UPDATE users SET permissions = ? WHERE id = ?').run(JSON.stringify(next), user.id);
     log({ action: 'permissions', entity: 'user', entityId: user.id, label: `${user.name} (desde el servidor)`, changes: [{ f: 'Perfil', a: permissionsSummary(current), b: permissionsSummary(next) }] });
     console.log(`${user.name}: ahora solo ve Créditos.`);
+  } else if (command === 'equipo' && username && name) {
+    const user = db.prepare('SELECT id, name, role, permissions FROM users WHERE username = ?').get(username) as { id: number; name: string; role: string; permissions: string | null } | undefined;
+    if (!user) throw new Error(`No existe el usuario ${username}`);
+    const person = db.prepare('SELECT id, name FROM people WHERE id = ?').get(Number(name)) as { id: number; name: string } | undefined;
+    if (!person) throw new Error(`No existe la persona #${name} en el equipo`);
+    const current = normalizePermissions(JSON.parse(user.permissions ?? '{}'), false);
+    const before = current.personId ? (db.prepare('SELECT name FROM people WHERE id = ?').get(current.personId) as { name: string } | undefined)?.name ?? `#${current.personId}` : 'nadie';
+    const next = normalizePermissions({ ...current, personId: person.id }, false);
+    db.prepare('UPDATE users SET permissions = ? WHERE id = ?').run(JSON.stringify(next), user.id);
+    log({ action: 'permissions', entity: 'user', entityId: user.id, label: `${user.name} (desde el servidor)`, changes: [{ f: 'Quién es en el equipo', a: before, b: person.name }] });
+    console.log(`${user.name}: ahora es ${person.name} en el equipo (antes: ${before}).`);
   } else if (command === 'lista') {
     console.table(db.prepare('SELECT id, username, name, active, last_login_at FROM users').all());
   } else {
-    console.log('Uso:\n  crear <usuario> "<Nombre>"\n  clave <usuario>\n  lista\n  aprobar-creditos <usuario>\n  solo-creditos <usuario>\n  borrar-datos --confirmar');
+    console.log('Uso:\n  crear <usuario> "<Nombre>"\n  clave <usuario>\n  lista\n  aprobar-creditos <usuario>\n  solo-creditos <usuario>\n  equipo <usuario> <idPersona>\n  borrar-datos --confirmar');
     process.exitCode = 1;
   }
 }

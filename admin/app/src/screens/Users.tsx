@@ -5,7 +5,7 @@
  * puede ajustar punto por punto, y un boton "Ver como" que abre el sistema
  * exactamente como lo ve esa persona, sin poder guardar nada.
  */
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BarChart3, Boxes, Check, CreditCard, Eye, FileSpreadsheet, HandCoins, Plus, Receipt, ShieldCheck, Users as UsersIcon, Wallet, Wrench, X, ClipboardSignature } from 'lucide-react';
 import type { PermissionFlag, Permissions, User } from '../../../shared/domain.ts';
 import { ADMIN_PERMISSIONS, PERMISSION_AREAS, PERMISSION_PRESETS, areaSummary, mergePresets, normalizePermissions, permissionsSummary, presetsOf, redundantPresets } from '../../../shared/domain.ts';
@@ -106,16 +106,21 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
     if (!open) return;
     setForm({ name: '', username: '', password: suggestPassword() });
     setPresets(['seller']);
+    autoPicked.current = true;
     setPersonId(null);
     setError(null);
     setCreated(null);
   }, [open]);
 
-  // Si el nombre coincide con alguien del equipo, se sugiere solo.
+  // Si el nombre coincide COMPLETO con alguien del equipo, se elige solo (y se
+  // corrige mientras se escribe). Antes bastaban 3 letras: "Ant" elegia a Anthony
+  // en vez de Antonio. Si la persona se eligio a mano, no se toca.
+  const autoPicked = useRef(true);
   useEffect(() => {
-    if (personId != null || form.name.trim().length < 3) return;
-    const match = data.people.find((p) => p.active && p.name.toLowerCase().startsWith(form.name.trim().toLowerCase()));
-    if (match) setPersonId(match.id);
+    if (!autoPicked.current) return;
+    const key = plainName(form.name);
+    const match = key.length >= 3 ? data.people.filter((p) => p.active && plainName(p.name) === key) : [];
+    setPersonId(match.length === 1 ? match[0].id : null);
   }, [form.name]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const isAdminChoice = presets.includes('admin');
@@ -188,7 +193,14 @@ function NewUserSheet({ open, onClose, onSaved }: { open: boolean; onClose: () =
       <PresetCards value={presets} onToggle={toggle} />
       {needsPerson && (
         <Group footer="Verá solo las ventas, instalaciones y servicios de esta persona.">
-          <TeamPicker value={personId} onChange={setPersonId} />
+          <TeamPicker
+            value={personId}
+            onChange={(v) => {
+              autoPicked.current = false;
+              setPersonId(v);
+            }}
+            newName={form.name}
+          />
         </Group>
       )}
       <p className="group-foot">Puedes marcar varios perfiles (por ejemplo Oficina + Técnico) y después ajustar cada permiso por separado.</p>
@@ -258,16 +270,39 @@ function PresetCards({ value, onToggle, custom }: { value: string[]; onToggle: (
   );
 }
 
-function TeamPicker({ value, onChange, optional }: { value: number | null; onChange: (id: number | null) => void; optional?: boolean }) {
+const plainName = (v: string) => v.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]/g, '');
+
+/**
+ * Quien es en el equipo. Si la persona no esta, se agrega desde aqui como
+ * vendedor: asi aparece enseguida en la lista de vendedores de las ventas.
+ */
+function TeamPicker({ value, onChange, optional, newName }: { value: number | null; onChange: (id: number | null) => void; optional?: boolean; newName?: string }) {
   const data = useData();
+  const { reload } = useStore();
   const [open, setOpen] = useState(false);
+  const create = async (name: string) => {
+    const { person } = await api<{ person: { id: number } }>('/people', { method: 'POST', body: { name: name.trim() || newName?.trim() || '', phone: null, isSeller: true, isInstaller: false } });
+    await reload();
+    return person.id;
+  };
   const options = data.people
     .filter((p) => p.active || p.id === value)
     .map((p) => ({ id: p.id, label: p.name, sublabel: [p.isSeller && 'Vende', p.isInstaller && 'Instala'].filter(Boolean).join(' · '), inactive: !p.active }));
   return (
     <>
       <PickerRow field="permissions.personId" label="Quién es en el equipo" value={value ? data.personById.get(value)?.name : null} placeholder={optional ? 'Opcional' : 'Elegir'} onOpen={() => setOpen(true)} />
-      <Picker open={open} onClose={() => setOpen(false)} title="Quién es en el equipo" options={options} value={value} onSelect={onChange} empty="Agrega primero a la persona en Ajustes → Equipo." {...(optional ? { allowNone: 'Nadie del equipo' } : {})} />
+      <Picker
+        open={open}
+        onClose={() => setOpen(false)}
+        title="Quién es en el equipo"
+        options={options}
+        value={value}
+        onSelect={onChange}
+        onCreate={create}
+        createLabel="Agregar al equipo como vendedor"
+        searchPlaceholder="Buscar o escribir el nombre"
+        {...(optional ? { allowNone: 'Nadie del equipo' } : {})}
+      />
     </>
   );
 }
